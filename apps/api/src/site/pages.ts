@@ -77,8 +77,8 @@ const HOW = steps([
 export const PAGES: Page[] = [
   {
     path: "/",
-    title: "NovaMail — Email marketing that reaches the inbox | Free",
-    description: "Send email campaigns and newsletters to your customers from your own domain. Contact lists, one-click unsubscribe, email API and SMTP. 3,000 emails/month free.",
+    title: "NovaMail — Email Marketing + CRM that reaches the inbox | Free",
+    description: "Email marketing with a built-in CRM: campaigns, automated funnels, contact profiles, engagement scoring and smart segments — from your own domain. 3,000 emails/month free.",
     h1: "Turn your customer list into sales — with emails that reach the inbox.",
     lead: "Send newsletters, promotions and announcements to your customers from your own domain — and order confirmations from your store or app. 3,000 emails a month free, paid plans from $15.",
     alternates: { en: "/", pt: "/pt/" },
@@ -98,8 +98,8 @@ export const PAGES: Page[] = [
   {
     path: "/pt/",
     lang: "pt-BR",
-    title: "NovaMail — E-mail marketing e API de e-mail, grátis para começar",
-    description: "Envie campanhas e newsletters para seus clientes com o seu domínio. Listas de contatos, descadastro em 1 clique, API e SMTP. 3.000 e-mails/mês grátis.",
+    title: "NovaMail — E-mail marketing + CRM, grátis para começar",
+    description: "E-mail marketing com CRM embutido: campanhas, funis automáticos, ficha de cada contato, pontuação de engajamento e segmentos — com o seu domínio. 3.000 e-mails/mês grátis.",
     h1: "Transforme sua lista de clientes em vendas — com e-mails que chegam na caixa de entrada.",
     lead: "Envie newsletters, promoções e novidades para seus clientes com o seu próprio domínio — e confirmações de pedido da sua loja ou app. 3.000 e-mails por mês grátis, planos a partir de US$15.",
     alternates: { en: "/", pt: "/pt/" },

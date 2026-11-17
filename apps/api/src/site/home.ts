@@ -149,13 +149,13 @@ type Copy = {
 };
 
 const EN: Copy = {
-  eyebrow: "Free plan · no credit card",
+  eyebrow: "Email marketing + CRM · free plan, no card",
   title: ["Turn your customer list into ", "sales", " — with emails that reach the inbox."],
   words: ["sales", "repeat customers", "loyal fans", "revenue"],
-  lead: "NovaMail lets any business send beautiful newsletters, promotions and automatic follow-ups from its own domain. Pick a template, import your customers, press send.",
+  lead: "Send beautiful newsletters, promotions and automatic follow-ups from your own domain — with a built-in CRM that shows who opened, who clicked and who is ready to buy.",
   cta: "Start free",
   cta2: "See how it works",
-  proof: ["3,000 emails/month free", "Drag-and-drop editor", "One-click unsubscribe built in"],
+  proof: ["3,000 emails/month free", "Built-in CRM", "Drag-and-drop editor", "Automatic funnels"],
   inbox: "Inbox",
   mails: [
     ["Y", "Your Store", "20% off ends tonight, Ana", "#18181b"],
@@ -203,13 +203,13 @@ const EN: Copy = {
 };
 
 const PT: Copy = {
-  eyebrow: "Plano grátis · sem cartão",
+  eyebrow: "E-mail marketing + CRM · grátis, sem cartão",
   title: ["Transforme sua lista de clientes em ", "vendas", " — com e-mails que chegam na caixa de entrada."],
   words: ["vendas", "clientes fiéis", "recompra", "faturamento"],
-  lead: "O NovaMail deixa qualquer empresa enviar newsletters, promoções e acompanhamentos automáticos bonitos, com o próprio domínio. Escolha um modelo, importe seus clientes e envie.",
+  lead: "Envie newsletters, promoções e acompanhamentos automáticos bonitos com o seu domínio — com um CRM embutido que mostra quem abriu, quem clicou e quem está pronto para comprar.",
   cta: "Comece grátis",
   cta2: "Veja como funciona",
-  proof: ["3.000 e-mails/mês grátis", "Editor de arrastar e soltar", "Descadastro em 1 clique incluso"],
+  proof: ["3.000 e-mails/mês grátis", "CRM embutido", "Editor de arrastar e soltar", "Funis automáticos"],
   inbox: "Caixa de entrada",
   mails: [
     ["S", "Sua Loja", "20% OFF termina hoje, Ana", "#18181b"],

@@ -107,6 +107,8 @@ export function Plan() {
                 <li className="flex gap-2"><Check size={16} className="shrink-0" />{num(p.monthly)} {L.emails}</li>
                 <li className="flex gap-2"><Check size={16} className="shrink-0" />{num(p.daily)} {L.day}</li>
                 <li className="flex gap-2"><Check size={16} className="shrink-0" />{num(p.domains)} {L.doms}</li>
+                <li className="flex gap-2"><Check size={16} className="shrink-0" />{pt ? "CRM embutido · contatos ilimitados" : "Built-in CRM · unlimited contacts"}</li>
+                <li className="flex gap-2"><Check size={16} className="shrink-0" />{pt ? "Segmentos, pontuação e funis" : "Segments, scoring and funnels"}</li>
               </ul>
               {p.id !== "free" && p.id !== current && current !== "internal" && !subscribed && (
                 <Button className="mt-5 w-full" disabled={!enabled || checkout.isPending} onClick={() => checkout.mutate(p.id)}>{pt ? `Assinar ${p.label} ${interval === "year" ? "anual" : "mensal"}` : `Subscribe ${interval === "year" ? "yearly" : "monthly"}`}</Button>

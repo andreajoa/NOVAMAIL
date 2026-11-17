@@ -64,7 +64,7 @@ export const ORG = {
   name: "NovaMail",
   url: `${SITE}/`,
   logo: `${SITE}/icon.svg`,
-  description: "NovaMail is an email marketing and transactional email platform: send newsletters and campaigns to your customers, plus a Resend-compatible email API and SMTP relay.",
+  description: "NovaMail is an email marketing platform with a built-in CRM (contact profiles, engagement scoring, smart segments) and automated funnels, plus a Resend-compatible email API and SMTP relay.",
 };
 
 export const PRODUCT = {
@@ -128,7 +128,7 @@ export function render(p: Page, all: Page[], nonce = ""): string {
 <div class="${p.heroHtml ? "topdark" : ""}"><div class="w"><header class="top"><a class="logo" href="${lang === "en" ? "/" : "/pt/"}"><i aria-hidden="true">✉</i>NovaMail</a>${NAV}</header></div></div>
 <main class="w">${p.heroHtml ?? `<div class="hero">${crumbHtml}<h1>${esc(p.h1)}</h1><p class="lead">${esc(p.lead)}</p><div class="cta"><a class="btn" href="/login">${lang === "en" ? "Start free — no card" : "Comece grátis — sem cartão"}</a><a class="btn g" href="${API_DOCS}">${lang === "en" ? "Read the API docs" : "Documentação da API"}</a></div></div>`}
 ${p.body}${faqHtml}${p.finale ?? ""}</main>${p.heroHtml && nonce ? `<script nonce="${nonce}">${TYPEWRITER}</script>` : ""}
-<footer><div class="w"><a class="flogo" href="${lang === "en" ? "/" : "/pt/"}"><i aria-hidden="true">✉</i>NovaMail</a><p class="ftag">${lang === "en" ? "Email marketing that reaches the inbox." : "E-mail marketing que chega na caixa de entrada."}</p><div class="cols">${FOOTER_LINKS.map(([h, ls]) => `<div><b>${h}</b>${ls.map(([href, t]) => `<a href="${href}">${esc(t)}</a>`).join("")}</div>`).join("")}</div><div class="fbottom"><span>© 2026 NovaMail</span><span>${lang === "en" ? "Updated" : "Atualizado"} ${UPDATED}</span></div></div></footer>
+<footer><div class="w"><a class="flogo" href="${lang === "en" ? "/" : "/pt/"}"><i aria-hidden="true">✉</i>NovaMail</a><p class="ftag">${lang === "en" ? "Email marketing + CRM that reaches the inbox." : "E-mail marketing + CRM que chega na caixa de entrada."}</p><div class="cols">${FOOTER_LINKS.map(([h, ls]) => `<div><b>${h}</b>${ls.map(([href, t]) => `<a href="${href}">${esc(t)}</a>`).join("")}</div>`).join("")}</div><div class="fbottom"><span>© 2026 NovaMail</span><span>${lang === "en" ? "Updated" : "Atualizado"} ${UPDATED}</span></div></div></footer>
 </body></html>`;
 }
 
