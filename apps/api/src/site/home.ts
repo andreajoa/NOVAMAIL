@@ -3,6 +3,7 @@
 // line, and scroll-driven reveals (animation-timeline: view()) with a static fallback.
 // Everything is disabled under prefers-reduced-motion.
 import { API_DOCS, esc } from "./layout";
+import { pricingCards } from "./pricing";
 
 export const HOME_CSS = `
 .topdark{background:#09090b;color:#fafafa}.topdark nav.m{color:#a1a1aa}.topdark .logo i{background:#fafafa;color:#09090b}
@@ -10,10 +11,10 @@ export const HOME_CSS = `
 .hero-dark .h-lead,.hero-dark .h-proof{color:#a1a1aa}.hero-dark .h-proof span::before{color:#fafafa}
 .hero-dark .eyebrow{background:rgba(255,255,255,.08);color:#fafafa}.hero-dark .eyebrow i{background:#fafafa}
 .hero-dark .btn{background:#fafafa;color:#09090b}.hero-dark .btn.g{background:transparent;color:#fafafa;border-color:#3f3f46}
-.hero-dark .h-title em{background-image:linear-gradient(#fafafa,#fafafa)}
+
 .hero-dark .inbox{--fg:#18181b;--mut:#71717a;--card:#fff;--line:#e4e4e7;--bg:#fafafa;--accent-soft:#f4f4f5;color:#18181b;box-shadow:0 40px 120px -40px rgba(255,255,255,.18)}
 .hero-dark .float{background:#fafafa;color:#09090b}
-.tw{white-space:nowrap}.tw.typing{border-right:.08em solid currentColor;padding-right:.04em;animation:caret 1s step-end infinite}
+.twbox{display:inline-grid;justify-items:start;vertical-align:bottom}.twbox>*{grid-area:1/1}.twghost{visibility:hidden;white-space:nowrap;pointer-events:none}.tw{white-space:nowrap}.tw.typing{border-right:.08em solid currentColor;padding-right:.04em;animation:caret 1s step-end infinite}
 @keyframes caret{50%{border-color:transparent}}
 .h-grid>*,.two>*,.steps>*,.big>*{min-width:0}pre{max-width:100%}html,body{overflow-x:clip}
 :root{--accent:var(--fg);--accent-soft:#f4f4f5;--ok:var(--fg)}
@@ -22,7 +23,7 @@ export const HOME_CSS = `
 .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--accent);background:var(--accent-soft);padding:6px 12px;border-radius:999px;margin-bottom:22px}
 .eyebrow i{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:pulse 2s ease-in-out infinite}
 .h-title{font-size:clamp(38px,6.4vw,68px);line-height:1.02;letter-spacing:-.035em;margin:0 0 22px;font-weight:720}
-.h-title em{font-style:normal;background:linear-gradient(var(--fg),var(--fg)) no-repeat left 92%/0% 6px;padding-bottom:4px;animation:underline 1s .9s cubic-bezier(.2,.7,.2,1) forwards}
+.h-title em{font-style:normal}.h-title .tw{background:linear-gradient(currentColor,currentColor) no-repeat left 94%/100% 6px;padding-bottom:4px}
 .h-lead{font-size:clamp(17px,2.1vw,20px);color:var(--mut);max-width:560px;margin:0 0 30px}
 .h-proof{display:flex;flex-wrap:wrap;gap:18px;margin-top:26px;font-size:14px;color:var(--mut)}.h-proof span::before{content:"✓";color:var(--ok);font-weight:700;margin-right:6px}
 .in{opacity:0;animation:rise .8s cubic-bezier(.2,.7,.2,1) forwards}.d1{animation-delay:.08s}.d2{animation-delay:.18s}.d3{animation-delay:.3s}.d4{animation-delay:.42s}
@@ -48,7 +49,7 @@ export const HOME_CSS = `
 .ed-can{padding:16px;background:var(--bg);display:grid;gap:10px}.ed-can .blk{border-radius:10px;background:var(--card);border:1px solid var(--line);padding:12px}
 .ed-can .hero-img{height:92px;border-radius:10px;background:linear-gradient(120deg,#e4e4e7,#a1a1aa,#e4e4e7);background-size:200% 200%;animation:grad 6s ease infinite}
 .ed-can .l{height:10px;border-radius:6px;background:var(--line);margin:6px 0}.ed-can .l.s{width:60%}.ed-can .btnm{display:inline-block;background:var(--fg);color:var(--bg);font-size:12px;font-weight:600;padding:7px 12px;border-radius:8px}
-.ed-can .drop{border:2px dashed var(--accent);border-radius:10px;height:0;opacity:0;animation:dropz 4s ease-in-out infinite}
+.ed-can .drop{border:2px dashed var(--accent);border-radius:10px;height:34px;opacity:0;transform:scaleY(.2);animation:dropz 4s ease-in-out infinite}
 ul.ticks{list-style:none;padding:0;margin:0;display:grid;gap:12px}ul.ticks li{padding-left:30px;position:relative;color:var(--mut)}ul.ticks li strong{color:var(--fg)}ul.ticks li::before{content:"✓";position:absolute;left:0;top:0;width:20px;height:20px;border-radius:6px;display:grid;place-items:center;font-size:12px;background:var(--accent-soft);color:var(--accent);font-weight:700}
 .funnel svg{width:100%;height:auto;max-width:880px;display:block;margin:0 auto}.flow{stroke:var(--accent);stroke-width:3;fill:none;stroke-dasharray:8 10;animation:flow 1.2s linear infinite}
 .node rect{fill:var(--card);stroke:var(--line)}.node text{fill:var(--fg);font:600 15px ui-sans-serif,system-ui,-apple-system,sans-serif}.node .t2{fill:var(--mut);font-weight:400;font-size:13px}.node.acc rect{stroke:var(--accent);stroke-width:2}
@@ -65,7 +66,7 @@ ul.ticks{list-style:none;padding:0;margin:0;display:grid;gap:12px}ul.ticks li{pa
 @keyframes grad{50%{background-position:100% 50%}}
 @keyframes flow{to{stroke-dashoffset:-36}}
 @keyframes dragit{0%,15%{transform:none}45%,60%{transform:translate(140px,64px) rotate(-2deg);box-shadow:0 10px 24px -8px rgba(0,0,0,.3)}80%,100%{transform:none}}
-@keyframes dropz{0%,35%{height:0;opacity:0}45%,62%{height:34px;opacity:1}75%,100%{height:0;opacity:0}}
+@keyframes dropz{0%,35%{transform:scaleY(.2);opacity:0}45%,62%{transform:none;opacity:1}75%,100%{transform:scaleY(.2);opacity:0}}
 @keyframes travel{0%{transform:translateX(0);opacity:0}6%{opacity:1}94%{opacity:1}100%{transform:translateX(720px);opacity:0}}
 
 .topdark{position:relative}.topdark::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:linear-gradient(90deg,transparent,#27272a 12%,#27272a 88%,transparent)}
@@ -93,6 +94,36 @@ pre{position:relative;overflow:hidden}pre::after{content:"";position:absolute;le
 @keyframes shinebtn{0%,55%{left:-60px}85%,100%{left:calc(100% + 20px)}}
 .final{position:relative}.final::before{content:"";position:absolute;left:50%;top:40px;width:520px;height:520px;margin-left:-260px;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--fg) 8%,transparent),transparent 65%);z-index:-1;animation:breathe 6s ease-in-out infinite}
 @keyframes breathe{50%{transform:scale(1.12);opacity:.6}}
+
+.h-grid>div:first-child{position:relative;z-index:3}.scene{position:relative;z-index:1;height:520px;perspective:1100px;perspective-origin:50% 40%;touch-action:pan-y}
+.world{position:absolute;inset:0;transform-style:preserve-3d;transform:rotateX(calc(-12deg + var(--rx,0deg))) rotateY(var(--ry,0deg));transition:transform .2s ease-out}
+.floor{position:absolute;left:50%;top:50%;width:560px;height:560px;margin:-280px 0 0 -280px;transform:translateY(210px) rotateX(90deg);border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.16),transparent 62%),repeating-radial-gradient(circle,rgba(255,255,255,.07) 0 1px,transparent 1px 34px)}
+.logo3d{position:absolute;left:50%;top:34%;width:170px;height:170px;margin:-85px 0 0 -85px;transform-style:preserve-3d;animation:sway 7s ease-in-out infinite alternate}
+@keyframes sway{0%{transform:rotateY(-40deg) rotateX(10deg)}100%{transform:rotateY(40deg) rotateX(-8deg)}}
+.logo3d .lyr{position:absolute;inset:0;border-radius:36px;transform:translateZ(calc(var(--z) - 17px));background:hsl(0 0% calc(18% + var(--l) * 1.6%));box-shadow:0 0 0 1px rgba(255,255,255,.04)}
+.logo3d .face{position:absolute;inset:0;border-radius:36px;transform:translateZ(17px);background:linear-gradient(145deg,#ffffff,#d4d4d8);color:#09090b;display:grid;place-items:center;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
+.logo3d .face svg{width:96px;height:96px}
+.logo3d::after{content:"";position:absolute;inset:0;border-radius:36px;transform:translateZ(-18px) rotateY(180deg);background:#27272a}
+.ring{position:absolute;left:50%;top:70%;transform-style:preserve-3d;animation:spin3d 28s linear infinite reverse}
+.orb{position:absolute;left:-98px;top:-46px;transform-style:preserve-3d;transform:rotateY(calc(var(--i) * 45deg)) translateZ(var(--r,330px)) rotateY(calc(var(--i) * -45deg))}
+.orb:nth-child(odd){top:-74px}.orb:nth-child(even){top:-8px}
+.em{width:196px;padding:10px 12px;border-radius:14px;background:#ffffff;color:#18181b;box-shadow:0 18px 40px -16px rgba(0,0,0,.55);animation:spin3d 28s linear infinite}
+.em-h{display:flex;align-items:center;gap:8px;font-size:12px}.em-h i{width:22px;height:22px;border-radius:7px;background:#18181b}.em-h b{flex:1;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.em .ok{font-size:10.5px;font-weight:700;background:#18181b;color:#fff;border-radius:999px;padding:2px 7px}
+.em p{margin:8px 0 6px;font-size:13px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#18181b}.em .ln{height:6px;border-radius:4px;background:#e4e4e7;margin-top:5px}.em .ln.s{width:62%}
+@keyframes spin3d{to{transform:rotateY(360deg)}}@keyframes counter{to{transform:rotateY(-360deg)}}
+
+
+/* Stacked hero: imposing centred copy on top, calm 3D scene underneath. */
+.h-grid{grid-template-columns:1fr!important;justify-items:center;text-align:center;gap:8px;padding:64px 0 0}
+.h-grid>div:first-child{max-width:1040px}
+.h-title{font-size:clamp(42px,7.6vw,96px);line-height:1;letter-spacing:-.045em;margin-bottom:26px}
+.h-lead{margin:0 auto 32px;max-width:640px}.h-grid .cta{justify-content:center}.h-proof{justify-content:center}
+.scene{width:100%;max-width:1100px;height:560px;margin-top:8px;--r:340px}
+.logo3d{top:40%!important}.ring{top:66%!important}
+@media(max-width:1023px){.scene{height:500px;--r:250px}.em{width:176px}}
+@media(max-width:640px){.h-grid{padding-top:40px}.scene{height:420px;--r:120px;transform:scale(.8);margin:-10px 0 -60px}.em{width:132px;padding:7px 9px}.em p{font-size:12px}.em .ok{font-size:9.5px}.h-proof{flex-direction:column;align-items:center;gap:8px}}
+@media(prefers-reduced-motion:reduce){.world{transform:rotateX(-12deg) rotateY(-18deg)!important}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important}.in,.mail,.float{opacity:1;transform:none}.ed-can .drop{display:none}}
 `;
 
@@ -231,11 +262,11 @@ export function home(lang: "en" | "pt-BR") {
   <div class="cta in d3"><a class="btn" href="/login">${esc(c.cta)} →</a><a class="btn g" href="#how">${esc(c.cta2)}</a></div>
   <div class="h-proof in d4">${c.proof.map((p) => `<span>${esc(p)}</span>`).join("")}</div>
 </div>
-<div class="inbox in d2" aria-hidden="true">
-  <div class="inbox-top"><span class="dot"></span><span class="dot"></span><span class="dot"></span><b>${esc(c.inbox)}</b></div>
-  ${c.mails.map(([i, from, sub, col]) => `<div class="mail"><div class="av" style="background:var(--fg)">${esc(i)}</div><div><p>${esc(sub)}</p><small>${esc(from)}</small></div><span class="badge">✓ ${lang === "en" ? "Delivered" : "Entregue"}</span></div>`).join("")}
-  <div class="float"><b>${esc(c.float[0])}</b>${esc(c.float[1])}</div>
-</div>
+<div class="scene in d2" aria-hidden="true"><div class="world">
+  <div class="floor"></div>
+  <div class="logo3d">${Array.from({ length: 16 }, (_, k) => `<div class="lyr" style="--z:${k * 2.2}px;--l:${k}"></div>`).join("")}<div class="face"><svg viewBox="0 0 64 64"><path d="M14 22l18 13 18-13M14 22v22h36V22" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round"/></svg></div></div>
+  <div class="ring">${c.mails.map(([, from, sub], k) => `<div class="orb" style="--i:${k}"><div class="em"><div class="em-h"><i></i><b>${esc(from)}</b><span class="ok">✓ ${lang === "en" ? "Delivered" : "Entregue"}</span></div><p>${esc(sub)}</p><div class="ln"></div><div class="ln s"></div></div></div>`).join("")}${c.mails.map(([, from, sub], k) => `<div class="orb" style="--i:${k + 4}"><div class="em"><div class="em-h"><i></i><b>${esc(from)}</b><span class="ok">✓ ${lang === "en" ? "Opened" : "Aberto"}</span></div><p>${esc(sub)}</p><div class="ln"></div><div class="ln s"></div></div></div>`).join("")}</div>
+</div></div>
 </section></div>`;
 
   const body = `
@@ -264,9 +295,8 @@ export function home(lang: "en" | "pt-BR") {
        "subject":"Your order is confirmed",
        "html":"<p>Thanks!</p>"}'`)}</code></pre></div></section>
 
-<section class="story reveal"><p class="k">${esc(c.pr_k)}</p><h2>${esc(c.pr_h)}</h2>
-<div class="steps plans" style="counter-reset:none">${c.plans.map(([n, p, d, y], i) => `<div class="${i === 1 ? "hot" : ""}" style="padding-top:22px">${i === 1 ? `<span class="badge-hot">${lang === "en" ? "Most popular" : "Mais escolhido"}</span>` : ""}<h3>${esc(n)}</h3><p class="price">${esc(p)}</p><p>${esc(d)}</p>${y ? `<p style="color:var(--fg);font-size:14px;font-weight:600">${esc(y)}</p>` : ""}</div>`).join("")}</div>
-<p style="margin-top:16px">${esc(c.pr_note)}</p></section>`;
+<section class="story reveal" id="pricing"><p class="k">${esc(c.pr_k)}</p><h2>${esc(c.pr_h)}</h2>
+${pricingCards(lang)}</section>`;
 
   const finale = `<section class="final reveal"><h2 style="font-size:clamp(30px,4.6vw,48px);letter-spacing:-.03em;line-height:1.05;max-width:720px">${esc(c.fin_h)}</h2><p class="sub" style="font-size:18px;color:var(--mut);max-width:560px">${esc(c.fin_sub)}</p><div class="cta"><a class="btn" href="/login">${esc(c.cta)} →</a></div></section>`;
   return { heroHtml, body, finale };

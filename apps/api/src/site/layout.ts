@@ -26,6 +26,8 @@ export interface Page {
   extraCss?: string;
 }
 
+import { PRICING_CSS } from "./pricing";
+
 const CSS = `:root{--fg:#18181b;--mut:#52525b;--bg:#fafafa;--card:#fff;--line:#e4e4e7;--code:#09090b;--acc:#18181b}
 @media(prefers-color-scheme:dark){:root{--fg:#f4f4f5;--mut:#a1a1aa;--bg:#09090b;--card:#18181b;--line:#27272a;--acc:#fafafa}}
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Inter,sans-serif}
@@ -121,7 +123,7 @@ export function render(p: Page, all: Page[], nonce = ""): string {
 <meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(p.title)}"><meta name="twitter:description" content="${esc(p.description)}"><meta name="twitter:image" content="${SITE}/og.png">
 <link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="alternate" type="text/plain" title="LLM summary" href="/llms.txt">
 <script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@graph": ld }).replace(/</g, "\\u003c")}</script>
-<style>${CSS}${p.extraCss ?? ""}</style></head><body>
+<style>${CSS}${PRICING_CSS}${p.extraCss ?? ""}</style></head><body>
 <div class="${p.heroHtml ? "topdark" : ""}"><div class="w"><header class="top"><a class="logo" href="${lang === "en" ? "/" : "/pt/"}"><i aria-hidden="true">✉</i>NovaMail</a>${NAV}</header></div></div>
 <main class="w">${p.heroHtml ?? `<div class="hero">${crumbHtml}<h1>${esc(p.h1)}</h1><p class="lead">${esc(p.lead)}</p><div class="cta"><a class="btn" href="/login">${lang === "en" ? "Start free — no card" : "Comece grátis — sem cartão"}</a><a class="btn g" href="${API_DOCS}">${lang === "en" ? "Read the API docs" : "Documentação da API"}</a></div></div>`}
 ${p.body}${faqHtml}${p.finale ?? ""}</main>${p.heroHtml && nonce ? `<script nonce="${nonce}">${TYPEWRITER}</script>` : ""}
@@ -138,6 +140,12 @@ function crumbTrail(p: Page, all: Page[]): [string, string][] {
 // Typewriter for the home hero: types, pauses, deletes, next word. Progressive enhancement:
 // without JS (or with reduced motion) the first word stays static and fully readable.
 const TYPEWRITER = `(()=>{const el=document.querySelector("[data-words]");if(!el||matchMedia("(prefers-reduced-motion: reduce)").matches)return;
-const words=JSON.parse(el.dataset.words);let w=0,i=words[0].length,del=true;el.classList.add("typing");
+const words=JSON.parse(el.dataset.words);let w=0,i=words[0].length,del=true;
+const box=document.createElement("span");box.className="twbox";el.parentNode.insertBefore(box,el);box.appendChild(el);
+for(const g of words){const s=document.createElement("span");s.className="twghost";s.setAttribute("aria-hidden","true");s.textContent=g;box.appendChild(s)}
+el.classList.add("typing");
 const tick=()=>{const word=words[w];if(del){i--;if(i<0){del=false;w=(w+1)%words.length;i=0;return setTimeout(tick,250)}}else{i++;if(i>word.length){del=true;i=word.length;return setTimeout(tick,1900)}}
-el.textContent=words[w].slice(0,Math.max(0,i))||"\u200b";setTimeout(tick,del?45:85)};setTimeout(tick,2200)})();`;
+el.textContent=words[w].slice(0,Math.max(0,i))||"\u200b";setTimeout(tick,del?45:85)};setTimeout(tick,2200)})();
+(()=>{const w=document.querySelector(".world");if(!w||matchMedia("(prefers-reduced-motion: reduce)").matches)return;let tx=0,ty=0,x=0,y=0;
+addEventListener("pointermove",e=>{tx=(e.clientX/innerWidth-.5)*28;ty=(e.clientY/innerHeight-.5)*-14},{passive:true});
+const f=()=>{x+=(tx-x)*.06;y+=(ty-y)*.06;w.style.setProperty("--ry",x.toFixed(2)+"deg");w.style.setProperty("--rx",y.toFixed(2)+"deg");requestAnimationFrame(f)};f()})();`;
