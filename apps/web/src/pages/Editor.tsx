@@ -279,6 +279,50 @@ function Inspector({ block, onChange }: { block: Block; onChange: (b: Block) => 
   }
 }
 
+const AI_L = lang === "pt"
+  ? { open: "Escrever com IA", brief: "Sobre o que é o e-mail? Ex.: lançamento da coleção de linho, 3 peças, frete grátis acima de US$80", tone: "Tom", cta: "Link do botão (opcional)", go: "Gerar e-mail", busy: "Escrevendo…", rewrite: "Reescrever com IA", acts: { shorter: "Mais curto", friendlier: "Mais amigável", more_professional: "Mais profissional", more_urgent: "Mais urgente", fix_grammar: "Corrigir", translate: "Traduzir" } as Record<string, string>, to: "para", tones: { friendly: "Amigável", professional: "Profissional", playful: "Divertido", urgent: "Urgente", luxury: "Luxo" } as Record<string, string> }
+  : { open: "Write with AI", brief: "What's the email about? e.g. launch of the linen collection, 3 pieces, free shipping over $80", tone: "Tone", cta: "Button link (optional)", go: "Generate email", busy: "Writing…", rewrite: "Rewrite with AI", acts: { shorter: "Shorter", friendlier: "Friendlier", more_professional: "More professional", more_urgent: "More urgent", fix_grammar: "Fix grammar", translate: "Translate" } as Record<string, string>, to: "to", tones: { friendly: "Friendly", professional: "Professional", playful: "Playful", urgent: "Urgent", luxury: "Luxury" } as Record<string, string> };
+
+/** Drafts a full email from a brief and inserts it above the footer. */
+function AiPanel({ onDraft, onClose }: { onDraft: (d: { subject: string; preheader: string; blocks: Block[] }) => void; onClose: () => void }) {
+  const [f, setF] = useState({ brief: "", tone: "friendly", cta_url: "" });
+  const go = useMutation({ mutationFn: () => api("/ai/write", { body: { brief: f.brief, tone: f.tone, ...(f.cta_url ? { cta_url: f.cta_url } : {}) } }), onSuccess: (r) => (onDraft(r), onClose()) });
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-zinc-950/40 p-4 backdrop-blur-sm" onClick={onClose}>
+      <form className="w-full max-w-lg space-y-3 rounded-2xl bg-white p-5 shadow-2xl dark:bg-zinc-900" onClick={(e) => e.stopPropagation()} onSubmit={(e) => (e.preventDefault(), go.mutate())}>
+        <div className="flex items-center gap-2 font-semibold"><Wand2 size={16} /> {AI_L.open}</div>
+        <textarea required minLength={5} rows={4} value={f.brief} onChange={(e) => setF({ ...f, brief: e.target.value })} placeholder={AI_L.brief} className="w-full rounded-lg border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-950" />
+        <div className="flex flex-wrap gap-1.5">{Object.entries(AI_L.tones).map(([k, l]) => <button type="button" key={k} onClick={() => setF({ ...f, tone: k })} className={`rounded-full border px-3 py-1 text-xs font-medium ${f.tone === k ? "border-zinc-900 bg-zinc-900 text-white dark:border-white dark:bg-white dark:text-zinc-900" : "border-zinc-200 dark:border-zinc-700"}`}>{l}</button>)}</div>
+        <Input type="url" value={f.cta_url} onChange={(e) => setF({ ...f, cta_url: e.target.value })} placeholder={AI_L.cta} />
+        <Button className="w-full" disabled={go.isPending}>{go.isPending ? AI_L.busy : AI_L.go}</Button>
+        <ErrorText error={go.error} />
+      </form>
+    </div>
+  );
+}
+
+/** One-click rewrites for the selected heading/text block. */
+function RewriteBar({ block, onChange }: { block: Block; onChange: (b: Block) => void }) {
+  const [lng, setLng] = useState("English");
+  const rw = useMutation({
+    mutationFn: (action: string) => api("/ai/rewrite", { body: { text: block.type === "heading" ? block.text : (block as { html: string }).html, action, ...(action === "translate" ? { language: lng } : {}) } }),
+    onSuccess: (r) => onChange(block.type === "heading" ? { ...block, text: r.text } : ({ ...block, html: r.html } as Block)),
+  });
+  return (
+    <div className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-800">
+      <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold"><Wand2 size={13} /> {rw.isPending ? AI_L.busy : AI_L.rewrite}</div>
+      <div className="flex flex-wrap gap-1">
+        {Object.entries(AI_L.acts).filter(([k]) => k !== "translate").map(([k, l]) => <button key={k} disabled={rw.isPending} onClick={() => rw.mutate(k)} className="rounded-md border border-zinc-200 px-2 py-1 text-[11px] hover:border-zinc-900 dark:border-zinc-700 dark:hover:border-white">{l}</button>)}
+      </div>
+      <div className="mt-2 flex gap-1">
+        <select value={lng} onChange={(e) => setLng(e.target.value)} className="h-7 flex-1 rounded-md border border-zinc-200 bg-white px-1 text-[11px] dark:border-zinc-700 dark:bg-zinc-900">{["English", "Spanish", "Portuguese (Brazil)", "French", "German", "Italian"].map((x) => <option key={x}>{x}</option>)}</select>
+        <button disabled={rw.isPending} onClick={() => rw.mutate("translate")} className="rounded-md border border-zinc-200 px-2 text-[11px] dark:border-zinc-700">{AI_L.acts.translate}</button>
+      </div>
+      <ErrorText error={rw.error} />
+    </div>
+  );
+}
+
 function ThemePanel({ design, setDesign }: { design: Design; setDesign: (d: Design) => void }) {
   const t = design.theme;
   const set = (p: Partial<Theme>) => setDesign({ ...design, theme: { ...t, ...p } });
@@ -348,6 +392,14 @@ export function Editor({ id }: { id: string }) {
 
   const blocks = design?.blocks ?? [];
   const selected = blocks.find((b) => b.id === sel) ?? null;
+  const [aiOpen, setAiOpen] = useState(false);
+  const applyDraft = (d: { subject: string; preheader: string; blocks: Block[] }) => {
+    if (!design) return;
+    const fi = blocks.findIndex((b) => b.type === "footer");
+    const at = fi < 0 ? blocks.length : fi;
+    update({ ...design, preheader: d.preheader || design.preheader, blocks: [...blocks.slice(0, at), ...d.blocks, ...blocks.slice(at)] });
+    if (d.subject) (setSubject(d.subject), setDirty(true));
+  };
   const insertAt = (i: number, b: Block) => design && (update({ ...design, blocks: [...blocks.slice(0, i), b, ...blocks.slice(i)] }), setSel(b.id));
   const move = (from: number, to: number) => {
     if (!design || from === to) return;
@@ -373,12 +425,14 @@ export function Editor({ id }: { id: string }) {
 
   return (
     <div className="flex h-screen flex-col">
+      {aiOpen && <AiPanel onDraft={applyDraft} onClose={() => setAiOpen(false)} />}
       <header className="flex flex-wrap items-center gap-2 border-b border-zinc-200 bg-white px-4 py-2.5 dark:border-zinc-800 dark:bg-zinc-900">
         <button onClick={() => navigate("/templates")} className="flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-white"><ArrowLeft size={15} /> {L.back}</button>
         <Input value={name} onChange={(e) => (setName(e.target.value), setDirty(true))} placeholder={L.name} className="!w-48" />
         <Input value={subject} onChange={(e) => (setSubject(e.target.value), setDirty(true))} placeholder={L.subject} className="!w-72 flex-1" />
         <Seg value={mode} options={[["edit", L.edit], ["desktop", L.desktop], ["mobile", L.mobile]]} onChange={setMode} />
         <Input value={from} onChange={(e) => setFrom(e.target.value)} placeholder={L.testFrom} className="!w-56" />
+        {design && <Button variant="ghost" onClick={() => setAiOpen(true)}><Wand2 size={14} /> {AI_L.open}</Button>}
         <Button variant="ghost" onClick={() => test.mutate()} disabled={test.isPending || !from}><Send size={14} /> {L.test}</Button>
         <Button onClick={() => save.mutate()} disabled={save.isPending}>{dirty ? L.save : L.saved}</Button>
       </header>
@@ -479,7 +533,10 @@ export function Editor({ id }: { id: string }) {
           <aside className={`${selected ? "fixed inset-x-0 bottom-0 z-20 max-h-[60vh] rounded-t-2xl shadow-2xl" : "hidden"} space-y-3 overflow-y-auto border-l border-zinc-200 bg-white p-4 md:static md:block md:max-h-none md:w-72 md:shrink-0 md:rounded-none md:shadow-none dark:border-zinc-800 dark:bg-zinc-900`}>
             {selected && <button className="mb-1 w-full text-center text-xs text-zinc-500 md:hidden" onClick={() => setSel(null)}>▾</button>}
             {selected ? (
-              <Inspector block={selected} onChange={(nb) => update({ ...design!, blocks: blocks.map((x) => (x.id === nb.id ? nb : x)) })} />
+              <>
+                <Inspector block={selected} onChange={(nb) => update({ ...design!, blocks: blocks.map((x) => (x.id === nb.id ? nb : x)) })} />
+                {(selected.type === "heading" || selected.type === "text") && <RewriteBar block={selected} onChange={(nb) => update({ ...design!, blocks: blocks.map((x) => (x.id === nb.id ? nb : x)) })} />}
+              </>
             ) : (
               <>
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">{L.theme}</h3>

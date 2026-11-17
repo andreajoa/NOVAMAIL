@@ -29,6 +29,8 @@ export interface Env {
   ENCRYPTION_KEY: string; // seals Postal server credentials in D1
   STRIPE_PRICE_DEDICATED_IP?: string;
   STRIPE_PRICE_DEDICATED_IP_YEAR?: string;
+  /** Workers AI (free daily allocation on the free plan). */
+  AI?: { run: (model: string, input: Record<string, unknown>) => Promise<any> };
   OWNER_TOKEN: string; // platform-owner token for /admin routes
   STRIPE_SECRET_KEY?: string;
   STRIPE_WEBHOOK_SECRET?: string;

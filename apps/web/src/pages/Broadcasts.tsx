@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BarChart3, Clock, FlaskConical, Plus, Repeat, Send, X } from "lucide-react";
+import { BarChart3, Clock, FlaskConical, Plus, Repeat, Send, Wand2, X } from "lucide-react";
 import { useState } from "react";
 import { api } from "../api";
 import { date, lang, num } from "../i18n";
@@ -44,6 +44,15 @@ export function Broadcasts() {
   const [ab, setAb] = useState<{ on: boolean; subjects: string[]; test_percent: number; metric: "opens" | "clicks"; wait_hours: number }>({ on: false, subjects: [""], test_percent: 20, metric: "opens", wait_hours: 4 });
   const [when, setWhen] = useState<{ mode: "now" | "later"; at: string; smart: boolean }>({ mode: "now", at: "", smart: false });
   const invalidate = () => qc.invalidateQueries({ queryKey: ["broadcasts"] });
+  const [ideas, setIdeas] = useState<{ subject: string; preheader: string; angle: string }[]>([]);
+  const suggest = useMutation({
+    mutationFn: async () => {
+      const tpl = f.template_id ? (await api(`/templates/${f.template_id}`)) : null;
+      const brief = [f.subject, tpl?.subject, tpl?.html ?? f.html].filter(Boolean).join("\n").slice(0, 3800) || (pt ? "Novidades da loja" : "Store news");
+      return api("/ai/subjects", { body: { brief, n: 5, ...(f.subject ? { current: f.subject } : {}) } });
+    },
+    onSuccess: (r) => setIdeas(r.subjects),
+  });
   const create = useMutation({
     mutationFn: async (go: boolean) => {
       const b = await api("/broadcasts", { body: { audience_id: f.audience_id, from: f.from, ...(f.subject ? { subject: f.subject } : {}), ...(f.template_id ? { template_id: f.template_id } : { html: f.html }), ...(ab.on && ab.subjects.some(Boolean) ? { ab: { ...ab, subjects: ab.subjects.filter(Boolean) } } : {}) } });
@@ -74,7 +83,19 @@ export function Broadcasts() {
             <option value="">{pt ? "Usar um modelo (opcional)…" : "Use a template (optional)…"}</option>
             {(tpls.data?.data ?? []).map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
-          <Input required={!f.template_id} value={f.subject} onChange={(e) => setF({ ...f, subject: e.target.value })} placeholder={(ab.on ? "A — " : "") + (f.template_id ? `${L.subject} (${pt ? "opcional" : "optional"})` : L.subject)} />
+          <div className="flex gap-2">
+            <Input required={!f.template_id} value={f.subject} onChange={(e) => setF({ ...f, subject: e.target.value })} placeholder={(ab.on ? "A — " : "") + (f.template_id ? `${L.subject} (${pt ? "opcional" : "optional"})` : L.subject)} />
+            <Button type="button" variant="ghost" className="shrink-0" disabled={suggest.isPending} onClick={() => suggest.mutate()}><Wand2 size={14} /> {suggest.isPending ? "…" : pt ? "Sugerir" : "Suggest"}</Button>
+          </div>
+          {ideas.length > 0 && (
+            <div className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-800">
+              <div className="flex flex-wrap gap-1.5">
+                {ideas.map((x) => <button type="button" key={x.subject} title={x.preheader} onClick={() => setF({ ...f, subject: x.subject })} className={`rounded-lg border px-2.5 py-1.5 text-left text-xs ${f.subject === x.subject ? "border-zinc-900 dark:border-white" : "border-zinc-200 dark:border-zinc-700"}`}>{x.subject}<span className="block text-[10px] text-zinc-500">{x.angle}</span></button>)}
+              </div>
+              <button type="button" className="mt-2 flex items-center gap-1 text-xs font-semibold" onClick={() => { setF({ ...f, subject: f.subject || ideas[0]!.subject }); setAb({ ...ab, on: true, subjects: ideas.filter((x) => x.subject !== (f.subject || ideas[0]!.subject)).slice(0, 2).map((x) => x.subject) }); }}><FlaskConical size={13} /> {pt ? "Testar as melhores em A/B" : "A/B test the best ones"}</button>
+              <ErrorText error={suggest.error} />
+            </div>
+          )}
           {!f.template_id && <textarea required rows={6} value={f.html} onChange={(e) => setF({ ...f, html: e.target.value })} placeholder={L.html} className="w-full rounded-lg border border-zinc-200 bg-white p-3 font-mono text-xs dark:border-zinc-800 dark:bg-zinc-950" />}
 
           <div className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-800">

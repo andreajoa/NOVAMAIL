@@ -1231,3 +1231,40 @@ describe("e-commerce: Shopify, WooCommerce and custom stores", () => {
     expect((await t(`/reports/broadcasts/${bc.body.id}`)).body.totals.revenue_cents).toBe(4500);
   });
 });
+
+describe("AI writing assistant", () => {
+  it("drafts safe blocks, suggests subjects, rewrites and enforces the daily limit", async () => {
+    const acc = await newAccount("free");
+    const t = (path: string, init: any = {}) => call(path, { token: acc.api_key, ...init });
+    const calls: any[] = [];
+    (testEnv as any).AI = { run: async (_m: string, input: any) => {
+      calls.push(input);
+      const sys = input.messages[0].content as string;
+      if (sys.includes("subject lines")) return { response: 'Sure! {"subjects":[{"subject":"Your linen edit is here","preheader":"Light pieces for warm days","angle":"benefit"},{"subject":"{{first_name}}, ready for summer?","preheader":"x","angle":"personal"}]}' };
+      if (sys.includes("edit marketing")) return { response: { text: "Shorter version." } };
+      return { response: JSON.stringify({ subject: "New linen drop", preheader: "Breathable pieces", headline: "Meet the linen edit", paragraphs: ["Hi {{first_name}}, our **lightest** shirts are back.", "<script>alert(1)</script> Made in Portugal."], cta: "Shop linen", ps: "P.S. Free returns." }) };
+    } };
+    try {
+      const w = await t("/ai/write", { method: "POST", json: { brief: "Launch of our linen shirt collection", cta_url: "https://shop.example.com/linen" } });
+      expect(w.status).toBe(200);
+      expect(w.body.subject).toBe("New linen drop");
+      const types = w.body.blocks.map((b: any) => b.type);
+      expect(types).toEqual(["heading", "text", "text", "button", "text"]);
+      expect(w.body.blocks[1].html).toContain("<strong>lightest</strong>");
+      expect(w.body.blocks[1].html).toContain("{{first_name}}");
+      expect(w.body.blocks[2].html).not.toContain("<script>");
+      expect(w.body.blocks[3].href).toBe("https://shop.example.com/linen");
+      expect(calls[0].messages[0].content).toContain("never invent prices");
+
+      const s = await t("/ai/subjects", { method: "POST", json: { brief: "<p>Linen shirts are back</p>", n: 2 } });
+      expect(s.body.subjects).toHaveLength(2);
+      expect((await t("/ai/rewrite", { method: "POST", json: { text: "Long text here", action: "shorter" } })).body.text).toBe("Shorter version.");
+      expect((await t("/ai/rewrite", { method: "POST", json: { text: "x", action: "translate" } })).status).toBe(422);
+
+      for (let i = 0; i < 12; i++) await t("/ai/rewrite", { method: "POST", json: { text: "x", action: "fix_grammar" } });
+      expect((await t("/ai/rewrite", { method: "POST", json: { text: "x", action: "fix_grammar" } })).status).toBe(429); // 15/day on Free
+    } finally {
+      delete (testEnv as any).AI;
+    }
+  });
+});
