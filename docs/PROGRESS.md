@@ -2,7 +2,7 @@
 
 Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta implantar/provar · ⏳ a fazer · 🔒 depende do André
 
-**Progresso geral: 53 / 58 itens (91%)** — atualizado 17/11/2026 05h (BRT)
+**Progresso geral: 57 / 62 itens (92%)** — atualizado 17/11/2026 05h (BRT)
 
 ## F0 — Auditoria (100%)
 - ✅ 5 repositórios auditados (Postal, listmonk, Plunk, BillionMail, Mautic) → Postal MIT escolhido
@@ -83,6 +83,12 @@ Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta impla
 - ✅ Página /ai-agents e comparativos Mailchimp/Brevo/MailerLite/Resend/SendGrid/Mailgun/Postmark/SES
 - ✅ Acesso de suporte do dono (sessão de 1 h por conta) + capturas reais do painel validadas
 - ✅ 39 testes automáticos (inclui ataques de agente e XSS)
+
+## F9 — Funis em nós e rastreamento (4/4)
+- ✅ Construtor visual (React Flow 13): gatilho (lista/etiqueta/API), e-mail, espera, condição Sim/Não (abriu, clicou, tem etiqueta, está na lista), etiqueta, fim; 3 receitas; contagem ao vivo por nó; validação (sem ciclos)
+- ✅ Motor de grafo no cron + migração dos funis lineares
+- ✅ Rastreamento próprio de abertura/clique (links assinados + pixel; sem open redirect)
+- ✅ API de etiquetas (POST /contacts/tags) para lojas marcarem "comprou" etc.; MCP aceita grafos
 
 ## Lançamento (1/2)
 - ✅ Landing com preços + cadastro, Termos, Política de Uso Aceitável e Privacidade (LGPD) em app.novamail.nexaclouds.online (revisar com advogado antes de escala)
