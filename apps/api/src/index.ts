@@ -13,6 +13,7 @@ import { admin } from "./routes/admin";
 import { domains } from "./routes/domains";
 import { emails } from "./routes/emails";
 import { postalHooks } from "./routes/postal-hooks";
+import { fbl } from "./routes/fbl";
 import { UpstreamError } from "./lib/postal";
 import { openDb } from "./lib/dodb";
 import { docsHtml, openapi } from "./openapi";
@@ -32,6 +33,20 @@ app.get("/health", async (c) => {
   return c.json({ ok: db?.ok === 1, version: VERSION }, db?.ok === 1 ? 200 : 503);
 });
 
+// Public status: API + database + sending node, cached 30 s at the edge.
+app.get("/status", async (c) => {
+  const t0 = Date.now();
+  const db = await c.env.DB.prepare("SELECT 1 AS ok").first<{ ok: number }>().catch(() => null);
+  const node = await fetch(`${c.env.POSTAL_ADMIN_URL}/health`, { signal: AbortSignal.timeout(4000) }).then((r) => r.json() as Promise<{ ok: boolean; postal: string }>).catch(() => null);
+  const body = { api: "operational", database: db?.ok === 1 ? "operational" : "down", sending_node: node?.ok ? "operational" : "down", postal: node?.postal ?? null, checked_ms: Date.now() - t0, at: new Date().toISOString() };
+  c.header("cache-control", "public, max-age=30");
+  if (!(c.req.header("accept") ?? "").includes("text/html")) return c.json(body, db?.ok === 1 && node?.ok ? 200 : 503);
+  const row = (k: string, v: string) => `<li><span>${k}</span><b class="${v}">${v === "operational" ? "Operacional" : "Fora do ar"}</b></li>`;
+  return c.html(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="60"><title>NovaMail status</title>
+<style>body{margin:0;font:15px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#fafafa;color:#18181b;display:grid;place-items:center;min-height:100vh;padding:16px}main{width:100%;max-width:440px}ul{list-style:none;padding:0;border:1px solid #e4e4e7;border-radius:12px;background:#fff}li{display:flex;justify-content:space-between;padding:14px 18px;border-top:1px solid #f4f4f5}li:first-child{border:0}.operational{color:#047857}.down{color:#b91c1c}small{color:#71717a}@media(prefers-color-scheme:dark){body{background:#09090b;color:#f4f4f5}ul{background:#18181b;border-color:#27272a}li{border-color:#27272a}}</style></head>
+<body><main><h1>NovaMail</h1><ul>${row("API", body.api)}${row("Banco de dados", body.database)}${row("Servidor de envio", body.sending_node)}</ul><small>Verificado ${body.at} · ${body.checked_ms} ms</small></main></body></html>`);
+});
+
 app.get("/openapi.json", (c) => c.json(openapi(c.env.PUBLIC_URL)));
 app.get("/docs", (c) => c.html(docsHtml(`${c.env.PUBLIC_URL}/openapi.json`)));
 
@@ -39,6 +54,7 @@ app.get("/docs", (c) => c.html(docsHtml(`${c.env.PUBLIC_URL}/openapi.json`)));
 app.route("/hooks/postal", postalHooks);
 app.route("/hooks/stripe", stripeHooks);
 app.route("/u", unsubscribe);
+app.route("/hooks/fbl", fbl);
 
 // Customer API (Resend-compatible paths).
 app.use("/emails/*", requireApiKey);

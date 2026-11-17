@@ -95,7 +95,8 @@ export async function sendOne(env: Env, p: Principal, body: SendBody, idemKey: s
     text: body.text,
     replyTo: body.reply_to?.join(", "),
     tag: body.tags?.find((t) => t.name === "category")?.value,
-    headers: { ...body.headers, "X-NovaMail-Id": id },
+    // Feedback-ID lets Gmail Postmaster Tools report spam rates per sender/category.
+    headers: { ...body.headers, "X-NovaMail-Id": id, "Feedback-ID": `${(body.tags?.find((t) => t.name === "category")?.value ?? "tx").slice(0, 40)}:${p.accountId}:novamail` },
     attachments: body.attachments?.map((a) => ({ name: a.filename, content_type: a.content_type ?? "application/octet-stream", data: a.content })),
   };
   const res = await postalSend(env, await open(acc.postal_server_key, env.ENCRYPTION_KEY), input, fetcher);

@@ -139,6 +139,17 @@ module NovaMailAdmin
     {}
   end
 
+  # Inbound address for feedback-loop (ARF) complaint reports. Mail sent to it is POSTed
+  # (signed, raw message) to the control plane, which suppresses the complainer.
+  def fbl_route(b)
+    server = server!(org!(b.fetch("org")), b.fetch("server"))
+    ep = server.http_endpoints.find_by(name: "novamail-fbl") || server.http_endpoints.build(name: "novamail-fbl")
+    ep.update!(url: b.fetch("url"), encoding: "BodyAsJSON", format: "RawMessage", include_attachments: true, timeout: 10)
+    route = server.routes.find_by(name: "fbl") || server.routes.build(name: "fbl")
+    route.update!(mode: "Endpoint", endpoint: ep, spam_mode: "Mark")
+    { address: route.forward_address }
+  end
+
   ROUTES = {
     "/v1/provision" => :provision,
     "/v1/limits" => :limits,
@@ -147,6 +158,7 @@ module NovaMailAdmin
     "/v1/domains/add" => :domain_add,
     "/v1/domains/check" => :domain_check,
     "/v1/domains/remove" => :domain_remove,
+    "/v1/fbl" => :fbl_route,
   }.freeze
 
   def json(status, body)

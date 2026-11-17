@@ -56,3 +56,12 @@ admin.post("/accounts/:id/unsuspend", async (c) => {
   await c.env.DB.prepare("UPDATE accounts SET status = 'active', suspended_reason = NULL, updated_at = ? WHERE id = ?").bind(Date.now(), c.req.param("id")).run();
   return c.json({ id: c.req.param("id"), status: "active" });
 });
+
+/** Creates (idempotently) the feedback-loop inbox on the system account's Postal server. */
+admin.post("/fbl", async (c) => {
+  const id = c.env.SYSTEM_ACCOUNT_ID;
+  const a = id ? await c.env.DB.prepare("SELECT postal_org, postal_server FROM accounts WHERE id = ?").bind(id).first<{ postal_org: string; postal_server: string }>() : null;
+  if (!a) throw errors.notFound("System account");
+  const r = await postalAdmin.fbl(c.env, { org: a.postal_org, server: a.postal_server, url: `${c.env.PUBLIC_URL}/hooks/fbl` });
+  return c.json({ address: r.address });
+});

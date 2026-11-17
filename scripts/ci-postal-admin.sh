@@ -81,6 +81,12 @@ r=$(curl -sS -X POST http://127.0.0.1:5000/api/v1/send/message -H "host: postal.
 check "$r" '.status != "success"'
 check "$(post /v1/unsuspend '{"org":"acc-ci123"}')" '.ok'
 
+echo "== feedback-loop route"
+r=$(post /v1/fbl '{"org":"acc-ci123","server":"main","url":"https://api.example.com/hooks/fbl"}')
+check "$r" '.ok and (.address | endswith("@routes.ci.test"))'
+r2=$(post /v1/fbl '{"org":"acc-ci123","server":"main","url":"https://api.example.com/hooks/fbl"}')
+check "$r2" ".address == $(echo "$r" | jq .address)"
+
 echo "== domain remove / 404s"
 check "$(post /v1/domains/remove "{\"org\":\"acc-ci123\",\"server\":\"main\",\"uuid\":\"$UUID\"}")" '.ok'
 check "$(post /v1/limits '{"org":"nope","server":"main"}')" '.ok == false'

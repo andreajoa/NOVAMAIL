@@ -21,7 +21,7 @@ export async function stripe<T = any>(env: Env, path: string, body?: Record<stri
   if (!env.STRIPE_SECRET_KEY) throw new ApiError(503, "billing_disabled", "Billing is not enabled yet.");
   const res = await fetcher(`${STRIPE}${path}`, {
     method: body ? "POST" : "GET",
-    headers: { authorization: `Bearer ${env.STRIPE_SECRET_KEY}`, "content-type": "application/x-www-form-urlencoded", "stripe-version": "2025-09-30.clover" },
+    headers: { authorization: `Bearer ${env.STRIPE_SECRET_KEY}`, "content-type": "application/x-www-form-urlencoded" },
     body: body ? form(body) : undefined,
   });
   const j = (await res.json()) as T & { error?: { message: string } };

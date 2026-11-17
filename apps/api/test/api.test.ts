@@ -399,3 +399,45 @@ describe("marketing: audiences, broadcasts, one-click unsubscribe", () => {
     expect(s.body.status_reason).toMatch(/Daily limit/);
   });
 });
+
+describe("feedback loops (ARF complaints)", () => {
+  it("suppresses the complainer, marks the email and feeds the reputation guard", async () => {
+    const acc = await verifiedAccount(postal);
+    const s = await call("/emails", { method: "POST", token: acc.api_key, json: { from: "a@example.com", to: "angry@x.com", subject: "promo", text: "x" } });
+    expect(postal.sent.at(-1).headers["Feedback-ID"]).toBe(`tx:${acc.id}:novamail`);
+    const arf = [
+      "Content-Type: multipart/report; report-type=feedback-report; boundary=b",
+      "",
+      "--b",
+      "Content-Type: message/feedback-report",
+      "",
+      "Feedback-Type: abuse",
+      "User-Agent: Yahoo!-Mail-Feedback/2.0",
+      "Original-Rcpt-To: <angry@x.com>",
+      "",
+      "--b",
+      "Content-Type: text/rfc822-headers",
+      "",
+      "From: a@example.com",
+      "To: angry@x.com",
+      `X-NovaMail-Id: ${s.body.id}`,
+      "--b--",
+    ].join("\r\n");
+    const body = JSON.stringify({ id: 9, rcpt_to: "fbl@routes.test", mail_from: "fbl@yahoo.com", message: btoa(arf), base64: true, size: arf.length });
+    const unsigned = await call("/hooks/fbl", { method: "POST", body, headers: { "content-type": "application/json" } });
+    expect(unsigned.status).toBe(401);
+    const r = await call("/hooks/fbl", { method: "POST", body, headers: { "content-type": "application/json", "x-postal-signature-256": await postalSign(body) } });
+    expect(r.body.complaint).toBe(s.body.id);
+    expect((await call(`/emails/${s.body.id}`, { token: acc.api_key })).body.last_event).toBe("complained");
+    const sup = (await call("/suppressions", { token: acc.api_key })).body.data;
+    expect(sup).toContainEqual(expect.objectContaining({ address: "angry@x.com", reason: "complaint" }));
+    const again = await call("/emails", { method: "POST", token: acc.api_key, json: { from: "a@example.com", to: "angry@x.com", subject: "x", text: "x" } });
+    expect(again.body.name).toBe("recipients_suppressed");
+  });
+
+  it("parses folded headers and ignores non-abuse reports", async () => {
+    const { parseArf } = await import("../src/routes/fbl");
+    expect(parseArf("Feedback-Type: abuse\r\nOriginal-Rcpt-To:\r\n <X@Y.com>\r\nX-NovaMail-Id: 01a1e7c3-6f03-78e6-8408-931371537412")).toEqual({ feedbackType: "abuse", recipient: "x@y.com", novamailId: "01a1e7c3-6f03-78e6-8408-931371537412" });
+    expect(parseArf("Feedback-Type: not-spam\r\n").feedbackType).toBe("not-spam");
+  });
+});

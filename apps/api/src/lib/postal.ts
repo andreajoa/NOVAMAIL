@@ -87,6 +87,7 @@ export const postalAdmin = {
     admin<{ uuid: string; records: DnsRecord[] }>(env, "/v1/domains/add", b, f),
   checkDomain: (env: Env, b: { org: string; server: string; uuid: string }, f?: typeof fetch) =>
     admin<{ verified: boolean; dns_ok: boolean; checks: Record<string, string | null>; records: DnsRecord[] }>(env, "/v1/domains/check", b, f),
+  fbl: (env: Env, b: { org: string; server: string; url: string }, f?: typeof fetch) => admin<{ address: string }>(env, "/v1/fbl", b, f),
   removeDomain: (env: Env, b: { org: string; server: string; uuid: string }, f?: typeof fetch) => admin<{}>(env, "/v1/domains/remove", b, f),
 };
 
