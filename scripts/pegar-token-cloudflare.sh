@@ -4,8 +4,8 @@
 set -euo pipefail
 OUT="$HOME/.config/novamail/cloudflare-token"
 before=$(pbpaste 2>/dev/null | shasum | cut -c1-12)
-echo "Agora copie o token na página da Cloudflare (botão Copy). Esperando até 5 minutos…"
-for _ in $(seq 1 150); do
+echo "Agora copie o token na página da Cloudflare (botão Copy). Esperando até 30 minutos…"
+for _ in $(seq 1 900); do
   v=$(pbpaste 2>/dev/null | tr -d '[:space:]')
   if [ "$(printf '%s' "$v" | shasum | cut -c1-12)" != "$before" ] && [[ "$v" =~ ^[A-Za-z0-9_-]{40,}$ ]]; then
     umask 077; printf '%s' "$v" > "$OUT"
@@ -18,4 +18,4 @@ for _ in $(seq 1 150); do
   fi
   sleep 2
 done
-echo "✗ nada copiado em 5 minutos"; exit 1
+echo "✗ nada copiado em 30 minutos"; exit 1
