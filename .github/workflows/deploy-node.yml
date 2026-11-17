@@ -16,6 +16,8 @@ permissions:
 
 jobs:
   node:
+    # Skipped until a sending VM exists (docs/OPERATIONS.md).
+    if: ${{ vars.MAIL_DOMAIN != '' && vars.NODE_READY == 'true' }}
     runs-on: ubuntu-latest
     environment: production
     env:

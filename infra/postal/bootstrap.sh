@@ -84,7 +84,7 @@ $DC run --rm runner postal upgrade 2>/dev/null || true
 
 log "caddy first (obtains the TLS certificate Postal's SMTP reuses)"
 $DC up -d caddy
-for i in $(seq 1 60); do
+for _ in $(seq 1 60); do
   [ -f "$ROOT/caddy/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${POSTAL_HOST}/${POSTAL_HOST}.crt" ] && break
   sleep 5
 done

@@ -11,6 +11,8 @@ permissions:
 
 jobs:
   deploy:
+    # Skipped until the production environment is configured (docs/OPERATIONS.md).
+    if: ${{ vars.CLOUDFLARE_ZONE_ID != '' }}
     runs-on: ubuntu-latest
     environment: production
     env:

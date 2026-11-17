@@ -4,7 +4,7 @@
 set -uo pipefail
 ROOT=/opt/novamail
 set -a; . "$ROOT/.env"; set +a
-cd "$ROOT/repo/infra/postal"
+cd "$ROOT/repo/infra/postal" || exit 1
 DC="docker compose --env-file $ROOT/.env"
 
 down=()

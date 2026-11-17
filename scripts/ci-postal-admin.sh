@@ -31,7 +31,7 @@ cleanup() { docker rm -f nm-db nm-web nm-admin >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
 docker run -d --name nm-db --network host -e MARIADB_ROOT_PASSWORD=$PW -e MARIADB_DATABASE=postal mariadb:11.8 >/dev/null
-for i in $(seq 1 60); do docker exec nm-db healthcheck.sh --connect --innodb_initialized >/dev/null 2>&1 && break; sleep 2; done
+for _ in $(seq 1 60); do docker exec nm-db healthcheck.sh --connect --innodb_initialized >/dev/null 2>&1 && break; sleep 2; done
 
 docker run --rm --network host -v "$WORK/config:/config" $IMG postal initialize
 docker run -d --name nm-web --network host -v "$WORK/config:/config" $IMG postal web-server >/dev/null
@@ -39,11 +39,13 @@ docker run -d --name nm-admin --network host -v "$WORK/config:/config" -v "$PWD/
   -e NOVAMAIL_ADMIN_TOKEN=$TOKEN $IMG bundle exec rails runner /novamail-admin/server.rb >/dev/null
 
 A=http://127.0.0.1:5050
-for i in $(seq 1 60); do curl -fs $A/health >/dev/null && break; sleep 2; done
+for _ in $(seq 1 60); do curl -fs $A/health >/dev/null && break; sleep 2; done
+# Postal web (send API) boots separately; wait for it too.
+for _ in $(seq 1 90); do curl -s -o /dev/null http://127.0.0.1:5000/ && break; sleep 2; done
 curl -fsS $A/health; echo
 
 post() { curl -sS -X POST "$A$1" -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' -d "$2"; }
-check() { echo "$1" | jq -e "$2" >/dev/null || { echo "FAILED: $2 on $1"; docker logs nm-admin | tail -40; exit 1; }; }
+check() { echo "$1" | jq -e "$2" >/dev/null || { echo "FAILED: $2 on $1"; docker logs nm-admin 2>&1 | tail -40; docker logs nm-web 2>&1 | tail -40; exit 1; }; }
 
 echo "== unauthorized"
 r=$(curl -sS -X POST $A/v1/provision -H 'authorization: Bearer wrong' -d '{}'); check "$r" '.ok == false'
