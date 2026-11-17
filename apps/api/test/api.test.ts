@@ -841,3 +841,106 @@ describe("IP tiers and dedicated IPs", () => {
     expect((await call("/billing/dedicated-ip", { method: "POST", token: acc.api_key })).status).toBe(422);
   });
 });
+
+async function rawReq(path: string, init: RequestInit = {}) {
+  const { app } = await import("../src/index");
+  const { createExecutionContext, waitOnExecutionContext } = await import("cloudflare:test");
+  const ctx = createExecutionContext();
+  const res = await app.request(path, init, testEnv, ctx);
+  await waitOnExecutionContext(ctx);
+  return { status: res.status, text: await res.text(), headers: res.headers };
+}
+
+describe("signup forms + double opt-in + preference center", () => {
+  it("embeds, blocks bots, rate-limits, confirms with consent proof and lets people manage lists", async () => {
+    const acc = await verifiedAccount(postal, "pro");
+    const t = (path: string, init: any = {}) => call(path, { token: acc.api_key, ...init });
+    const list = await t("/audiences", { method: "POST", json: { name: "Newsletter" } });
+    const other = await t("/audiences", { method: "POST", json: { name: "Product updates" } });
+    const base = { name: "Homepage popup", kind: "popup", audience_id: list.body.id };
+    expect((await t("/forms", { method: "POST", json: { ...base, config: { ...(await import("@novamail/email")).DEFAULT_FORM, from: "news@evil.com" } } })).status).toBe(422);
+    const { DEFAULT_FORM } = await import("@novamail/email");
+    const f = await t("/forms", { method: "POST", json: { ...base, config: { ...DEFAULT_FORM, from: "News <news@example.com>", tags: ["lead"] } } });
+    expect(f.status).toBe(201);
+    const id = f.body.id;
+    expect(f.body.embed.popup).toContain(`/f/${id}.js`);
+
+    const js = await rawReq(`/f/${id}.js`);
+    expect(js.headers.get("content-type")).toContain("javascript");
+    expect(js.text).toContain(id);
+    const card = await call(`/f/${id}/card`);
+    expect(card.body.kind).toBe("popup");
+    expect(card.body.html).toContain(DEFAULT_FORM.title);
+    expect(card.body.html).not.toContain("Powered by"); // paid plan: no branding
+    const pageRes = await rawReq(`/f/${id}`);
+    expect(pageRes.text).toContain(DEFAULT_FORM.title);
+    expect(pageRes.headers.get("content-security-policy")).toContain("nonce-");
+
+    const submit = (body: Record<string, unknown>, ip = "1.1.1.1") =>
+      rawReq(`/f/${id}/submit`, { method: "POST", headers: { "content-type": "application/json", accept: "application/json", "cf-connecting-ip": ip }, body: JSON.stringify(body) });
+    const before = postal.sent.length;
+    await submit({ email: "bot@x.com", website: "http://spam" });
+    await submit({ email: "fast@x.com", t: Date.now() }, "2.2.2.2");
+    expect(postal.sent.length).toBe(before); // bots silently ignored
+    expect((await submit({ email: "not-an-email", t: 1 }, "3.3.3.3")).status).toBe(422);
+
+    const ok = await submit({ email: "Ana@X.com", first_name: "Ana", t: Date.now() - 5000, page: "https://shop.example.com/" }, "4.4.4.4");
+    expect(ok.status).toBe(200);
+    const mail = postal.sent.at(-1);
+    expect(mail.subject).toBe(DEFAULT_FORM.confirm_subject);
+    expect(mail.to).toEqual(["ana@x.com"]);
+    const token = String(mail.html_body ?? mail.html).match(/\/f\/confirm\/([A-Za-z0-9_-]+)/)![1];
+    expect((await t("/people")).body.total).toBe(0); // not added before confirming
+
+    expect((await rawReq(`/f/confirm/${token}`)).text).toContain("Confirm your subscription"); // GET never confirms
+    expect((await t("/people")).body.total).toBe(0);
+    const conf = await rawReq(`/f/confirm/${token}`, { method: "POST" });
+    expect(conf.text).toContain("You're in");
+    expect((await rawReq(`/f/confirm/${token}`, { method: "POST" })).status).toBe(404); // single use
+    const ana = await t("/people/ana@x.com");
+    expect(ana.body.first_name).toBe("Ana");
+    expect(ana.body.tags).toContain("lead");
+    const consent = await testEnv.DB.prepare("SELECT * FROM consents WHERE email = 'ana@x.com' AND account_id = ?").bind(acc.id).first<any>();
+    expect(consent).toMatchObject({ source: "form_double_optin", ip: "4.4.4.4", page: "https://shop.example.com/" });
+    expect(consent.confirmed_at).toBeGreaterThan(0);
+    const stats = (await t("/forms")).body.data[0];
+    expect(stats).toMatchObject({ confirms: 1 });
+    expect(stats.views).toBeGreaterThanOrEqual(1);
+
+    for (let i = 0; i < 5; i++) await submit({ email: `r${i}@x.com`, t: 1 }, "9.9.9.9");
+    expect((await submit({ email: "r9@x.com", t: 1 }, "9.9.9.9")).status).toBe(429);
+
+    // Single opt-in form adds immediately.
+    const s = await t("/forms", { method: "POST", json: { name: "Footer", kind: "embed", audience_id: other.body.id, double_optin: false, config: { ...DEFAULT_FORM } } });
+    await rawReq(`/f/${s.body.id}/submit`, { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": "5.5.5.5" }, body: JSON.stringify({ email: "ana@x.com", t: 1 }) });
+    expect((await t("/people/ana@x.com")).body.lists).toHaveLength(2);
+
+    // Preference center: keep one list, then one-click unsubscribe from everything.
+    const { unsubscribeToken } = await import("../src/routes/marketing");
+    const ct = await testEnv.DB.prepare("SELECT id FROM contacts WHERE email = 'ana@x.com' AND account_id = ? LIMIT 1").bind(acc.id).first<{ id: string }>();
+    const tok = await unsubscribeToken(testEnv as any, ct!.id);
+    const prefs = await rawReq(`/u/${tok}`);
+    expect(prefs.text).toContain("Newsletter");
+    expect(prefs.text).toContain("Product updates");
+    const fd = new URLSearchParams([["action", "save"], ["list", other.body.id]]);
+    const saved = await rawReq(`/u/${tok}`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: fd.toString() });
+    expect(saved.text).toContain("Preferences saved");
+    let rows = await testEnv.DB.prepare("SELECT audience_id, unsubscribed FROM contacts WHERE email = 'ana@x.com' AND account_id = ?").bind(acc.id).all<any>();
+    expect(Object.fromEntries(rows.results.map((r: any) => [r.audience_id, r.unsubscribed]))).toEqual({ [list.body.id]: 1, [other.body.id]: 0 });
+    await rawReq(`/u/${tok}`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: "List-Unsubscribe=One-Click" });
+    rows = await testEnv.DB.prepare("SELECT unsubscribed FROM contacts WHERE email = 'ana@x.com' AND account_id = ?").bind(acc.id).all<any>();
+    expect(rows.results.every((r: any) => r.unsubscribed === 1)).toBe(true);
+    const pt = await rawReq(`/u/${tok}`, { headers: { "accept-language": "pt-BR" } });
+    expect(pt.text).toContain("Descadastrado");
+  });
+});
+
+describe("public embeds are loadable cross-origin", () => {
+  it("forms, media and pixel allow other origins; the API stays same-origin", async () => {
+    const js = await rawReq("/f/frm_nope.js");
+    expect(js.headers.get("cross-origin-resource-policy")).toBe("cross-origin");
+    expect(js.headers.get("x-frame-options")).toBeNull();
+    expect((await rawReq("/t/o/x.gif")).headers.get("cross-origin-resource-policy")).toBe("cross-origin");
+    expect((await rawReq("/status")).headers.get("cross-origin-resource-policy")).toBe("same-origin");
+  });
+});

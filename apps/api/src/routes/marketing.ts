@@ -204,7 +204,7 @@ export async function processBroadcasts(env: Env, now = Date.now(), fetcher: typ
     let pause: string | null = null;
     for (const ct of contacts.results) {
       const unsub = `${env.PUBLIC_URL}/u/${await unsubscribeToken(env, ct.id)}`;
-      const vars = { first_name: ct.first_name ?? "", last_name: ct.last_name ?? "", email: ct.email, unsubscribe_url: unsub };
+      const vars = { first_name: ct.first_name ?? "", last_name: ct.last_name ?? "", email: ct.email, unsubscribe_url: unsub, preferences_url: unsub };
       try {
         await sendOne(
           env,
@@ -248,7 +248,7 @@ export async function processBroadcasts(env: Env, now = Date.now(), fetcher: typ
 export const unsubscribe = new Hono<AppEnv>();
 
 const page = (title: string, body: string) =>
-  `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${title}</title>
+  `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${title}</title>
 <style>body{margin:0;font:15px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#fafafa;color:#18181b;display:grid;place-items:center;min-height:100vh;padding:16px}main{max-width:420px;background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:28px}button{font:inherit;background:#18181b;color:#fff;border:0;border-radius:8px;padding:10px 16px;cursor:pointer}@media(prefers-color-scheme:dark){body{background:#09090b;color:#f4f4f5}main{background:#18181b;border-color:#27272a}button{background:#fff;color:#18181b}}</style></head><body><main>${body}</main></body></html>`;
 
 async function doUnsubscribe(env: Env, token: string) {
@@ -264,16 +264,67 @@ async function doUnsubscribe(env: Env, token: string) {
   return ct.email;
 }
 
-// Mail clients (Gmail/Yahoo "Unsubscribe" button) POST here without user interaction.
+const T = {
+  en: { invalid: "Invalid link", invalidP: "This link is not valid.", title: "Email preferences", lead: (e: string) => `Choose what <b>${e}</b> receives.`, save: "Save preferences", all: "Unsubscribe from everything", saved: "Preferences saved.", done: "You're unsubscribed", doneP: (e: string) => `<b>${e}</b> won't receive these emails anymore.`, resub: "Changed your mind? Tick a list below and save." },
+  pt: { invalid: "Link inválido", invalidP: "Este link não é válido.", title: "Preferências de e-mail", lead: (e: string) => `Escolha o que <b>${e}</b> recebe.`, save: "Salvar preferências", all: "Descadastrar de tudo", saved: "Preferências salvas.", done: "Descadastrado", doneP: (e: string) => `<b>${e}</b> não vai mais receber estes e-mails.`, resub: "Mudou de ideia? Marque uma lista abaixo e salve." },
+};
+const tr = (c: { req: { header: (h: string) => string | undefined } }) => ((c.req.header("accept-language") ?? "").toLowerCase().startsWith("pt") ? T.pt : T.en);
+const PREF_CSS = "label.l{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid #e4e4e7}label.l input{width:18px;height:18px;accent-color:#18181b}.ghost{background:transparent!important;color:inherit!important;text-decoration:underline;padding:8px 0!important}.ok{font-weight:600}.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:18px}";
+
+async function prefsFor(env: Env, contactId: string) {
+  const ct = await env.DB.prepare("SELECT account_id, email FROM contacts WHERE id = ?").bind(contactId).first<{ account_id: string; email: string }>();
+  if (!ct) return null;
+  const lists = await env.DB.prepare(
+    "SELECT a.id, a.name, c.unsubscribed FROM contacts c JOIN audiences a ON a.id = c.audience_id WHERE c.account_id = ? AND c.email = ? AND a.name NOT LIKE 'Segment · %' ORDER BY a.name",
+  ).bind(ct.account_id, ct.email).all<{ id: string; name: string; unsubscribed: number }>();
+  return { ...ct, lists: lists.results };
+}
+
+function prefsPage(t: typeof T.en, p: NonNullable<Awaited<ReturnType<typeof prefsFor>>>, note = "") {
+  const e = p.email.replace(/[<>&"]/g, "");
+  const allOff = p.lists.every((l) => l.unsubscribed);
+  return page(t.title, `<style>${PREF_CSS}</style><h1>${allOff ? t.done : t.title}</h1><p>${allOff ? `${t.doneP(e)} ${t.resub}` : t.lead(e)}</p>${note ? `<p class="ok">${note}</p>` : ""}
+<form method="post"><input type="hidden" name="action" value="save">${p.lists.map((l) => `<label class="l"><input type="checkbox" name="list" value="${l.id}" ${l.unsubscribed ? "" : "checked"}> ${l.name.replace(/[<>&"]/g, "")}</label>`).join("")}
+<div class="row"><button>${t.save}</button>${allOff ? "" : `<button class="ghost" name="action" value="all">${t.all}</button>`}</div></form>`);
+}
+
+// Preference center. Mail clients (Gmail/Yahoo "Unsubscribe" button) POST
+// "List-Unsubscribe=One-Click" here without user interaction (RFC 8058) → unsubscribe from everything.
 unsubscribe.post("/:token", async (c) => {
-  const email = await doUnsubscribe(c.env, c.req.param("token"));
-  if (!email) return c.html(page("Link inválido", "<h1>Link inválido</h1><p>Este link de descadastro não é válido.</p>"), 404);
-  return c.html(page("Descadastrado", `<h1>Pronto</h1><p><b>${email.replace(/[<>&"]/g, "")}</b> não vai mais receber estes e-mails.</p>`));
+  const t = tr(c);
+  const body = await c.req.parseBody({ all: true }).catch(() => ({}) as Record<string, unknown>);
+  const action = Array.isArray(body.action) ? String(body.action.at(-1)) : String(body.action ?? "");
+  if (body["List-Unsubscribe"] === "One-Click" || action === "all" || !action) {
+    const email = await doUnsubscribe(c.env, c.req.param("token"));
+    if (!email) return c.html(page(t.invalid, `<h1>${t.invalid}</h1><p>${t.invalidP}</p>`), 404);
+    const id = await readUnsubscribeToken(c.env, c.req.param("token"));
+    const p = id ? await prefsFor(c.env, id) : null;
+    return c.html(p ? prefsPage(t, p) : page(t.done, `<h1>${t.done}</h1><p>${t.doneP(email.replace(/[<>&"]/g, ""))}</p>`));
+  }
+  const id = await readUnsubscribeToken(c.env, c.req.param("token"));
+  const p = id ? await prefsFor(c.env, id) : null;
+  if (!p) return c.html(page(t.invalid, `<h1>${t.invalid}</h1><p>${t.invalidP}</p>`), 404);
+  const keep = new Set((Array.isArray(body.list) ? body.list : body.list ? [body.list] : []).map(String));
+  const now = Date.now();
+  const stmts = p.lists.flatMap((l) => {
+    const on = keep.has(l.id);
+    if (on === !l.unsubscribed) return [];
+    return [
+      c.env.DB.prepare("UPDATE contacts SET unsubscribed = ? WHERE account_id = ? AND audience_id = ? AND email = ?").bind(on ? 0 : 1, p.account_id, l.id, p.email),
+      c.env.DB.prepare("INSERT INTO activities (account_id, email, type, data, created_at) VALUES (?,?,?,?,?)").bind(p.account_id, p.email, on ? "resubscribed" : "unsubscribed", JSON.stringify({ list: l.id }), now),
+    ];
+  });
+  if (keep.size) stmts.push(c.env.DB.prepare("DELETE FROM suppressions WHERE account_id = ? AND address = ? AND reason = 'unsubscribe'").bind(p.account_id, p.email));
+  else stmts.push(c.env.DB.prepare("INSERT OR IGNORE INTO suppressions (account_id, address, reason, created_at) VALUES (?,?, 'unsubscribe', ?)").bind(p.account_id, p.email, now));
+  if (stmts.length) await c.env.DB.batch(stmts);
+  return c.html(prefsPage(t, (await prefsFor(c.env, id!))!, t.saved));
 });
 
-// A human clicking the link sees a confirmation button (GETs must not change state: link scanners prefetch).
+// A human clicking the link sees the preference center (GETs never change state: link scanners prefetch).
 unsubscribe.get("/:token", async (c) => {
-  const ok = await readUnsubscribeToken(c.env, c.req.param("token"));
-  if (!ok) return c.html(page("Link inválido", "<h1>Link inválido</h1><p>Este link de descadastro não é válido.</p>"), 404);
-  return c.html(page("Descadastrar", `<h1>Descadastrar</h1><p>Confirme para não receber mais estes e-mails.</p><form method="post"><button>Confirmar descadastro</button></form>`));
+  const t = tr(c);
+  const id = await readUnsubscribeToken(c.env, c.req.param("token"));
+  const p = id ? await prefsFor(c.env, id) : null;
+  if (!p) return c.html(page(t.invalid, `<h1>${t.invalid}</h1><p>${t.invalidP}</p>`), 404);
+  return c.html(prefsPage(t, p));
 });

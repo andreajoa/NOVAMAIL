@@ -103,6 +103,20 @@ Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta impla
 - ✅ IP dedicado US$29/mês · US$290/ano: oferecido no checkout do Scale e no painel; aviso por e-mail ao dono; aquecimento automático (~3 semanas, limite por hora dobrando); cancelou → volta ao grupo do plano
 - 🔒 Ligar o IP do Free (`bash scripts/ip-pool.sh shared`) quando a porta 25 abrir e entrar o 1º pagante (~US$3,60/mês)
 
+## F12 — Melhor que os concorrentes (2/12)
+- ✅ 1. Formulários: no site, pop-up (tempo/rolagem/saída; centro/canto/barra) e página própria; Shadow DOM; confirmação dupla; anti-robô (campo isca, tempo mínimo, limite por IP e por formulário); prova de consentimento (IP, navegador, página, hora); 5 modelos; editor com prévia desktop/celular; conversão
+- ✅ 2. Central de preferências: escolher listas, voltar a assinar, descadastro total; inglês/português pelo navegador; botão do Gmail continua 1 clique
+- ⏳ 3. Teste A/B de assunto + reenvio para quem não abriu
+- ⏳ 4. Relatórios: mapa de cliques, provedores, comparação, receita
+- ⏳ 5. Equipe com permissões
+- ⏳ 6. Shopify/WooCommerce: carrinho abandonado, produtos, receita por campanha
+- ⏳ 7. IA no editor (Workers AI, cota grátis)
+- ⏳ 8. Envio no melhor horário de cada contato / fuso
+- ⏳ 9. Checagem de spam e prévia por cliente de e-mail
+- ⏳ 10. Funil de vendas no CRM (negócios, etapas, tarefas)
+- ⏳ 11. Zapier/Make
+- ⏳ 12. SMS e WhatsApp (conta Twilio/Meta do próprio cliente)
+
 ## Lançamento (1/2)
 - ✅ Landing com preços + cadastro, Termos, Política de Uso Aceitável e Privacidade (LGPD) em app.novamail.nexaclouds.online (revisar com advogado antes de escala)
 - 🔒 Domínio próprio da marca (hoje *.novamail.nexaclouds.online)

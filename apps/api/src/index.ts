@@ -13,6 +13,7 @@ import { contactTags, funnels, processFunnels } from "./routes/funnels";
 import { track } from "./routes/track";
 import { crmFields, people, segments } from "./routes/crm";
 import { processWarmups } from "./lib/ip-pools";
+import { cleanupPending, forms, publicForms } from "./routes/forms";
 import { mcp } from "./routes/mcp";
 import { media, serveMedia, templates } from "./routes/templates";
 import { admin } from "./routes/admin";
@@ -32,6 +33,17 @@ export const VERSION = "0.1.0";
 
 export const app = new Hono<AppEnv>();
 
+// Public assets meant to be loaded by other sites and mail clients: signup forms (script, card,
+// landing page in an iframe), hosted media and the tracking pixel.
+app.use("*", async (c, next) => {
+  await next();
+  const p = new URL(c.req.url).pathname;
+  if (/^\/(f|m|t)\//.test(p)) {
+    c.res.headers.set("cross-origin-resource-policy", "cross-origin");
+    c.res.headers.delete("cross-origin-opener-policy");
+    if (p.startsWith("/f/")) c.res.headers.delete("x-frame-options");
+  }
+});
 app.use("*", secureHeaders());
 app.use("*", cors({ origin: "*", allowHeaders: ["authorization", "content-type", "idempotency-key"], allowMethods: ["GET", "POST", "PATCH", "DELETE"] }));
 
@@ -68,6 +80,7 @@ app.get("/docs", (c) => c.html(docsHtml(`${c.env.PUBLIC_URL}/openapi.json`)));
 app.route("/hooks/postal", postalHooks);
 app.route("/hooks/stripe", stripeHooks);
 app.route("/u", unsubscribe);
+app.route("/f", publicForms);
 // Public media used inside emails (immutable, edge-cached).
 app.get("/m/:id", (c) => serveMedia(c.env, c.req.raw, c.req.param("id"), c.executionCtx));
 app.route("/hooks/fbl", fbl);
@@ -87,7 +100,7 @@ app.route("/emails", emails);
 
 app.route("/auth", auth);
 
-for (const path of ["/domains", "/api-keys", "/webhooks", "/suppressions", "/usage", "/me", "/billing", "/audiences", "/broadcasts", "/templates", "/media", "/funnels", "/contacts", "/people", "/segments", "/crm"]) {
+for (const path of ["/domains", "/api-keys", "/webhooks", "/suppressions", "/usage", "/me", "/billing", "/audiences", "/broadcasts", "/templates", "/media", "/funnels", "/contacts", "/people", "/segments", "/crm", "/forms"]) {
   app.use(path, requireApiKey, requireFullAccess);
   app.use(`${path}/*`, requireApiKey, requireFullAccess);
 }
@@ -107,6 +120,7 @@ app.route("/contacts/tags", contactTags);
 app.route("/people", people);
 app.route("/segments", segments);
 app.route("/crm/fields", crmFields);
+app.route("/forms", forms);
 
 // Platform owner.
 app.use("/admin/*", requireOwner);
@@ -163,6 +177,7 @@ export default {
     const e = withDb(env);
     ctx.waitUntil(processBroadcasts(e).then((r) => r.length && console.log(JSON.stringify({ level: "info", broadcasts: r }))));
     ctx.waitUntil(processFunnels(e).then((r) => r.due && console.log(JSON.stringify({ level: "info", funnels: r }))));
+    if (new Date(_ctrl.scheduledTime).getUTCMinutes() === 13) ctx.waitUntil(cleanupPending(e));
     if (new Date(_ctrl.scheduledTime).getUTCMinutes() === 7) ctx.waitUntil(processWarmups(e).then((n) => n && console.log(JSON.stringify({ level: "info", warmups: n }))));
   },
 } satisfies ExportedHandler<Env, WebhookJob>;
