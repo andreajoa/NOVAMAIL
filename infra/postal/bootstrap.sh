@@ -77,8 +77,8 @@ DC="docker compose --env-file $ROOT/.env"
 
 log "database"
 $DC up -d mariadb
-$DC run --rm runner postal initialize
-$DC run --rm runner postal upgrade 2>/dev/null || true
+$DC run --rm -T runner postal initialize </dev/null
+$DC run --rm -T runner postal upgrade </dev/null 2>/dev/null || true
 
 log "caddy first (obtains the TLS certificate Postal's SMTP reuses)"
 $DC up -d caddy
