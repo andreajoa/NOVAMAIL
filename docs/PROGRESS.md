@@ -2,7 +2,7 @@
 
 Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta implantar/provar · ⏳ a fazer · 🔒 depende do André
 
-**Progresso geral: 13 / 44 itens (30%)**
+**Progresso geral: 15 / 44 itens (34%)** — atualizado 17/11/2026 00h (BRT)
 
 ## F0 — Auditoria (100%)
 - ✅ 5 repositórios auditados (Postal, listmonk, Plunk, BillionMail, Mautic) → Postal MIT escolhido
@@ -16,19 +16,19 @@ Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta impla
 - ✅ Webhooks do Postal com assinatura RSA verificada, dedupe por uuid, estado sem regressão
 - ✅ Supressão automática de bounce + guarda de reputação (suspende conta)
 - ✅ Webhooks do cliente no padrão Standard Webhooks + fila com 8 tentativas
-- ✅ 16 testes no runtime real da Cloudflare (workerd) passando
+- ✅ 16 testes no runtime real da Cloudflare (workerd) passando, local e no GitHub Actions
 - 🟡 Deploy em `api.novamail.nexaclouds.online` (workflow pronto)
 - ⏳ Documentação OpenAPI + página /docs
 
-## F2 — Nó de envio (4/9)
+## F2 — Nó de envio (5/9)
 - ✅ Sidecar admin do Postal (provisiona org/servidor/credenciais/webhook, domínios, limites, suspensão)
 - ✅ Docker Compose (Postal 3.4 web/smtp/587/worker + MariaDB + Caddy TLS) + bootstrap idempotente
 - ✅ Healthcheck (auto-restart, blocklists Spamhaus/Barracuda/SpamCop, fila)
 - ✅ DNS da plataforma automatizado na Cloudflare
-- 🟡 Teste de integração com Postal real no GitHub Actions
+- ✅ Teste de integração com Postal 3.4 real no GitHub Actions (provisão, idempotência, domínio, envio, limites, suspensão)
 - 🔒 VM com porta 25 liberada
 - 🔒 PTR/rDNS do IP
-- ⏳ Rodar workflow do nó + DNS
+- 🔒 `bash scripts/ativar-novamail.sh` (cria VM, segredos, deploy API + nó + DNS + PTR)
 - ⏳ Primeiro e-mail real entregue em caixa de entrada do Gmail (prova)
 
 ## F3 — Marcas do André no NovaMail (0/6)
