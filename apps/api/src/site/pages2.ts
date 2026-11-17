@@ -1,7 +1,9 @@
+import { EXPLAIN_CSS, costChart, howItWorks } from "./explainers";
 import { API_DOCS, esc, type Page } from "./layout";
 
 const code = (s: string) => `<pre><code>${esc(s)}</code></pre>`;
 
+// (kept for other pages)
 const NOVAMAIL_ROWS: [string, string][] = [
   ["Free plan", "3,000 emails/month, 100/day, 1 domain, no card"],
   ["Paid plans", "Pro $15/mo (50,000 emails) · Scale $60/mo (250,000 emails)"],
@@ -24,20 +26,76 @@ const NOVAMAIL_ROWS: [string, string][] = [
   ["Teams & integrations", "Owner/Admin/Editor/Viewer roles, Zapier/Make/n8n instant triggers, MCP for Claude Code and Codex"],
 ];
 
-function compare(o: { slug: string; name: string; kind: "marketing" | "api"; what: string; why: [string, string][]; switchHow: string; faq: [string, string][] }): Page {
+// Everything below is true of NovaMail on every plan; volumes are the only difference between plans.
+const INCLUDED: [string, string][] = [
+  ["Drag-and-drop editor + 30 templates", "US holidays and everyday designs; paste HTML; video → looping GIF"],
+  ["AI email writer", "Full draft from a brief, rewrite/translate blocks, subject ideas"],
+  ["A/B subject tests", "Automatic winner sent to the rest of the list"],
+  ["Smart send time", "Each contact gets the email at the hour they usually open"],
+  ["Resend to non-openers", "One click, new subject, only people who didn't open"],
+  ["Signup forms, popups & landing pages", "Exit-intent, scroll and timed popups; double opt-in; consent records"],
+  ["Visual automations", "Branching funnels with waits, conditions, tags, email and SMS/WhatsApp steps"],
+  ["CRM", "Contact timeline, engagement score, smart segments, custom fields"],
+  ["Sales pipeline", "Deals, stages, tasks, weighted forecast; won deals trigger emails"],
+  ["Shopify & WooCommerce", "Abandoned-cart recovery, products in emails, revenue per campaign"],
+  ["Honest reports", "Click map, providers, devices; bot clicks filtered, Apple privacy opens separated"],
+  ["Pre-send check", "Spam signals, Gmail clipping, broken links, missing alt text, DMARC"],
+  ["SMS & WhatsApp", "Your own Twilio or Meta account — opt-in and STOP handled"],
+  ["Team seats with roles", "Owner, Admin, Editor, Viewer"],
+  ["Zapier, Make, n8n", "Instant triggers for contacts, orders, carts, deals and email events"],
+  ["Email API + SMTP", "Resend-compatible REST API, SMTP relay, signed webhooks"],
+  ["Claude Code & Codex (MCP)", "Let AI agents build funnels with least-privilege keys"],
+  ["Unlimited contacts", "You pay for emails sent, never for the size of your list"],
+];
+
+const WINS: [string, string][] = [
+  ["Pay for emails, not contacts", "Your list can grow without your bill growing. Send less in a quiet month, pay less."],
+  ["Everything on every plan", "Automations, CRM, forms, A/B tests, AI and reports aren't locked behind a higher tier."],
+  ["Money you can see", "Shopify/WooCommerce revenue is attributed to the exact campaign or funnel that earned it."],
+  ["Numbers you can trust", "Security-scanner clicks are filtered and Apple's automatic opens are shown separately."],
+  ["Inbox first", "Your own domain, SPF/DKIM/DMARC checked live, a pre-send check and isolated sending tiers."],
+  ["One tool instead of five", "Email, CRM, pipeline, forms, SMS/WhatsApp and transactional email share one contact record."],
+];
+
+/** Rough monthly cost on NovaMail for a list emailed `sends` times a month. */
+function costRows(): [string, string, string][] {
+  const sizes = [500, 2_500, 10_000, 25_000, 60_000];
+  return sizes.map((n) => {
+    const emails = n * 4;
+    let plan: string;
+    if (emails <= 3_000) plan = "Free — $0";
+    else if (emails <= 50_000) plan = "Pro — $15/mo ($12.50/mo yearly)";
+    else if (emails <= 100_000) plan = "Pro + 1 extra pack — $25/mo";
+    else if (emails <= 250_000) plan = "Scale — $60/mo ($50/mo yearly)";
+    else plan = `Scale + ${Math.ceil((emails - 250_000) / 50_000)} pack(s)`;
+    return [n.toLocaleString("en-US"), emails.toLocaleString("en-US"), plan];
+  });
+}
+
+function compare(o: { slug: string; name: string; kind: "marketing" | "api"; byContacts?: boolean; what: string; why: [string, string][]; switchHow: string; faq: [string, string][] }): Page {
+  const n = esc(o.name);
   return {
     path: `/${o.slug}`,
     type: "compare",
-    priority: 0.75,
-    title: `${o.name} Alternative — Free Plan, from $15/mo | NovaMail`,
-    description: `Looking for a ${o.name} alternative? NovaMail sends ${o.kind === "marketing" ? "email campaigns and newsletters" : "transactional email via API and SMTP"} from your own domain. Free 3,000 emails/month; Pro $15/mo.`,
-    h1: `A simpler ${o.name} alternative`,
-    lead: `${o.what} If you want something smaller, faster to set up and priced by emails sent, NovaMail is worth a look.`,
-    body: `<section><h2>NovaMail at a glance</h2><table><tbody>${NOVAMAIL_ROWS.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join("")}</tbody></table>
-<p>Features and prices of other providers change often — check ${esc(o.name)}'s own pricing page for current details.</p></section>
-<section><h2>Why teams switch to NovaMail</h2><div class="grid">${o.why.map(([h, p]) => `<div class="card"><h3>${h}</h3><p>${p}</p></div>`).join("")}</div></section>
-<section class="prose"><h2>How to switch from ${esc(o.name)}</h2>${o.switchHow}</section>`,
-    faq: o.faq,
+    priority: 0.8,
+    title: `${o.name} Alternative — All Features, Free Plan | NovaMail`,
+    description: `Switching from ${o.name}? NovaMail includes automations, CRM, forms, A/B tests, AI and Shopify revenue on every plan, unlimited contacts. Free plan; Pro $15/mo.`,
+    h1: `The ${o.name} alternative that includes everything`,
+    lead: `${o.what} NovaMail puts campaigns, automations, CRM, a sales pipeline, signup forms, A/B tests, an AI writer and e-commerce revenue tracking on every plan — and you pay for emails sent, not for the size of your list.`,
+    extraCss: EXPLAIN_CSS,
+    body: `${howItWorks()}${o.byContacts ? costChart(o.name) : ""}<section><h2>Why businesses switch from ${n} to NovaMail</h2><div class="grid">${[...o.why, ...WINS.filter((w) => !(o.why.some(([h]) => /contacts/i.test(h)) && /contacts/i.test(w[0])))].slice(0, 9).map(([h, p]) => `<div class="card"><h3>${esc(h)}</h3><p>${esc(p)}</p></div>`).join("")}</div></section>
+<section><h2>Everything included — even on the Free plan</h2><p>Plans only differ in how many emails you send. Every feature below is on Free, Pro and Scale.</p>
+<table><thead><tr><th>Feature</th><th>What you get</th><th>Free</th><th>Pro</th><th>Scale</th></tr></thead><tbody>${INCLUDED.map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td><td>✓</td><td>✓</td><td>✓</td></tr>`).join("")}</tbody></table></section>
+<section><h2>What it would cost on NovaMail</h2><p>Example: you email your whole list 4 times a month.</p>
+<table><thead><tr><th>Contacts</th><th>Emails / month</th><th>NovaMail plan</th></tr></thead><tbody>${costRows().map(([a, b, c]) => `<tr><td>${a}</td><td>${b}</td><th>${c}</th></tr>`).join("")}</tbody></table>
+<p>Many platforms price by number of contacts, so the bill rises as your list grows even when you send less. Compare with ${n}'s current pricing page — prices and plans change often.</p></section>
+<section class="hero" style="text-align:center"><h2>Try it with your own list — free</h2><p class="lead">3,000 emails a month, every feature, no credit card. Import your contacts in minutes.</p><div class="cta" style="justify-content:center"><a class="btn" href="/login">Start free — no card</a><a class="btn g" href="/pricing">See plans</a></div></section>
+<section class="prose"><h2>How to switch from ${n}</h2>${o.switchHow}</section>`,
+    faq: [
+      [`Is NovaMail cheaper than ${o.name}?`, `NovaMail charges by emails sent, with unlimited contacts on every plan: Free up to 3,000 emails/month, Pro $15/month for 50,000, Scale $60/month for 250,000 (yearly plans get 2 months free). For lists that grow faster than they're emailed this is usually cheaper — check ${o.name}'s current pricing to compare your exact case.`],
+      ["Which features are on the free plan?", "All of them: editor and templates, AI writer, A/B tests, automations, CRM and pipeline, forms and popups, reports, Shopify/WooCommerce, Zapier, SMS/WhatsApp with your own account, team seats and the API. Only the email volume changes between plans."],
+      ...o.faq,
+    ],
   };
 }
 
@@ -48,11 +106,12 @@ const API_SWITCH = (sdk: string) =>
 export const PAGES2: Page[] = [
   compare({
     slug: "mailchimp-alternative",
+    byContacts: true,
     name: "Mailchimp",
     kind: "marketing",
     what: "Mailchimp is one of the best-known email marketing platforms, with a large feature set for marketing teams.",
     why: [
-      ["Priced by emails, not contacts", "Keep your whole list; you only pay for what you send."],
+      ["Priced by emails, not contacts", "Keep your whole list — including people who rarely open — and only pay for what you send."],
       ["Your own domain from day one", "SPF, DKIM and DMARC checked live in the dashboard."],
       ["Campaigns + transactional in one place", "Newsletters and order confirmations share one account, one domain and one suppression list."],
       ["Developer-friendly", "Resend-compatible API and SMTP when you want to automate."],
@@ -69,7 +128,7 @@ export const PAGES2: Page[] = [
     kind: "marketing",
     what: "Brevo (formerly Sendinblue) combines email marketing, SMS and a CRM in one suite.",
     why: [
-      ["Focused on email", "One job done well: campaigns and transactional email that reach the inbox."],
+      ["Email, CRM, SMS & WhatsApp together", "Same all-in-one idea — with SMS and WhatsApp through your own Twilio or Meta account, so you pay the carrier directly, no message credits."],
       ["Clear limits", "Daily and monthly limits shown in your dashboard, with a 429 and a clear message — never surprise overages."],
       ["Resend-compatible API", "Modern REST API with idempotency keys and signed webhooks."],
       ["Free plan", "3,000 emails a month free with your own domain."],
@@ -79,6 +138,7 @@ export const PAGES2: Page[] = [
   }),
   compare({
     slug: "mailerlite-alternative",
+    byContacts: true,
     name: "MailerLite",
     kind: "marketing",
     what: "MailerLite is a popular email marketing tool for creators and small businesses.",

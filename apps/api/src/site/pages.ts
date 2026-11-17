@@ -1,3 +1,4 @@
+import { EXPLAIN_CSS, costChart, howItWorks } from "./explainers";
 import { home, HOME_CSS } from "./home";
 import { pricingCards } from "./pricing";
 import { API_DOCS, esc, type Page } from "./layout";
@@ -146,9 +147,10 @@ export const PAGES: Page[] = [
     title: "Pricing — Free, Pro $15/mo, yearly 2 months free | NovaMail",
     description: "NovaMail pricing: Free 3,000 emails/month; Pro $15/month or $150/year; Scale $60/month or $600/year (2 months free). Campaigns, funnels, CRM, API and SMTP.",
     h1: "Pricing: start free, pay only when you grow",
-    lead: "Every plan includes campaigns, contact lists, the email API, SMTP and webhooks. No setup fees, no contact limits, cancel any time.",
+    lead: "Every plan includes every feature — automations, CRM and sales pipeline, forms, A/B tests, AI writer, Shopify revenue, SMS/WhatsApp, API and SMTP. Unlimited contacts, cancel any time.",
     priority: 0.9,
-    body: `<section>${pricingCards("en")}</section>
+    extraCss: EXPLAIN_CSS,
+    body: `<section>${pricingCards("en")}</section>${costChart()}${howItWorks()}
 <section style="margin-top:28px">${PLANS_TABLE}</section>
 <section class="prose"><h2>What counts as an email?</h2><p>Each recipient of each message is one email. A campaign to 2,000 contacts uses 2,000 emails; an order confirmation to one customer uses one.</p>
 <h2>What happens if I hit my limit?</h2><p>API requests return HTTP 429 with a clear message and running campaigns pause automatically. Upgrade in the dashboard and sending resumes immediately.</p></section>`,

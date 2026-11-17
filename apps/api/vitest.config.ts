@@ -10,6 +10,8 @@ export default defineConfig(async () => {
     plugins: [
       cloudflareTest({
         wrangler: { configPath: "./wrangler.jsonc" },
+        // Workers AI is mocked in tests; never open a remote session (CI has no Cloudflare login).
+        remoteBindings: false,
         miniflare: {
           bindings: {
             POSTAL_ADMIN_TOKEN: "test-admin-token",
