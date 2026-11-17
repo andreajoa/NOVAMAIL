@@ -5,6 +5,7 @@ import { api } from "../api";
 import { date, lang, num } from "../i18n";
 import { navigate } from "../nav";
 import { Badge, Button, Card, Empty, ErrorText, Input, PageTitle } from "../ui";
+import { Preflight } from "../Preflight";
 
 const pt = lang === "pt";
 const L = pt
@@ -44,6 +45,7 @@ export function Broadcasts() {
   const [ab, setAb] = useState<{ on: boolean; subjects: string[]; test_percent: number; metric: "opens" | "clicks"; wait_hours: number }>({ on: false, subjects: [""], test_percent: 20, metric: "opens", wait_hours: 4 });
   const [when, setWhen] = useState<{ mode: "now" | "later"; at: string; smart: boolean }>({ mode: "now", at: "", smart: false });
   const invalidate = () => qc.invalidateQueries({ queryKey: ["broadcasts"] });
+  const tplHtml = useQuery({ queryKey: ["template", f.template_id], queryFn: () => api(`/templates/${f.template_id}`), enabled: !!f.template_id });
   const [ideas, setIdeas] = useState<{ subject: string; preheader: string; angle: string }[]>([]);
   const suggest = useMutation({
     mutationFn: async () => {
@@ -125,6 +127,10 @@ export function Broadcasts() {
             {when.mode === "later" && <input type="datetime-local" required value={when.at} onChange={(e) => setWhen({ ...when, at: e.target.value })} className={sel} />}
             <label className="flex items-center gap-2"><input type="checkbox" checked={when.smart} onChange={(e) => setWhen({ ...when, smart: e.target.checked })} /> {L.smart}</label>
           </div>
+          <details className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-800" onToggle={(e) => (e.currentTarget as HTMLDetailsElement).open && f.template_id && tplHtml.refetch()}>
+            <summary className="cursor-pointer text-sm font-medium">{pt ? "Checar antes de enviar" : "Check before sending"}</summary>
+            <div className="mt-3"><Preflight subject={f.subject || tplHtml.data?.subject || ""} html={f.template_id ? tplHtml.data?.html ?? "" : f.html} from={f.from} /></div>
+          </details>
           <p className="text-xs text-zinc-500">{L.hint}</p>
           <div className="flex gap-2">
             <Button disabled={create.isPending}>{when.mode === "now" ? <><Send size={14} /> {L.send}</> : <><Clock size={14} /> {L.schedule}</>}</Button>

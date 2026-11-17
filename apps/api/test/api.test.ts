@@ -1268,3 +1268,21 @@ describe("AI writing assistant", () => {
     }
   });
 });
+
+describe("pre-send check", () => {
+  it("flags the problems that hurt inbox placement and scores clean emails high", async () => {
+    const { preflight } = await import("@novamail/email");
+    const bad = preflight({ subject: "RE: FREE!!! ACT NOW WINNER", html: '<img src="http://x.com/a.png"><a href="https://bit.ly/x">https://mybank.com</a><script>x</script>', from: "promo@gmail.com" });
+    const ids = bad.findings.map((f) => f.id);
+    expect(ids).toEqual(expect.arrayContaining(["subject_fake_reply", "subject_caps", "subject_punct", "image_only", "alt_missing", "image_http", "unsafe_tags", "shorteners", "link_mismatch", "free_sender", "spam_phrases"]));
+    expect(bad.score).toBeLessThan(20);
+    expect(preflight({ subject: "x", html: `<p>${"a".repeat(110_000)}</p>` }).findings.map((f) => f.id)).toContain("gmail_clip");
+    const good = preflight({ subject: "Your linen edit is here", preheader: "Three breathable pieces for warm days", html: `<p>${"Hello there, our new linen collection is light and breathable. ".repeat(6)}</p><img src="https://cdn.example.com/a.jpg" alt="Linen shirt"><a href="https://shop.example.com/linen">Shop linen</a><p><a href="{{unsubscribe_url}}">Unsubscribe</a></p>` });
+    expect(good.score).toBeGreaterThanOrEqual(95);
+    expect(good.inbox.mobile_subject).toBe("Your linen edit is here");
+
+    const acc = await verifiedAccount(postal, "pro");
+    const r = await call("/tools/preflight", { method: "POST", token: acc.api_key, json: { subject: "Hello", html: "<p>Hi</p>", from: "news@unknown-domain.com" } });
+    expect(r.body.findings[0].id).toBe("domain_unverified");
+  });
+});

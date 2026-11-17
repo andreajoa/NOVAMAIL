@@ -10,6 +10,7 @@ import { lang } from "../i18n";
 import { upload, videoToGif } from "../media";
 import { navigate } from "../nav";
 import { Button, ErrorText, Input } from "../ui";
+import { Preflight } from "../Preflight";
 
 const pt = lang === "pt";
 const L = pt
@@ -354,7 +355,7 @@ export function Editor({ id }: { id: string }) {
   const [name, setName] = useState("");
   const [subject, setSubject] = useState("");
   const [sel, setSel] = useState<string | null>(null);
-  const [mode, setMode] = useState<"edit" | "desktop" | "mobile">("edit");
+  const [mode, setMode] = useState<"edit" | "desktop" | "mobile" | "dark" | "check">("edit");
   const [dragOver, setDragOver] = useState<number | null>(null);
   const [dirty, setDirty] = useState(false);
   const [from, setFrom] = useState("");
@@ -430,7 +431,7 @@ export function Editor({ id }: { id: string }) {
         <button onClick={() => navigate("/templates")} className="flex items-center gap-1 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-white"><ArrowLeft size={15} /> {L.back}</button>
         <Input value={name} onChange={(e) => (setName(e.target.value), setDirty(true))} placeholder={L.name} className="!w-48" />
         <Input value={subject} onChange={(e) => (setSubject(e.target.value), setDirty(true))} placeholder={L.subject} className="!w-72 flex-1" />
-        <Seg value={mode} options={[["edit", L.edit], ["desktop", L.desktop], ["mobile", L.mobile]]} onChange={setMode} />
+        <Seg value={mode} options={[["edit", L.edit], ["desktop", L.desktop], ["mobile", L.mobile], ["dark", lang === "pt" ? "Escuro" : "Dark"], ["check", lang === "pt" ? "Checar" : "Check"]]} onChange={setMode} />
         <Input value={from} onChange={(e) => setFrom(e.target.value)} placeholder={L.testFrom} className="!w-56" />
         {design && <Button variant="ghost" onClick={() => setAiOpen(true)}><Wand2 size={14} /> {AI_L.open}</Button>}
         <Button variant="ghost" onClick={() => test.mutate()} disabled={test.isPending || !from}><Send size={14} /> {L.test}</Button>
@@ -443,9 +444,14 @@ export function Editor({ id }: { id: string }) {
         </div>
       )}
 
-      {mode !== "edit" ? (
+      {mode === "check" ? (
+        <div className="flex-1 overflow-auto bg-zinc-50 p-6 dark:bg-zinc-950">
+          <div className="mx-auto max-w-2xl rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900"><Preflight subject={subject} preheader={design?.preheader} html={fullHtml} from={from} /></div>
+        </div>
+      ) : mode !== "edit" ? (
         <div className="flex-1 overflow-auto bg-zinc-100 p-6 dark:bg-zinc-950">
-          <iframe title="preview" sandbox="allow-same-origin" srcDoc={fullHtml} className="mx-auto block h-full min-h-[80vh] rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800" style={{ width: mode === "mobile" ? 390 : "100%", maxWidth: 900 }} />
+          {mode === "dark" && <p className="mx-auto mb-3 max-w-[900px] text-xs text-zinc-500">{lang === "pt" ? "Simulação do modo escuro do Gmail/Outlook (cores invertidas, imagens preservadas)." : "Simulates Gmail/Outlook dark mode (colors inverted, images kept)."}</p>}
+          <iframe title="preview" sandbox="allow-same-origin" srcDoc={mode === "dark" ? fullHtml.replace("</head>", "<style>html{filter:invert(1) hue-rotate(180deg);background:#fff}img,video,[style*='background-image']{filter:invert(1) hue-rotate(180deg)}</style></head>") : fullHtml} className="mx-auto block h-full min-h-[80vh] rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800" style={{ width: mode === "mobile" ? 390 : "100%", maxWidth: 900 }} />
         </div>
       ) : rawHtml !== null ? (
         <div className="grid flex-1 gap-0 overflow-hidden md:grid-cols-2">
