@@ -75,6 +75,11 @@ if [ ! -s "$CONF/cloudflare-token" ]; then
      Permissões (Zone):     DNS: Edit · Workers Routes: Edit · Zone: Read
      Account Resources: Andrealmeidashop@proton.me's Account · Zone Resources: nexaclouds.online
 EOF
+  if [ ! -t 0 ]; then
+    echo "   Copie o token criado e rode:  pbpaste | tr -d '[:space:]' > $CONF/cloudflare-token && chmod 600 $CONF/cloudflare-token"
+    echo "   Depois rode este script de novo (a VM já criada é reaproveitada)."
+    exit 1
+  fi
   read -r -s -p "   Cole o token aqui e Enter: " CFT; echo
   printf '%s' "$CFT" > "$CONF/cloudflare-token"; chmod 600 "$CONF/cloudflare-token"
 fi
