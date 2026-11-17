@@ -2,7 +2,7 @@
 // (inside a Shadow DOM) and the dashboard's live preview, so all three look identical.
 
 export type FormKind = "embed" | "popup" | "page";
-export type FormField = "email" | "first_name" | "last_name";
+export type FormField = "email" | "first_name" | "last_name" | "phone";
 
 export interface FormConfig {
   title: string;
@@ -11,6 +11,8 @@ export interface FormConfig {
   success: string;
   fields: FormField[];
   consent_text: string;
+  /** Shown next to an unchecked box when the phone field is on (TCPA-style express consent). */
+  sms_consent_text?: string;
   image?: string;
   theme: { bg: string; fg: string; accent: string; button_fg: string; radius: number; font: "system" | "serif" | "mono" };
   popup: { trigger: "delay" | "scroll" | "exit"; delay: number; scroll: number; frequency_days: number; position: "center" | "bottom-right" | "bottom-bar" };
@@ -45,7 +47,9 @@ const LABELS: Record<FormField, [string, string, string]> = {
   email: ["email", "Email address", "email"],
   first_name: ["text", "First name", "given-name"],
   last_name: ["text", "Last name", "family-name"],
+  phone: ["tel", "Mobile phone (optional)", "tel"],
 };
+export const DEFAULT_SMS_CONSENT = "Yes, text me offers and updates. Msg & data rates may apply. Reply STOP to opt out.";
 
 export const escHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 const color = (c: string, fb: string) => (/^#[0-9a-fA-F]{3,8}$/.test(c) ? c : fb);
@@ -64,6 +68,7 @@ export function formCss(cfg: FormConfig) {
 .nm-in:focus{border-color:${ac};box-shadow:0 0 0 3px color-mix(in srgb,${ac} 22%,transparent)}
 .nm-btn{font:inherit;font-weight:650;font-size:15px;padding:13px 16px;border:0;border-radius:${Math.min(r, 12)}px;background:${ac};color:${bf};cursor:pointer;transition:transform .12s,opacity .15s}
 .nm-btn:hover{transform:translateY(-1px)}.nm-btn:active{transform:none}.nm-btn[disabled]{opacity:.6;cursor:wait}
+.nm-check{display:flex;gap:8px;align-items:flex-start;font-size:12px;line-height:1.45;opacity:.75;text-align:left}.nm-check input{margin-top:2px;accent-color:${ac}}
 .nm-legal{margin:12px 0 0;font-size:12px;line-height:1.5;opacity:.6}.nm-hp{position:absolute!important;left:-9999px!important;width:1px;height:1px;opacity:0}
 .nm-msg{margin:0;font-size:16px;line-height:1.5;font-weight:600;animation:nm-in .35s ease}.nm-err{margin:4px 0 0;font-size:13px;color:#dc2626}
 .nm-x{position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:50%;border:0;background:color-mix(in srgb,${bg} 70%,transparent);color:${fg};font-size:20px;line-height:1;cursor:pointer;backdrop-filter:blur(8px);z-index:2}
@@ -77,7 +82,8 @@ export function formHtml(cfg: FormConfig, opts: { action: string; closable?: boo
   const fields = (cfg.fields.includes("email") ? cfg.fields : ["email" as FormField, ...cfg.fields])
     .map((f) => {
       const [type, label, ac] = LABELS[f];
-      return `<label style="display:block"><span class="nm-hp">${label}</span><input class="nm-in" type="${type}" name="${f}" placeholder="${label}" autocomplete="${ac}" ${f === "email" ? "required" : ""} maxlength="200"></label>`;
+      const input = `<label style="display:block"><span class="nm-hp">${label}</span><input class="nm-in" type="${type}" name="${f}" placeholder="${label}" autocomplete="${ac}" ${f === "email" ? "required" : ""} maxlength="200"></label>`;
+      return f === "phone" ? `${input}<label class="nm-check"><input type="checkbox" name="sms_consent" value="1"> <span>${escHtml(cfg.sms_consent_text || DEFAULT_SMS_CONSENT)}</span></label>` : input;
     })
     .join("");
   const img = safeUrl(cfg.image);

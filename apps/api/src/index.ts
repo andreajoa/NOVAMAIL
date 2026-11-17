@@ -21,6 +21,7 @@ import { ai } from "./routes/ai";
 import { tools } from "./routes/tools";
 import { deals, pipelines, tasks } from "./routes/pipeline";
 import { integrations } from "./routes/integrations";
+import { channels, messages, messagingHooks } from "./routes/messaging";
 import { mcp } from "./routes/mcp";
 import { media, serveMedia, templates } from "./routes/templates";
 import { admin } from "./routes/admin";
@@ -89,6 +90,7 @@ app.route("/hooks/stripe", stripeHooks);
 app.route("/u", unsubscribe);
 app.route("/f", publicForms);
 app.route("/hooks/store", storeHooks);
+app.route("/hooks/messaging", messagingHooks);
 // Public media used inside emails (immutable, edge-cached).
 app.get("/m/:id", (c) => serveMedia(c.env, c.req.raw, c.req.param("id"), c.executionCtx));
 app.route("/hooks/fbl", fbl);
@@ -108,7 +110,7 @@ app.route("/emails", emails);
 
 app.route("/auth", auth);
 
-for (const path of ["/domains", "/api-keys", "/webhooks", "/suppressions", "/usage", "/me", "/billing", "/audiences", "/broadcasts", "/templates", "/media", "/funnels", "/contacts", "/people", "/segments", "/crm", "/forms", "/reports", "/team", "/stores", "/commerce", "/ai", "/tools", "/deals", "/pipelines", "/tasks", "/integrations"]) {
+for (const path of ["/domains", "/api-keys", "/webhooks", "/suppressions", "/usage", "/me", "/billing", "/audiences", "/broadcasts", "/templates", "/media", "/funnels", "/contacts", "/people", "/segments", "/crm", "/forms", "/reports", "/team", "/stores", "/commerce", "/ai", "/tools", "/deals", "/pipelines", "/tasks", "/integrations", "/channels", "/messages"]) {
   app.use(path, requireApiKey, requireFullAccess);
   app.use(`${path}/*`, requireApiKey, requireFullAccess);
 }
@@ -139,6 +141,8 @@ app.route("/deals", deals);
 app.route("/pipelines", pipelines);
 app.route("/tasks", tasks);
 app.route("/integrations", integrations);
+app.route("/channels", channels);
+app.route("/messages", messages);
 
 // Platform owner.
 app.use("/admin/*", requireOwner);

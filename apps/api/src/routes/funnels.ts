@@ -10,6 +10,7 @@ import { ApiError, errors, zodMessage } from "../lib/http";
 import { sendOne } from "./emails";
 import { commerceVars } from "./commerce";
 import { emit } from "../lib/events";
+import { sendMessage } from "./messaging";
 import { personalize, personalizeHtml, unsubscribeToken } from "./marketing";
 
 export const FUNNEL_BATCH = 30;
@@ -28,7 +29,7 @@ async function own(env: Env, id: string, accountId: string) {
 
 const nodeSchema = z.object({
   id: z.string().min(1).max(40),
-  type: z.enum(["trigger", "email", "wait", "condition", "tag", "end"]),
+  type: z.enum(["trigger", "email", "message", "wait", "condition", "tag", "end"]),
   x: z.number().finite().default(0),
   y: z.number().finite().default(0),
   data: z.record(z.string(), z.unknown()).default({}),
@@ -44,6 +45,10 @@ function cleanGraph(g: z.infer<typeof graphSchema>): FunnelGraph {
     switch (n.type) {
       case "trigger": return { ...base, type: "trigger", data: { kind: (["audience", "api", "tag"].includes(String(d.kind)) ? d.kind : "audience") as "audience", audience_id: str(d.audience_id, 64), tag: str(d.tag, 40)?.toLowerCase() } };
       case "email": return { ...base, type: "email", data: { template_id: str(d.template_id, 64) ?? "", subject: str(d.subject, 300) } };
+      case "message": {
+        const tp = d.template as { name?: unknown; language?: unknown; variables?: unknown } | undefined;
+        return { ...base, type: "message", data: { channel_id: str(d.channel_id, 64) ?? "", body: str(d.body, 1600), template: tp && typeof tp.name === "string" ? { name: tp.name.slice(0, 512), language: str(tp.language, 10) ?? "en_US", variables: Array.isArray(tp.variables) ? tp.variables.slice(0, 20).map((v) => String(v).slice(0, 1000)) : [] } : undefined } };
+      }
       case "wait": return { ...base, type: "wait", data: { minutes: Math.round(Number(d.minutes ?? 0)) } };
       case "condition": return { ...base, type: "condition", data: { kind: (["opened", "clicked", "has_tag", "in_audience"].includes(String(d.kind)) ? d.kind : "opened") as "opened", tag: str(d.tag, 40)?.toLowerCase(), audience_id: str(d.audience_id, 64) } };
       case "tag": return { ...base, type: "tag", data: { action: d.action === "remove" ? "remove" : "add", tag: (str(d.tag, 40) ?? "").toLowerCase() } };
@@ -155,7 +160,7 @@ funnels.post("/:id/:action{activate|pause}", async (c) => {
     const legacy = f.graph ? [] : (await c.env.DB.prepare("SELECT template_id, wait_minutes, subject FROM funnel_steps WHERE funnel_id = ? ORDER BY position").bind(f.id).all<{ template_id: string; wait_minutes: number; subject: string | null }>()).results;
     const graph = graphOf(f, legacy);
     const issues = validateGraph(graph, await refsFor(c.env, p.accountId));
-    if (!graph.nodes.some((n) => n.type === "email")) issues.push({ message: "Add at least one email." });
+    if (!graph.nodes.some((n) => n.type === "email" || n.type === "message")) issues.push({ message: "Add at least one email or message." });
     if (issues.length) return c.json({ statusCode: 422, name: "invalid_funnel", message: issues.map((i) => i.message).join(" "), issues }, 422);
     if (!f.graph) await c.env.DB.prepare("UPDATE funnels SET graph = ? WHERE id = ?").bind(JSON.stringify(graph), f.id).run();
   }
@@ -308,6 +313,17 @@ export async function processFunnels(env: Env, now = Date.now(), fetcher: typeof
       }
       if (node.type === "condition") {
         node = nextOf(g, node.id, (await evaluate(env, e, node)) ? "yes" : "no");
+        continue;
+      }
+      if (node.type === "message") {
+        // SMS/WhatsApp step: only for people with a phone and an opt-in; otherwise the funnel just continues.
+        try {
+          await sendMessage(env, e.account_id, { channel_id: node.data.channel_id, email: e.email, body: node.data.body, template: node.data.template, funnel_id: e.funnel_id, vars: { first_name: e.first_name ?? "", last_name: e.last_name ?? "", email: e.email } }, fetcher);
+        } catch (err) {
+          if (err instanceof ApiError && err.status === 429) { nextAt = now + 60_000; break; }
+          await env.DB.prepare("INSERT INTO activities (account_id, email, type, data, created_at) VALUES (?,?, 'message_skipped', ?, ?)").bind(e.account_id, e.email, JSON.stringify({ funnel: e.funnel_id, reason: String((err as Error).message).slice(0, 120) }), now).run();
+        }
+        node = nextOf(g, node.id);
         continue;
       }
       if (node.type === "tag") {

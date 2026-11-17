@@ -5,7 +5,7 @@ import {
   useEdgesState, useNodesState, useReactFlow, type Connection, type Edge, type Node, type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { ArrowLeft, CircleStop, Clock, GitFork, Mail, Pause, Play, Tag, Zap } from "lucide-react";
+import { ArrowLeft, CircleStop, Clock, GitFork, Mail, MessageSquare, Pause, Play, Tag, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { api } from "../api";
 import { lang, num } from "../i18n";
@@ -15,23 +15,24 @@ import { Button, ErrorText, Input } from "../ui";
 const pt = lang === "pt";
 const L = pt
   ? { back: "Funis", save: "Salvar", saved: "Salvo", activate: "Ativar", pause: "Pausar", from: "Remetente (domínio verificado)", name: "Nome do funil", palette: "Arraste para o desenho", fix: "Para ativar, corrija:", ok: "Pronto para ativar", select: "Clique em um passo para configurar. Ligue os passos arrastando da bolinha de baixo para a de cima. Delete apaga.", people: "pessoas aqui", yes: "Sim", no: "Não",
-      types: { trigger: "Gatilho", email: "Enviar e-mail", wait: "Esperar", condition: "Condição", tag: "Etiqueta", end: "Fim" } as Record<NodeType, string>,
+      types: { trigger: "Gatilho", email: "Enviar e-mail", message: "SMS / WhatsApp", wait: "Esperar", condition: "Condição", tag: "Etiqueta", end: "Fim" } as Record<NodeType, string>,
       tkind: { audience: "Entrou na lista", tag: "Recebeu a etiqueta", api: "Chamado pela API" }, ckind: { opened: "Abriu o e-mail anterior?", clicked: "Clicou no e-mail anterior?", has_tag: "Tem a etiqueta?", in_audience: "Está na lista?" },
       list: "Lista", template: "Modelo", subject: "Assunto (opcional)", days: "dias", hours: "horas", minutes: "minutos", tag: "Etiqueta", add: "Adicionar", remove: "Remover", newTpl: "Criar modelo", none: "—", draft: "rascunho", active: "ativo", paused: "pausado", api: "Inscreva pela API: POST /funnels/{id}/enroll", tagApi: "Sua loja aplica etiquetas com POST /contacts/tags" }
   : { back: "Funnels", save: "Save", saved: "Saved", activate: "Activate", pause: "Pause", from: "From (verified domain)", name: "Funnel name", palette: "Drag onto the canvas", fix: "To activate, fix:", ok: "Ready to activate", select: "Click a step to configure it. Connect steps by dragging from the bottom dot to the top dot. Delete removes.", people: "people here", yes: "Yes", no: "No",
-      types: { trigger: "Trigger", email: "Send email", wait: "Wait", condition: "Condition", tag: "Tag", end: "End" } as Record<NodeType, string>,
+      types: { trigger: "Trigger", email: "Send email", message: "SMS / WhatsApp", wait: "Wait", condition: "Condition", tag: "Tag", end: "End" } as Record<NodeType, string>,
       tkind: { audience: "Joined a list", tag: "Got a tag", api: "Called from the API" }, ckind: { opened: "Opened the previous email?", clicked: "Clicked the previous email?", has_tag: "Has the tag?", in_audience: "Is on the list?" },
       list: "List", template: "Template", subject: "Subject (optional)", days: "days", hours: "hours", minutes: "minutes", tag: "Tag", add: "Add", remove: "Remove", newTpl: "Create template", none: "—", draft: "draft", active: "active", paused: "paused", api: "Enroll from the API: POST /funnels/{id}/enroll", tagApi: "Your store applies tags with POST /contacts/tags" };
 
-const ICON: Record<NodeType, ReactNode> = { trigger: <Zap size={15} />, email: <Mail size={15} />, wait: <Clock size={15} />, condition: <GitFork size={15} />, tag: <Tag size={15} />, end: <CircleStop size={15} /> };
+const ICON: Record<NodeType, ReactNode> = { trigger: <Zap size={15} />, email: <Mail size={15} />, message: <MessageSquare size={15} />, wait: <Clock size={15} />, condition: <GitFork size={15} />, tag: <Tag size={15} />, end: <CircleStop size={15} /> };
 
-type Ctx = { templates: Map<string, string>; audiences: Map<string, string>; counts: Record<string, number> };
-let ctx: Ctx = { templates: new Map(), audiences: new Map(), counts: {} };
+type Ctx = { templates: Map<string, string>; audiences: Map<string, string>; counts: Record<string, number>; channels: any[] };
+let ctx: Ctx = { templates: new Map(), audiences: new Map(), counts: {}, channels: [] };
 
 function summary(type: NodeType, d: any): string {
   switch (type) {
     case "trigger": return d.kind === "audience" ? `${L.tkind.audience}: ${ctx.audiences.get(d.audience_id) ?? L.none}` : d.kind === "tag" ? `${L.tkind.tag}: ${d.tag || L.none}` : L.tkind.api;
     case "email": return ctx.templates.get(d.template_id) ?? L.none;
+    case "message": return d.template?.name ? `WhatsApp: ${d.template.name}` : (d.body || L.none);
     case "wait": { const m = d.minutes ?? 0; const dd = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60), mm = m % 60; const u = (n: number, many: string, one: string) => `${n} ${n === 1 ? one : many}`; return [dd && u(dd, L.days, pt ? "dia" : "day"), h && u(h, L.hours, pt ? "hora" : "hour"), mm && u(mm, L.minutes, pt ? "minuto" : "minute")].filter(Boolean).join(" ") || L.none; }
     case "condition": return d.kind === "has_tag" ? `${L.ckind.has_tag} ${d.tag ?? ""}` : d.kind === "in_audience" ? `${L.ckind.in_audience} ${ctx.audiences.get(d.audience_id) ?? ""}` : L.ckind[d.kind as "opened"];
     case "tag": return `${d.action === "remove" ? L.remove : L.add}: ${d.tag || L.none}`;
@@ -61,7 +62,7 @@ function Card({ id, type, data, selected }: NodeProps & { type: NodeType }) {
   );
 }
 
-const nodeTypes = Object.fromEntries((["trigger", "email", "wait", "condition", "tag", "end"] as NodeType[]).map((t) => [t, (p: NodeProps) => <Card {...p} type={t} />]));
+const nodeTypes = Object.fromEntries((["trigger", "email", "message", "wait", "condition", "tag", "end"] as NodeType[]).map((t) => [t, (p: NodeProps) => <Card {...p} type={t} />]));
 
 const toRF = (g: FunnelGraph): { nodes: Node[]; edges: Edge[] } => ({
   nodes: g.nodes.map((n) => ({ id: n.id, type: n.type, position: { x: n.x, y: n.y }, data: n.data as Record<string, unknown>, deletable: n.type !== "trigger" })),
@@ -85,6 +86,7 @@ const fromRF = (nodes: Node[], edges: Edge[]): FunnelGraph => ({
 function defaults(type: NodeType, templates: any[]): Record<string, unknown> {
   switch (type) {
     case "email": return { template_id: templates[0]?.id ?? "" };
+    case "message": return { channel_id: "", body: "Hi {{first_name}}, " };
     case "wait": return { minutes: 1440 };
     case "condition": return { kind: "opened" };
     case "tag": return { action: "add", tag: "engaged" };
@@ -139,6 +141,21 @@ function Inspector({ node, onChange, templates, audiences }: { node: Node; onCha
         {d.kind === "has_tag" && <Field label={L.tag}><Input value={d.tag ?? ""} onChange={(e) => set({ tag: e.target.value.toLowerCase() })} placeholder="purchased" /></Field>}
         {d.kind === "in_audience" && <Field label={L.list}>{listSel(d.audience_id)}</Field>}
       </>);
+    case "message": {
+      const chs: any[] = ctx.channels;
+      const ch = chs.find((c) => c.id === d.channel_id);
+      return (<>
+        <Field label={pt ? "Canal" : "Channel"}><select className={sel} value={d.channel_id ?? ""} onChange={(e) => set({ channel_id: e.target.value })}><option value="">—</option>{chs.map((c) => <option key={c.id} value={c.id}>{c.name} · {c.kind === "sms_twilio" ? "SMS" : "WhatsApp"}</option>)}</select></Field>
+        {ch?.kind === "whatsapp_meta" ? (<>
+          <Field label={pt ? "Modelo aprovado (nome)" : "Approved template (name)"}><Input value={d.template?.name ?? ""} onChange={(e) => set({ template: { name: e.target.value.trim(), language: d.template?.language ?? "en_US", variables: d.template?.variables ?? [] }, body: undefined })} placeholder="order_update" /></Field>
+          <Field label={pt ? "Idioma" : "Language"}><Input value={d.template?.language ?? "en_US"} onChange={(e) => set({ template: { ...(d.template ?? { name: "", variables: [] }), language: e.target.value } })} /></Field>
+          <Field label={pt ? "Variáveis (uma por linha)" : "Variables (one per line)"}><textarea rows={3} className="w-full rounded-lg border border-zinc-200 bg-white p-2 text-sm dark:border-zinc-800 dark:bg-zinc-950" value={(d.template?.variables ?? []).join("\n")} onChange={(e) => set({ template: { ...(d.template ?? { name: "", language: "en_US" }), variables: e.target.value.split("\n").filter(Boolean) } })} placeholder="{{first_name}}" /></Field>
+        </>) : (
+          <Field label={pt ? "Mensagem" : "Message"}><textarea rows={4} maxLength={1600} className="w-full rounded-lg border border-zinc-200 bg-white p-2 text-sm dark:border-zinc-800 dark:bg-zinc-950" value={d.body ?? ""} onChange={(e) => set({ body: e.target.value })} /></Field>
+        )}
+        <p className="text-xs text-zinc-500">{pt ? "Só envia para quem tem telefone e aceitou receber; os demais seguem o funil normalmente." : "Only sent to people with a phone number and an opt-in; everyone else simply continues."}</p>
+      </>);
+    }
     case "tag":
       return (<>
         <Field label={L.types.tag}><select className={sel} value={d.action} onChange={(e) => set({ action: e.target.value })}><option value="add">{L.add}</option><option value="remove">{L.remove}</option></select></Field>
@@ -155,6 +172,7 @@ function Canvas({ id }: { id: string }) {
   const q = useQuery({ queryKey: ["funnel", id], queryFn: () => api(`/funnels/${id}`), refetchInterval: 30_000, refetchOnWindowFocus: false });
   const tpls = useQuery({ queryKey: ["templates"], queryFn: () => api("/templates") });
   const auds = useQuery({ queryKey: ["audiences"], queryFn: () => api("/audiences") });
+  const chans = useQuery({ queryKey: ["channels"], queryFn: () => api("/channels") });
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [meta, setMeta] = useState({ name: "", from: "" });
@@ -162,7 +180,7 @@ function Canvas({ id }: { id: string }) {
   const [savedJson, setSavedJson] = useState("");
   const templates: any[] = tpls.data?.data ?? [];
   const audiences: any[] = auds.data?.data ?? [];
-  ctx = { templates: new Map(templates.map((t) => [t.id, t.name])), audiences: new Map(audiences.map((a) => [a.id, a.name])), counts: q.data?.node_counts ?? {} };
+  ctx = { templates: new Map(templates.map((t) => [t.id, t.name])), audiences: new Map(audiences.map((a) => [a.id, a.name])), counts: q.data?.node_counts ?? {}, channels: chans.data?.data ?? [] };
 
   useEffect(() => {
     if (!q.data || loaded) return;
@@ -237,7 +255,7 @@ function Canvas({ id }: { id: string }) {
       <div className="flex flex-1 overflow-hidden">
         <aside className="w-48 shrink-0 space-y-2 overflow-y-auto border-r border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
           <p className="mb-2 text-[11px] text-zinc-500">{L.palette}</p>
-          {(["trigger", "email", "wait", "condition", "tag", "end"] as NodeType[]).map((t) => (
+          {(["trigger", "email", "message", "wait", "condition", "tag", "end"] as NodeType[]).map((t) => (
             <div key={t} draggable onDragStart={(e) => e.dataTransfer.setData("application/nm-node", t)} className="flex cursor-grab items-center gap-2 rounded-lg border border-zinc-200 px-2.5 py-2 text-sm active:cursor-grabbing dark:border-zinc-800">
               {ICON[t]} {L.types[t]}
             </div>

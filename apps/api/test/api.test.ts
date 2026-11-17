@@ -1356,3 +1356,66 @@ describe("Zapier / Make REST hooks", () => {
     expect((await t("/webhooks")).body.data.find((w: any) => w.id === sub.body.id)).toBeUndefined();
   });
 });
+
+describe("SMS and WhatsApp (customer's own Twilio / Meta)", () => {
+  it("verifies channels, enforces opt-in, appends STOP, runs in funnels and handles signed STOP replies", async () => {
+    const { twilioSignature } = await import("../src/routes/messaging");
+    const { processFunnels } = await import("../src/routes/funnels");
+    const acc = await verifiedAccount(postal, "pro");
+    const t = (path: string, init: any = {}) => call(path, { token: acc.api_key, ...init });
+    const sent: any[] = [];
+    const base = (globalThis.fetch as any).getMockImplementation();
+    (globalThis.fetch as any).mockImplementation(async (input: any, init?: any) => {
+      const url = String(input?.url ?? input);
+      if (url.startsWith("https://api.twilio.com/")) {
+        if (url.endsWith("/Messages.json")) { sent.push({ kind: "sms", body: Object.fromEntries(new URLSearchParams(String(init.body))) }); return new Response(JSON.stringify({ sid: `SM${sent.length}`, status: "queued" }), { status: 201 }); }
+        return new Response(JSON.stringify({ sid: "AC" }), { status: 200 });
+      }
+      if (url.startsWith("https://graph.facebook.com/")) {
+        if (url.endsWith("/messages")) { sent.push({ kind: "wa", body: JSON.parse(String(init.body)) }); return new Response(JSON.stringify({ messages: [{ id: "wamid.1" }] })); }
+        return new Response(JSON.stringify({ display_phone_number: "+1 555 000 0000" }));
+      }
+      return base(input, init);
+    });
+    const SID = "AC" + "0".repeat(32), TOKEN = "twilio_auth_token_1234567890";
+    const sms = await t("/channels", { method: "POST", json: { kind: "sms_twilio", name: "Twilio", account_sid: SID, auth_token: TOKEN, from: "+15550001111" } });
+    expect(sms.status).toBe(201);
+    const wa = await t("/channels", { method: "POST", json: { kind: "whatsapp_meta", name: "WA", phone_number_id: "1234567890", access_token: "EAAG" + "x".repeat(30), app_secret: "meta_app_secret_123456" } });
+    expect(wa.body.verify_token).toBeTruthy();
+
+    // No opt-in → blocked.
+    expect((await t("/messages", { method: "POST", json: { channel_id: sms.body.id, to: "+15557778888", body: "Hi" } })).status).toBe(403);
+    await t("/messages/consent", { method: "POST", json: { phone: "+1 (555) 777-8888", kind: "sms", granted: true, email: "texter@example.org", source: "checkout" } });
+    const ok = await t("/messages", { method: "POST", json: { channel_id: sms.body.id, email: "texter@example.org", body: "Flash sale today" } });
+    expect(ok.status).toBe(201);
+    expect(sent.at(-1).body.Body).toContain("Reply STOP to opt out.");
+    expect(sent.at(-1).body.To).toBe("+15557778888");
+
+    // WhatsApp template.
+    await t("/messages/consent", { method: "POST", json: { phone: "+15557778888", kind: "whatsapp", granted: true } });
+    await t("/messages", { method: "POST", json: { channel_id: wa.body.id, to: "+15557778888", template: { name: "order_update", language: "en_US", variables: ["Ana"] } } });
+    expect(sent.at(-1).body).toMatchObject({ to: "15557778888", type: "template", template: { name: "order_update" } });
+
+    // Funnel with an SMS step after a tag trigger.
+    await t("/people", { method: "POST", json: { email: "texter@example.org", first_name: "Tex" } });
+    const fn = await t("/funnels", { method: "POST", json: { name: "SMS", from: "a@example.com", graph: { version: 1, nodes: [{ id: "t", type: "trigger", x: 0, y: 0, data: { kind: "tag", tag: "vip" } }, { id: "m", type: "message", x: 0, y: 1, data: { channel_id: sms.body.id, body: "Hi {{first_name}}, VIP access is open" } }], edges: [{ id: "1", from: "t", handle: "next", to: "m" }] } } });
+    expect((await t(`/funnels/${fn.body.id}/activate`, { method: "POST" })).body.status).toBe("active");
+    await t("/contacts/tags", { method: "POST", json: { email: "texter@example.org", add: ["vip"] } });
+    await processFunnels(testEnv as any, Date.now() + 1000);
+    expect(sent.at(-1).body.Body).toContain("Hi Tex, VIP access is open");
+
+    // Signed STOP reply revokes consent; a forged one is rejected.
+    const url = `https://api.novamail.test/hooks/messaging/${sms.body.id}`;
+    const params = { From: "+15557778888", Body: "STOP", MessageSid: "SMx" };
+    const form = new URLSearchParams(params).toString();
+    expect((await rawReq(url, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", "x-twilio-signature": "forged" }, body: form })).status).toBe(403);
+    const r = await rawReq(url, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", "x-twilio-signature": await twilioSignature(TOKEN, url, params) }, body: form });
+    expect(r.status).toBe(200);
+    expect((await t("/messages", { method: "POST", json: { channel_id: sms.body.id, to: "+15557778888", body: "Again" } })).status).toBe(403);
+    expect((await t("/messages")).body.data.length).toBeGreaterThanOrEqual(3);
+
+    // Meta webhook verification handshake.
+    const hs = await rawReq(`/hooks/messaging/${wa.body.id}?hub.mode=subscribe&hub.verify_token=${wa.body.verify_token}&hub.challenge=42`);
+    expect(hs.text).toBe("42");
+  });
+});

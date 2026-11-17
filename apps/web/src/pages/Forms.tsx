@@ -99,7 +99,7 @@ function Editor({ id, onBack }: { id: string; onBack: () => void }) {
               <Field label={L.txt}><textarea rows={3} value={c.text} onChange={(e) => set({ text: e.target.value })} className="w-full rounded-lg border border-zinc-200 bg-white p-2 text-sm dark:border-zinc-800 dark:bg-zinc-950" /></Field>
               <div className="grid grid-cols-2 gap-2"><Field label={L.btn}><Input value={c.button} onChange={(e) => set({ button: e.target.value })} /></Field><Field label={L.img}><Input value={c.image ?? ""} onChange={(e) => set({ image: e.target.value })} placeholder="https://…" /></Field></div>
               <Field label={L.fields}>
-                <div className="flex gap-3 text-sm">{(["email", "first_name", "last_name"] as const).map((k) => (
+                <div className="flex gap-3 text-sm">{(["email", "first_name", "last_name", "phone"] as const).map((k) => (
                   <label key={k} className="flex items-center gap-1.5"><input type="checkbox" disabled={k === "email"} checked={c.fields.includes(k)} onChange={(e) => set({ fields: e.target.checked ? [...c.fields, k] : c.fields.filter((x) => x !== k) })} />{k.replace("_", " ")}</label>
                 ))}</div>
               </Field>

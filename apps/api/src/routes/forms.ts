@@ -9,6 +9,7 @@ import { errors, zodMessage } from "../lib/http";
 import { sendOne } from "./emails";
 import { applyTags, onAudienceJoin } from "./funnels";
 import { emit } from "../lib/events";
+import { normalizePhone, setConsent } from "./messaging";
 
 const PENDING_TTL = 7 * 86_400_000;
 const hex = z.string().regex(/^#[0-9a-fA-F]{3,8}$/);
@@ -17,7 +18,8 @@ const configSchema = z.object({
   text: z.string().max(400).default(""),
   button: z.string().min(1).max(40),
   success: z.string().min(1).max(300),
-  fields: z.array(z.enum(["email", "first_name", "last_name"])).min(1).max(3),
+  fields: z.array(z.enum(["email", "first_name", "last_name", "phone"])).min(1).max(4),
+  sms_consent_text: z.string().max(300).optional(),
   consent_text: z.string().max(400).default(""),
   image: z.string().url().startsWith("https://").max(500).optional().or(z.literal("").transform(() => undefined)),
   theme: z.object({ bg: hex, fg: hex, accent: hex, button_fg: hex, radius: z.number().min(0).max(32), font: z.enum(["system", "serif", "mono"]) }),
@@ -197,6 +199,8 @@ const submitSchema = z.object({
   email: z.email().max(254).transform((e) => e.trim().toLowerCase()),
   first_name: z.string().max(100).optional(),
   last_name: z.string().max(100).optional(),
+  phone: z.string().max(30).optional(),
+  sms_consent: z.union([z.literal("1"), z.literal("on"), z.literal(true), z.literal("true")]).optional(),
   website: z.string().max(200).optional(),
   t: z.coerce.number().optional(),
   page: z.string().max(500).optional(),
@@ -220,7 +224,9 @@ publicForms.post("/:id{frm_[A-Za-z0-9_-]+}/submit", async (c) => {
   if (b.data.website || tooFast) return reply(200, f.cfg.success);
 
   const info = { ip, user_agent: (c.req.header("user-agent") ?? "").slice(0, 300), page: b.data.page ?? c.req.header("referer") ?? null };
-  const person = { email: b.data.email, first_name: b.data.first_name?.trim() || undefined, last_name: b.data.last_name?.trim() || undefined };
+  const phone = normalizePhone(b.data.phone);
+  if (b.data.phone?.trim() && !phone) return reply(422, "Please enter the phone with country code, e.g. +1 555 123 4567.");
+  const person = { email: b.data.email, first_name: b.data.first_name?.trim() || undefined, last_name: b.data.last_name?.trim() || undefined, phone: phone ?? undefined, sms_consent: !!(phone && b.data.sms_consent) };
   if (!f.double_optin) {
     await subscribe(c.env, f, person, info, null);
     return reply(200, f.cfg.success);
@@ -260,7 +266,7 @@ function confirmEmail(cfg: FormConfig, link: string) {
 }
 
 /** Adds the person to the form's list (re-subscribing if they had left), tags, funnels and consent proof. */
-async function subscribe(env: Env, f: FormRow & { cfg: FormConfig }, person: { email: string; first_name?: string; last_name?: string }, info: { ip: string; user_agent: string; page: string | null }, confirmedAt: number | null) {
+async function subscribe(env: Env, f: FormRow & { cfg: FormConfig }, person: { email: string; first_name?: string; last_name?: string; phone?: string; sms_consent?: boolean }, info: { ip: string; user_agent: string; page: string | null }, confirmedAt: number | null) {
   const now = Date.now();
   await env.DB.batch([
     env.DB.prepare(
@@ -275,6 +281,10 @@ async function subscribe(env: Env, f: FormRow & { cfg: FormConfig }, person: { e
     env.DB.prepare("UPDATE forms SET confirms = confirms + 1 WHERE id = ?").bind(f.id),
   ]);
   await emit(env, f.account_id, "form.submitted", { form_id: f.id, form_name: f.name, email: person.email, first_name: person.first_name ?? null, last_name: person.last_name ?? null, list_id: f.audience_id, double_optin: !!confirmedAt, page: info.page });
+  if (person.phone) {
+    await env.DB.prepare("INSERT INTO people_data (account_id, email, phone, fields, created_at, updated_at) VALUES (?,?,?, '{}', ?, ?) ON CONFLICT(account_id, email) DO UPDATE SET phone = excluded.phone, updated_at = excluded.updated_at").bind(f.account_id, person.email, person.phone, now, now).run();
+    if (person.sms_consent) await setConsent(env, f.account_id, person.phone, "sms", true, `form:${f.id}`, person.email);
+  }
   if (f.cfg.tags.length) await applyTags(env, f.account_id, person.email, f.cfg.tags, []);
   await onAudienceJoin(env, f.account_id, f.audience_id, [person.email]);
 }
@@ -294,7 +304,7 @@ publicForms.post("/confirm/:token", async (c) => {
   if (!p || p.expires_at < Date.now()) return htmlResponse(pageShell("Link expired", `<div class="box"><h1>Link expired</h1><p>This confirmation link is no longer valid. Please sign up again.</p></div>`, nonce), nonce, 404);
   const f = await loadForm(c.env, p.form_id);
   if (!f) return htmlResponse(pageShell("Form not available", `<div class="box"><p>This form is no longer active.</p></div>`, nonce), nonce, 404);
-  const d = JSON.parse(p.data) as { person: { email: string; first_name?: string; last_name?: string }; info: { ip: string; user_agent: string; page: string | null } };
+  const d = JSON.parse(p.data) as { person: { email: string; first_name?: string; last_name?: string; phone?: string; sms_consent?: boolean }; info: { ip: string; user_agent: string; page: string | null } };
   await subscribe(c.env, f, d.person, d.info, Date.now());
   if (f.cfg.redirect_url) return c.redirect(f.cfg.redirect_url, 303);
   return htmlResponse(pageShell("Subscribed", `<div class="box"><h1>You're in ✓</h1><p>Thanks for confirming — <b>${escHtml(p.email)}</b> is now subscribed.</p></div>`, nonce), nonce);

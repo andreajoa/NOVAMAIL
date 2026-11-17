@@ -1,10 +1,11 @@
 // Funnel graphs (node-based automations), shared by the dashboard canvas, the API and the engine.
 
-export type NodeType = "trigger" | "email" | "wait" | "condition" | "tag" | "end";
+export type NodeType = "trigger" | "email" | "message" | "wait" | "condition" | "tag" | "end";
 
 export type FunnelNode =
   | { id: string; type: "trigger"; x: number; y: number; data: { kind: "audience" | "api" | "tag"; audience_id?: string; tag?: string } }
   | { id: string; type: "email"; x: number; y: number; data: { template_id: string; subject?: string } }
+  | { id: string; type: "message"; x: number; y: number; data: { channel_id: string; body?: string; template?: { name: string; language: string; variables: string[] } } }
   | { id: string; type: "wait"; x: number; y: number; data: { minutes: number } }
   | { id: string; type: "condition"; x: number; y: number; data: { kind: "opened" | "clicked" | "has_tag" | "in_audience"; tag?: string; audience_id?: string } }
   | { id: string; type: "tag"; x: number; y: number; data: { action: "add" | "remove"; tag: string } }
@@ -65,6 +66,10 @@ export function validateGraph(g: FunnelGraph, refs: { templateIds?: Set<string>;
     if (n.type === "email") {
       if (!n.data.template_id) issues.push({ node: n.id, message: "Choose a template." });
       else if (refs.templateIds && !refs.templateIds.has(n.data.template_id)) issues.push({ node: n.id, message: "Template not found." });
+    }
+    if (n.type === "message") {
+      if (!n.data.channel_id) issues.push({ node: n.id, message: "Choose an SMS or WhatsApp channel." });
+      if (!n.data.body?.trim() && !n.data.template?.name) issues.push({ node: n.id, message: "Write the message or choose a WhatsApp template." });
     }
     if (n.type === "wait" && !(Number.isInteger(n.data.minutes) && n.data.minutes >= 1 && n.data.minutes <= 525_600)) issues.push({ node: n.id, message: "Wait between 1 minute and 1 year." });
     if (n.type === "tag" && !TAG_RE.test(n.data.tag ?? "")) issues.push({ node: n.id, message: "Tags use lowercase letters, numbers, -, _, . or :" });

@@ -103,7 +103,7 @@ Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta impla
 - ✅ IP dedicado US$29/mês · US$290/ano: oferecido no checkout do Scale e no painel; aviso por e-mail ao dono; aquecimento automático (~3 semanas, limite por hora dobrando); cancelou → volta ao grupo do plano
 - 🔒 Ligar o IP do Free (`bash scripts/ip-pool.sh shared`) quando a porta 25 abrir e entrar o 1º pagante (~US$3,60/mês)
 
-## F12 — Melhor que os concorrentes (11/12)
+## F12 — Melhor que os concorrentes (12/12)
 - ✅ 1. Formulários: no site, pop-up (tempo/rolagem/saída; centro/canto/barra) e página própria; Shadow DOM; confirmação dupla; anti-robô (campo isca, tempo mínimo, limite por IP e por formulário); prova de consentimento (IP, navegador, página, hora); 5 modelos; editor com prévia desktop/celular; conversão
 - ✅ 2. Central de preferências: escolher listas, voltar a assinar, descadastro total; inglês/português pelo navegador; botão do Gmail continua 1 clique
 - ✅ 3. Teste A/B (até 4 assuntos, % do teste, vencedor por abertura ou clique, espera; vencedor vai sozinho ao resto) + reenvio para quem não abriu + agendamento
@@ -115,7 +115,7 @@ Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta impla
 - ✅ 9. Checagem antes do envio (nota 0–100 + como corrigir): assunto, CAIXA ALTA, RE: falso, frases de spam, proporção texto/imagem, alt, http, encurtadores, link disfarçado (phishing), corte do Gmail >102 KB, remetente grátis, domínio verificado e DMARC; prévia da caixa de entrada celular/computador e do modo escuro; API /tools/preflight
 - ✅ 10. Vendas no CRM: quadro de negócios com arrastar e soltar, etapas personalizáveis com probabilidade, previsão ponderada, taxa de ganho, responsável da equipe, tarefas com prazo/atrasadas; ganhou/perdeu → etiqueta deal-won/deal-lost dispara funis; tudo na linha do tempo do contato
 - ✅ 11. Zapier/Make/n8n: gatilhos instantâneos (REST hooks) para 16 eventos (contato, etiqueta, descadastro, formulário, pedido, carrinho, negócios, e-mail), exemplos de dados, eventos assinados; app do Zapier pronto em integrations/zapier (falta só `zapier push` com a conta do André); página /integrations
-- ⏳ 12. SMS e WhatsApp (conta Twilio/Meta do próprio cliente)
+- ✅ 12. SMS (Twilio) e WhatsApp (Meta Cloud) com a conta do próprio cliente (custo zero para o NovaMail): credenciais verificadas e criptografadas, consentimento por canal obrigatório, "Reply STOP" automático, STOP/PARAR por resposta assinada, modelos aprovados do WhatsApp, passo "SMS/WhatsApp" nos funis, telefone + caixa de consentimento (desmarcada) nos formulários, histórico de mensagens
 
 ## Lançamento (1/2)
 - ✅ Landing com preços + cadastro, Termos, Política de Uso Aceitável e Privacidade (LGPD) em app.novamail.nexaclouds.online (revisar com advogado antes de escala)
