@@ -2,7 +2,7 @@
 
 Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta implantar/provar · ⏳ a fazer · 🔒 depende do André
 
-**Progresso geral: 65 / 71 itens (92%)** — atualizado 17/11/2026 (BRT)
+**Progresso geral: 77 / 83 itens (93%)** — faltam só itens que dependem de terceiros (porta 25, domínios das marcas, Zapier push) — atualizado 17/11/2026 (BRT)
 
 ## F0 — Auditoria (100%)
 - ✅ 5 repositórios auditados (Postal, listmonk, Plunk, BillionMail, Mautic) → Postal MIT escolhido
