@@ -1078,3 +1078,73 @@ describe("reports", () => {
     expect(ov.body.revenue.attributed_cents).toBe(12900);
   });
 });
+
+describe("teams and roles", () => {
+  const lastCode = () => { const m = String(postal.sent.at(-1)?.plain_body ?? "").match(/(\d{3}) (\d{3})/); return m ? m[1]! + m[2]! : ""; };
+  async function req(path: string, init: RequestInit & { json?: unknown; cookie?: string } = {}) {
+    const { app } = await import("../src/index");
+    const { createExecutionContext, waitOnExecutionContext } = await import("cloudflare:test");
+    const headers = new Headers(init.headers);
+    if (init.json !== undefined) headers.set("content-type", "application/json");
+    if (init.cookie) headers.set("cookie", init.cookie);
+    if (init.method && init.method !== "GET") headers.set("x-novamail-client", "dashboard");
+    const ctx = createExecutionContext();
+    const res = await app.request(path, { ...init, headers, body: init.json !== undefined ? JSON.stringify(init.json) : init.body }, testEnv, ctx);
+    await waitOnExecutionContext(ctx);
+    return { status: res.status, body: (await res.json().catch(() => null)) as any, cookie: (res.headers.get("set-cookie") ?? "").split(";")[0]! };
+  }
+  async function login(email: string) {
+    await req("/auth/start", { method: "POST", json: { email } });
+    return req("/auth/verify", { method: "POST", json: { email, code: lastCode() } });
+  }
+  const inviteToken = () => String(postal.sent.at(-1)?.html_body ?? "").match(/invite=([A-Za-z0-9_-]+)/)![1]!;
+
+  it("invites, enforces roles, protects owners and switches workspaces", async () => {
+    const sys = await verifiedAccount(postal, "internal");
+    Object.assign(testEnv, { SYSTEM_ACCOUNT_ID: sys.id, SYSTEM_FROM: "NovaMail <no-reply@example.com>" });
+    const owner = (await login("boss@team.test")).cookie;
+    const ownerMe = await req("/me", { cookie: owner });
+    const ws = ownerMe.body.account.id;
+
+    expect((await req("/team/invites", { method: "POST", cookie: owner, json: { email: "ed@team.test", role: "editor" } })).status).toBe(201);
+    expect(postal.sent.at(-1).subject).toContain("invited you");
+    const ed = await login("ed@team.test");
+    expect(ed.body.new_account).toBe(false); // joined the team, no empty account created
+    expect((await req("/me", { cookie: ed.cookie })).body.account.id).toBe(ws);
+    expect((await req("/team", { cookie: ed.cookie })).body.role).toBe("editor");
+    expect((await req("/audiences", { method: "POST", cookie: ed.cookie, json: { name: "Editors can" } })).status).toBe(201);
+    expect((await req("/api-keys", { method: "POST", cookie: ed.cookie, json: { name: "nope" } })).status).toBe(403);
+    expect((await req("/api-keys", { cookie: ed.cookie })).status).toBe(403);
+    expect((await req("/billing/checkout", { method: "POST", cookie: ed.cookie, json: { plan: "pro" } })).status).toBe(403);
+    expect((await req("/team/invites", { method: "POST", cookie: ed.cookie, json: { email: "x@team.test" } })).status).toBe(403);
+
+    await req("/team/invites", { method: "POST", cookie: owner, json: { email: "view@team.test", role: "viewer" } });
+    const viewer = (await login("view@team.test")).cookie;
+    expect((await req("/audiences", { cookie: viewer })).status).toBe(200);
+    expect((await req("/audiences", { method: "POST", cookie: viewer, json: { name: "no" } })).status).toBe(403);
+
+    const members = (await req("/team", { cookie: owner })).body.members;
+    const edId = members.find((m: any) => m.email === "ed@team.test").id;
+    const bossId = members.find((m: any) => m.email === "boss@team.test").id;
+    await req(`/team/members/${edId}`, { method: "PATCH", cookie: owner, json: { role: "admin" } });
+    expect((await req("/api-keys", { method: "POST", cookie: ed.cookie, json: { name: "admin can" } })).status).toBe(201);
+    expect((await req(`/team/members/${bossId}`, { method: "PATCH", cookie: ed.cookie, json: { role: "viewer" } })).status).toBe(403);
+    expect((await req(`/team/members/${bossId}`, { method: "DELETE", cookie: owner })).status).toBe(409); // last owner
+    const viewerId = (await req("/team", { cookie: owner })).body.members.find((m: any) => m.email === "view@team.test").id;
+    await req(`/team/members/${viewerId}`, { method: "DELETE", cookie: owner });
+    expect((await req("/me", { cookie: viewer })).status).toBe(401);
+
+    // An existing user with their own account accepts an invite and switches between workspaces.
+    const multi = await login("multi@team.test");
+    const own = (await req("/me", { cookie: multi.cookie })).body.account.id;
+    await req("/team/invites", { method: "POST", cookie: owner, json: { email: "multi@team.test", role: "editor" } });
+    const tok = inviteToken();
+    expect((await req("/team/invites/accept", { method: "POST", cookie: ed.cookie, json: { token: tok } })).status).toBe(403); // wrong person
+    expect((await req("/team/invites/accept", { method: "POST", cookie: multi.cookie, json: { token: tok } })).body.account_id).toBe(ws);
+    const wsl = await req("/team/workspaces", { cookie: multi.cookie });
+    expect(wsl.body.data).toHaveLength(2);
+    await req("/team/switch", { method: "POST", cookie: multi.cookie, json: { account_id: own } });
+    expect((await req("/me", { cookie: multi.cookie })).body.account.id).toBe(own);
+    expect((await req("/team/switch", { method: "POST", cookie: multi.cookie, json: { account_id: sys.id } })).status).toBe(404);
+  });
+});

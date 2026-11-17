@@ -3,7 +3,7 @@
 import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { z } from "zod";
-import type { AppEnv, Env } from "../env";
+import type { AppEnv, Env, Role } from "../env";
 import { createAccount } from "../lib/accounts";
 import { prefixedId, randomToken, safeEqual, sha256Hex } from "../lib/crypto";
 import { ApiError, errors, zodMessage } from "../lib/http";
@@ -74,12 +74,26 @@ auth.post("/verify", async (c) => {
   let user = await c.env.DB.prepare("SELECT id, account_id FROM users WHERE email = ?").bind(email).first<{ id: string; account_id: string }>();
   let created: Awaited<ReturnType<typeof createAccount>> | null = null;
   if (!user) {
-    created = await createAccount(c.env, { name: email.split("@")[1]!, email, plan: "free", actor: "signup" });
     const id = prefixedId("usr");
-    await c.env.DB.prepare("INSERT INTO users (id, email, account_id, role, created_at) VALUES (?,?,?, 'owner', ?)").bind(id, email, created.id, now).run();
-    user = { id, account_id: created.id };
-    // Welcome email now + NovaMail's own free→paid nurture funnel.
-    c.executionCtx.waitUntil(onSignup(c.env, email));
+    // Invited to a team? Join that workspace directly instead of creating an empty account.
+    const inv = await c.env.DB.prepare("SELECT id, account_id, role FROM invites WHERE email = ? AND accepted_at IS NULL AND expires_at > ? ORDER BY created_at DESC LIMIT 1").bind(email, now).first<{ id: string; account_id: string; role: Role }>();
+    if (inv) {
+      await c.env.DB.batch([
+        c.env.DB.prepare("INSERT INTO users (id, email, account_id, role, created_at) VALUES (?,?,?, 'member', ?)").bind(id, email, inv.account_id, now),
+        c.env.DB.prepare("INSERT OR REPLACE INTO memberships (user_id, account_id, role, created_at) VALUES (?,?,?,?)").bind(id, inv.account_id, inv.role, now),
+        c.env.DB.prepare("UPDATE invites SET accepted_at = ? WHERE id = ?").bind(now, inv.id),
+      ]);
+      user = { id, account_id: inv.account_id };
+    } else {
+      created = await createAccount(c.env, { name: email.split("@")[1]!, email, plan: "free", actor: "signup" });
+      await c.env.DB.batch([
+        c.env.DB.prepare("INSERT INTO users (id, email, account_id, role, created_at) VALUES (?,?,?, 'owner', ?)").bind(id, email, created.id, now),
+        c.env.DB.prepare("INSERT INTO memberships (user_id, account_id, role, created_at) VALUES (?,?, 'owner', ?)").bind(id, created.id, now),
+      ]);
+      user = { id, account_id: created.id };
+      // Welcome email now + NovaMail's own free→paid nurture funnel.
+      c.executionCtx.waitUntil(onSignup(c.env, email));
+    }
   }
 
   const token = randomToken(32);
@@ -104,11 +118,12 @@ auth.post("/logout", async (c) => {
 export async function sessionPrincipal(env: Env, token: string | undefined) {
   if (!token) return null;
   const r = await env.DB.prepare(
-    `SELECT s.user_id, u.account_id, u.email, a.status, a.suspended_reason
+    `SELECT s.user_id, u.account_id, u.email, a.status, a.suspended_reason, m.role
        FROM sessions s JOIN users u ON u.id = s.user_id JOIN accounts a ON a.id = u.account_id
+       JOIN memberships m ON m.user_id = u.id AND m.account_id = u.account_id
       WHERE s.id_hash = ? AND s.expires_at > ?`,
   )
     .bind(await sha256Hex(token), Date.now())
-    .first<{ user_id: string; account_id: string; email: string; status: string; suspended_reason: string | null }>();
+    .first<{ user_id: string; account_id: string; email: string; status: string; suspended_reason: string | null; role: Role }>();
   return r;
 }

@@ -55,6 +55,10 @@ export interface Principal {
   userId?: string;
   permission: "full" | "sending" | "agent";
   domainId: string | null;
+  /** Dashboard sessions only: the user's role in this workspace. */
+  role?: Role;
 }
+
+export type Role = "owner" | "admin" | "editor" | "viewer";
 
 export type AppEnv = { Bindings: Env; Variables: { principal: Principal } };

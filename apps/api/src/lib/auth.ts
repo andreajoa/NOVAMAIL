@@ -1,5 +1,6 @@
 import type { MiddlewareHandler } from "hono";
 import { getCookie } from "hono/cookie";
+import type { Role } from "../env";
 import type { AppEnv } from "../env";
 import { prefixedId, randomToken, safeEqual, sha256Hex } from "./crypto";
 import { errors } from "./http";
@@ -17,6 +18,25 @@ export async function createApiKey(db: D1Database, accountId: string, name: stri
 }
 
 /** Customer API-key auth. Also accepts the Resend header style (Authorization: Bearer). */
+/**
+ * Team roles for dashboard sessions (API keys keep their own permission model).
+ *   owner  — everything, incl. billing and ownership
+ *   admin  — everything except billing changes and removing owners
+ *   editor — campaigns, templates, funnels, forms, contacts; no keys/domains/webhooks/team/billing
+ *   viewer — read-only
+ */
+export function roleAllows(role: Role, method: string, path: string) {
+  const read = method === "GET" || method === "HEAD" || method === "OPTIONS";
+  if (path.startsWith("/team/switch") || path.startsWith("/team/invites/accept")) return true;
+  if (role === "owner") return true;
+  if (role === "viewer") return read;
+  const billingWrite = path.startsWith("/billing") && !read;
+  if (role === "admin") return !billingWrite;
+  // editor
+  if (/^\/(api-keys|domains|webhooks|team|billing|suppressions)(\/|$)/.test(path)) return read && !path.startsWith("/api-keys");
+  return true;
+}
+
 export const requireApiKey: MiddlewareHandler<AppEnv> = async (c, next) => {
   const h = c.req.header("authorization") ?? "";
   const token = h.startsWith("Bearer ") ? h.slice(7).trim() : "";
@@ -28,7 +48,8 @@ export const requireApiKey: MiddlewareHandler<AppEnv> = async (c, next) => {
     if (s) {
       if (c.req.method !== "GET" && c.req.header("x-novamail-client") !== "dashboard") throw errors.forbidden("Missing dashboard header.");
       if (s.status !== "active") throw errors.suspended(s.suspended_reason);
-      c.set("principal", { accountId: s.account_id, apiKeyId: null, permission: "full", domainId: null, userId: s.user_id });
+      if (!roleAllows(s.role, c.req.method, new URL(c.req.url).pathname)) throw errors.forbidden(`Your role (${s.role}) can't do this. Ask an owner or admin.`);
+      c.set("principal", { accountId: s.account_id, apiKeyId: null, permission: "full", domainId: null, userId: s.user_id, role: s.role });
       return next();
     }
   }

@@ -119,7 +119,7 @@ me.get("/", async (c) => {
             (SELECT COUNT(*) FROM webhooks WHERE account_id = ?1) AS webhooks`,
   ).bind(p.accountId).first<Record<string, number>>();
   return c.json({
-    user: u,
+    user: u ? { ...u, role: p.role ?? u.role } : null,
     account: { ...a, created_at: new Date(a!.created_at as number).toISOString() },
     plan: { id: plan.id, label: plan.label, daily: plan.daily, monthly: plan.monthly, domains: plan.domains, extra_packs: a?.extra_packs ?? 0, interval: a?.billing_interval ?? null, subscribed: !!a?.stripe_subscription },
     usage: await usageSnapshot(c.env.DB, p.accountId),
