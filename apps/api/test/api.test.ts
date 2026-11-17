@@ -441,3 +441,46 @@ describe("feedback loops (ARF complaints)", () => {
     expect(parseArf("Feedback-Type: not-spam\r\n").feedbackType).toBe("not-spam");
   });
 });
+
+describe("public site (SEO/GEO)", () => {
+  const get = async (path: string, headers: Record<string, string> = {}) => {
+    const { route } = await import("../src/index");
+    const { createExecutionContext } = await import("cloudflare:test");
+    const env = { ...testEnv, ASSETS: { fetch: async () => new Response("<div id=root></div>", { headers: { "content-type": "text/html" } }) } } as any;
+    const r = await route(new Request(`https://app.novamail.nexaclouds.online${path}`, { headers }), env, createExecutionContext());
+    return { status: r.status, type: r.headers.get("content-type") ?? "", text: await r.text() };
+  };
+
+  it("serves server-rendered, crawlable pages with structured data", async () => {
+    const home = await get("/");
+    expect(home.type).toContain("text/html");
+    expect(home.text).toContain("<h1>Email marketing for your customers.");
+    expect(home.text).toContain('"@type":"FAQPage"');
+    expect(home.text).toContain('"@type":"SoftwareApplication"');
+    expect(home.text).toContain('hreflang="pt-BR"');
+    expect(home.text).toContain('<link rel="canonical" href="https://app.novamail.nexaclouds.online/">');
+    expect(home.text).not.toContain("<script src");
+    for (const p of ["/pricing", "/email-marketing", "/mailchimp-alternative", "/resend-alternative", "/guides/spf-dkim-dmarc", "/pt/", "/terms"]) {
+      const r = await get(p);
+      expect(r.status, p).toBe(200);
+      expect(r.text, p).toMatch(/<title>[^<]{10,70}<\/title>/);
+    }
+  });
+
+  it("signed-in users get the dashboard at /", async () => {
+    const r = await get("/", { cookie: "nm_session=abc" });
+    expect(r.text).toBe("<div id=root></div>");
+  });
+
+  it("publishes robots, sitemap, llms.txt and the IndexNow key", async () => {
+    const robots = await get("/robots.txt");
+    expect(robots.text).toContain("User-agent: GPTBot");
+    expect(robots.text).toContain("Sitemap: https://app.novamail.nexaclouds.online/sitemap.xml");
+    const sm = await get("/sitemap.xml");
+    expect(sm.text).toContain("<loc>https://app.novamail.nexaclouds.online/mailchimp-alternative</loc>");
+    expect((await get("/llms.txt")).text).toMatch(/^# NovaMail/);
+    expect((await get("/llms-full.txt")).text).toContain("SPF, DKIM and DMARC");
+    const { INDEXNOW_KEY } = await import("../src/site");
+    expect((await get(`/${INDEXNOW_KEY}.txt`)).text).toBe(INDEXNOW_KEY);
+  });
+});

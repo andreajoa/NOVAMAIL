@@ -17,6 +17,7 @@ import { fbl } from "./routes/fbl";
 import { UpstreamError } from "./lib/postal";
 import { openDb } from "./lib/dodb";
 import { PLANS } from "./lib/plans";
+import { site } from "./site";
 import { docsHtml, openapi } from "./openapi";
 
 export { NovaDB } from "./lib/dodb";
@@ -109,6 +110,14 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
     if (url.pathname === "/api" || url.pathname.startsWith("/api/")) {
       url.pathname = url.pathname.slice(4) || "/";
       return app.fetch(new Request(url, req), withDb(env), ctx);
+    }
+    // Public marketing site (server-rendered for search engines and AI crawlers).
+    const page = site(req, /(?:^|;\s*)nm_session=/.test(req.headers.get("cookie") ?? ""));
+    if (page) {
+      page.headers.set("x-content-type-options", "nosniff");
+      page.headers.set("referrer-policy", "strict-origin-when-cross-origin");
+      page.headers.set("content-security-policy", "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'");
+      return page;
     }
     if (env.ASSETS) {
       const res = await env.ASSETS.fetch(req);
