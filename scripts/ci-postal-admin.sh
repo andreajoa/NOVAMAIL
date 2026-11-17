@@ -41,7 +41,7 @@ docker run -d --name nm-admin --network host -v "$WORK/config:/config" -v "$PWD/
 A=http://127.0.0.1:5050
 for _ in $(seq 1 60); do curl -fs $A/health >/dev/null && break; sleep 2; done
 # Postal web (send API) boots separately; wait for it too.
-for _ in $(seq 1 90); do curl -s -o /dev/null http://127.0.0.1:5000/ && break; sleep 2; done
+for _ in $(seq 1 90); do curl -s -o /dev/null -H "host: postal.ci.test" http://127.0.0.1:5000/ && break; sleep 2; done
 curl -fsS $A/health; echo
 
 post() { curl -sS -X POST "$A$1" -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' -d "$2"; }
@@ -69,14 +69,14 @@ check "$r" '.ok and .verified == false'
 
 echo "== send API accepts mail once the domain is verified"
 docker exec nm-admin bundle exec rails runner "Domain.find_by(uuid: '$UUID').update!(verified_at: Time.now)" >/dev/null
-r=$(curl -sS -X POST http://127.0.0.1:5000/api/v1/send/message -H "x-server-api-key: $KEY" -H 'content-type: application/json' \
+r=$(curl -sS -X POST http://127.0.0.1:5000/api/v1/send/message -H "host: postal.ci.test" -H "x-server-api-key: $KEY" -H 'content-type: application/json' \
   -d '{"from":"oi@example.com","to":["cliente@example.org"],"subject":"CI","plain_body":"hello"}')
 check "$r" '.status == "success" and (.data.messages["cliente@example.org"].id > 0)'
 
 echo "== limits / suspend / unsuspend"
 check "$(post /v1/limits '{"org":"acc-ci123","server":"main","hourly_limit":5}')" '.ok'
 check "$(post /v1/suspend '{"org":"acc-ci123","reason":"ci"}')" '.ok'
-r=$(curl -sS -X POST http://127.0.0.1:5000/api/v1/send/message -H "x-server-api-key: $KEY" -H 'content-type: application/json' \
+r=$(curl -sS -X POST http://127.0.0.1:5000/api/v1/send/message -H "host: postal.ci.test" -H "x-server-api-key: $KEY" -H 'content-type: application/json' \
   -d '{"from":"oi@example.com","to":["c@example.org"],"subject":"CI","plain_body":"x"}')
 check "$r" '.status != "success"'
 check "$(post /v1/unsuspend '{"org":"acc-ci123"}')" '.ok'
