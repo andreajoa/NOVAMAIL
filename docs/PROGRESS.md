@@ -2,7 +2,7 @@
 
 Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta implantar/provar · ⏳ a fazer · 🔒 depende do André
 
-**Progresso geral: 57 / 62 itens (92%)** — atualizado 17/11/2026 05h (BRT)
+**Progresso geral: 63 / 68 itens (93%)** — atualizado 17/11/2026 (BRT)
 
 ## F0 — Auditoria (100%)
 - ✅ 5 repositórios auditados (Postal, listmonk, Plunk, BillionMail, Mautic) → Postal MIT escolhido
@@ -89,6 +89,14 @@ Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta impla
 - ✅ Motor de grafo no cron + migração dos funis lineares
 - ✅ Rastreamento próprio de abertura/clique (links assinados + pixel; sem open redirect)
 - ✅ API de etiquetas (POST /contacts/tags) para lojas marcarem "comprou" etc.; MCP aceita grafos
+
+## F10 — CRM, ciclo de vida e assinatura fácil (6/6)
+- ✅ CRM: ficha única por pessoa (todas as listas), telefone/empresa/campos próprios, notas, linha do tempo (enviado/abriu/clicou/etiquetas/listas/funis/notas), ações em massa, CSV importar/exportar (à prova de injeção), apagar LGPD
+- ✅ Pontuação de engajamento 0–100 (quente/morno/frio) e segmentos dinâmicos com contagem ao vivo → "Enviar campanha" congela em lista
+- ✅ E-mails automáticos: boas-vindas no cadastro, confirmação no pagamento, funil próprio free→pago (4 e-mails, para quando vira "paid"); cadastrados antigos incluídos
+- ✅ Mensal/anual fácil: botão do site leva direto ao checkout embutido do plano/intervalo escolhido; seletor grande P&B; faixa de upgrade no painel Free
+- ✅ Site: seção CRM na home, página /crm, llms.txt e schema atualizados; IndexNow enviado
+- ✅ 42 testes passando (inclui CRM e ciclo de vida)
 
 ## Lançamento (1/2)
 - ✅ Landing com preços + cadastro, Termos, Política de Uso Aceitável e Privacidade (LGPD) em app.novamail.nexaclouds.online (revisar com advogado antes de escala)

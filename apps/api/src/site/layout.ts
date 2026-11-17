@@ -49,10 +49,10 @@ footer{background:#09090b;color:#a1a1aa;margin-top:64px;padding:56px 0 40px;font
 .flogo{display:flex;align-items:center;gap:12px;font-size:22px;font-weight:700;color:#fafafa;letter-spacing:-.02em;text-decoration:none}.flogo i{display:grid;place-items:center;width:40px;height:40px;border-radius:11px;background:#fafafa;color:#09090b;font-style:normal;font-size:19px}
 .ftag{margin:12px 0 0;color:#a1a1aa;max-width:420px}.fbottom{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;border-top:1px solid #27272a;margin-top:36px;padding-top:22px;color:#71717a}`;
 
-const NAV = `<nav class="m" aria-label="Main"><a href="/email-marketing">Email marketing</a><a href="/pricing">Pricing</a><a href="/guides">Guides</a><a href="${API_DOCS}">API docs</a><a href="/login">Sign in</a></nav>`;
+const NAV = `<nav class="m" aria-label="Main"><a href="/email-marketing">Email marketing</a><a href="/crm">CRM</a><a href="/pricing">Pricing</a><a href="/guides">Guides</a><a href="${API_DOCS}">API docs</a><a href="/login">Sign in</a></nav>`;
 
 export const FOOTER_LINKS: [string, [string, string][]][] = [
-  ["Product", [["/email-marketing", "Email marketing"], ["/ai-agents", "Claude Code & Codex"], ["/transactional-email-api", "Transactional email API"], ["/smtp-relay", "SMTP relay"], ["/pricing", "Pricing"], [API_DOCS, "API reference"], [STATUS, "Status"]]],
+  ["Product", [["/email-marketing", "Email marketing"], ["/crm", "CRM & segments"], ["/ai-agents", "Claude Code & Codex"], ["/transactional-email-api", "Transactional email API"], ["/smtp-relay", "SMTP relay"], ["/pricing", "Pricing"], [API_DOCS, "API reference"], [STATUS, "Status"]]],
   ["Compare", [["/mailchimp-alternative", "Mailchimp alternative"], ["/brevo-alternative", "Brevo alternative"], ["/mailerlite-alternative", "MailerLite alternative"], ["/resend-alternative", "Resend alternative"], ["/sendgrid-alternative", "SendGrid alternative"], ["/mailgun-alternative", "Mailgun alternative"], ["/postmark-alternative", "Postmark alternative"], ["/amazon-ses-alternative", "Amazon SES alternative"]]],
   ["Guides", [["/guides/spf-dkim-dmarc", "SPF, DKIM & DMARC setup"], ["/guides/gmail-yahoo-bulk-sender-requirements", "Gmail & Yahoo sender rules"], ["/guides/one-click-unsubscribe", "One-click unsubscribe"], ["/guides/send-email-nodejs", "Send email with Node.js"], ["/guides/send-email-python", "Send email with Python"]]],
   ["Company", [["/terms", "Terms"], ["/aup", "Acceptable use"], ["/privacy", "Privacy"], ["/pt/", "Português"]]],
@@ -85,6 +85,7 @@ export const PRODUCT = {
     "Email campaigns and newsletters to your contact lists",
     "Drag-and-drop email editor with ready-made templates, GIFs and video-to-GIF",
     "Automated email funnels (multi-step sequences)",
+    "Built-in CRM: contact profiles, engagement scoring, smart segments, custom fields",
     "MCP server for Claude Code and Codex with restricted agent keys",
     "Contact lists with CSV import and personalization ({{first_name}})",
     "Resend-compatible REST API (POST /emails, /emails/batch)",

@@ -51,6 +51,7 @@ Key facts:
 - Webhooks: Standard Webhooks signatures (delivered, delayed, bounced, complained)
 - Drag-and-drop editor with 8 ready-made templates, image/GIF uploads, video-to-GIF, raw HTML
 - Funnels: visual node builder — triggers (list join, tag, API), waits, Yes/No conditions (opened, clicked, has tag, on list), tag actions; first-party open/click tracking on campaigns and funnels
+- Built-in CRM: merged contact profiles with timeline (sent/opened/clicked/tags/lists/funnels/notes), engagement score (hot/warm/cold), smart segments with live counts, custom fields, CSV import/export, GDPR erase
 - MCP server for Claude Code/Codex: https://api.novamail.nexaclouds.online/mcp (restricted agent keys; agents cannot send or activate)
 - API reference (OpenAPI 3.1): ${API_DOCS} · spec: https://api.novamail.nexaclouds.online/openapi.json
 

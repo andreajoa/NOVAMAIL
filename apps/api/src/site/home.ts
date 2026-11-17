@@ -123,8 +123,15 @@ pre{position:relative;overflow:hidden}pre::after{content:"";position:absolute;le
 .logo3d{top:40%!important}.ring{top:66%!important}
 @media(max-width:1023px){.scene{height:500px;--r:250px}.em{width:176px}}
 @media(max-width:640px){.h-grid{padding-top:40px}.scene{height:420px;--r:120px;transform:scale(.8);margin:-10px 0 -60px}.em{width:132px;padding:7px 9px}.em p{font-size:12px}.em .ok{font-size:9.5px}.h-proof{flex-direction:column;align-items:center;gap:8px}}
+
+.crm-card{border:1px solid var(--line);border-radius:20px;background:var(--card);padding:22px;box-shadow:0 30px 70px -36px rgba(0,0,0,.45);animation:floaty 6s ease-in-out infinite}
+.cc-top{display:flex;align-items:center;gap:12px}.cc-av{width:46px;height:46px;border-radius:14px;background:var(--fg);color:var(--bg);display:grid;place-items:center;font-weight:700}.cc-top b{display:block}.cc-top small{color:var(--mut)}.cc-tier{margin-left:auto;font-size:12px;font-weight:700;border:1px solid var(--fg);border-radius:999px;padding:3px 10px}
+.cc-score{height:8px;border-radius:99px;background:var(--line);margin:18px 0 14px;overflow:hidden}.cc-score i{display:block;height:100%;width:0;background:var(--fg);border-radius:99px;animation:fill 2.4s .3s cubic-bezier(.2,.7,.2,1) forwards}
+.cc-tags{display:flex;gap:6px;flex-wrap:wrap}.cc-tags span{font-size:12px;font-weight:600;border:1px solid var(--line);border-radius:8px;padding:3px 8px;opacity:0;animation:pop .5s cubic-bezier(.2,.9,.3,1.3) forwards}
+.cc-tl{list-style:none;margin:16px 0 0;padding:0 0 0 16px;border-left:2px solid var(--line);display:grid;gap:10px}.cc-tl li{position:relative;font-size:14px;color:var(--mut);opacity:0;transform:translateX(-8px);animation:slidein .5s ease forwards}.cc-tl li::before{content:"";position:absolute;left:-22px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--fg)}.cc-tl b{color:var(--fg)}
+@keyframes fill{to{width:86%}}@keyframes slidein{to{opacity:1;transform:none}}@keyframes floaty{50%{transform:translateY(-8px)}}
 @media(prefers-reduced-motion:reduce){.world{transform:rotateX(-12deg) rotateY(-18deg)!important}}
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important}.in,.mail,.float{opacity:1;transform:none}.ed-can .drop{display:none}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important}.in,.mail,.float,.cc-tags span,.cc-tl li{opacity:1;transform:none}.cc-score i{width:86%}.ed-can .drop{display:none}}
 `;
 
 type Copy = {
@@ -134,6 +141,7 @@ type Copy = {
   how_k: string; how_h: string; how_sub: string; steps: [string, string][];
   ed_k: string; ed_h: string; ed_sub: string; ed_list: [string, string][]; pal: string[];
   fn_k: string; fn_h: string; fn_sub: string; fn_nodes: [string, string][];
+  crm_k: string; crm_h: string; crm_sub: string; crm_list: [string, string][]; crm_card: { name: string; email: string; tier: string; tags: string[]; tl: [string, string][] };
   dl_k: string; dl_h: string; dl_sub: string; seals: string[];
   dev_k: string; dev_h: string; dev_sub: string; dev_list: [string, string][];
   pr_k: string; pr_h: string; plans: [string, string, string, string][]; pr_note: string;
@@ -173,6 +181,11 @@ const EN: Copy = {
   fn_h: "Then let it sell while you sleep.",
   fn_sub: "Drag steps onto a canvas and connect them: someone joins your list, gets the welcome email, and the follow-ups adapt — clicked? send the offer; didn't? send a reminder. Unsubscribers leave on their own.",
   fn_nodes: [["Joins your list", "trigger"], ["Welcome email", "right away"], ["Wait 2 days", ""], ["Best sellers", "email 2"], ["Wait 3 days", ""], ["10% coupon", "email 3"]],
+  crm_k: "CRM",
+  crm_h: "Know every customer — not just their email.",
+  crm_sub: "Every contact gets a living profile: what they opened, what they clicked, which funnels they're in, your notes and your own fields. NovaMail scores engagement automatically, so you always know who's ready to buy.",
+  crm_list: [["Engagement score", "hot, warm and cold — updated with every open and click"], ["Smart segments", "\"clicked in the last 7 days AND tagged VIP\" — updates itself"], ["Full timeline", "emails, clicks, tags, lists, funnels and notes in one place"], ["Your own fields", "city, last order, birthday — import them from any CSV"], ["One click to a campaign", "turn any segment into a send"]],
+  crm_card: { name: "Ana Rivera", email: "ana@rivera.co", tier: "Hot", tags: ["vip", "purchased", "newsletter"], tl: [["Clicked", "Black Friday — Shop now"], ["Opened", "Black Friday starts NOW"], ["Tag added", "purchased"], ["Note", "Wants the blue one in size M"]] },
   dl_k: "Deliverability",
   dl_h: "Built so your emails land in the inbox — not in spam.",
   dl_sub: "Gmail, Yahoo and Outlook check these things on every message. NovaMail does all of them for you, on every send.",
@@ -222,6 +235,11 @@ const PT: Copy = {
   fn_h: "Depois, deixe vendendo enquanto você dorme.",
   fn_sub: "Arraste os passos para a tela e ligue com o mouse: a pessoa entra na lista, recebe as boas-vindas e o resto se adapta — clicou? manda a oferta; não clicou? manda um lembrete. Quem se descadastra sai sozinho.",
   fn_nodes: [["Entra na lista", "gatilho"], ["Boas-vindas", "na hora"], ["Espera 2 dias", ""], ["Mais vendidos", "e-mail 2"], ["Espera 3 dias", ""], ["Cupom de 10%", "e-mail 3"]],
+  crm_k: "CRM",
+  crm_h: "Conheça cada cliente — não só o e-mail.",
+  crm_sub: "Cada contato ganha uma ficha viva: o que abriu, onde clicou, em quais funis está, suas notas e seus próprios campos. O NovaMail pontua o engajamento sozinho, para você saber quem está pronto para comprar.",
+  crm_list: [["Pontuação de engajamento", "quente, morno e frio — atualizada a cada abertura e clique"], ["Segmentos inteligentes", "\"clicou nos últimos 7 dias E tem a etiqueta VIP\" — se atualiza sozinho"], ["Linha do tempo completa", "e-mails, cliques, etiquetas, listas, funis e notas num lugar só"], ["Seus próprios campos", "cidade, último pedido, aniversário — importe de qualquer CSV"], ["Um clique até a campanha", "transforme qualquer segmento em um envio"]],
+  crm_card: { name: "Ana Ribeiro", email: "ana@ribeiro.com.br", tier: "Quente", tags: ["vip", "comprou", "newsletter"], tl: [["Clicou", "Black Friday — Comprar agora"], ["Abriu", "A Black Friday começou"], ["Etiqueta", "comprou"], ["Nota", "Quer a azul, tamanho M"]] },
   dl_k: "Entregabilidade",
   dl_h: "Feito para cair na caixa de entrada — não no spam.",
   dl_sub: "Gmail, Yahoo e Outlook conferem estes itens em toda mensagem. O NovaMail faz todos por você, em todo envio.",
@@ -283,6 +301,12 @@ export function home(lang: "en" | "pt-BR") {
 
 <section class="story reveal funnel"><p class="k">${esc(c.fn_k)}</p><h2>${esc(c.fn_h)}</h2><p class="sub">${esc(c.fn_sub)}</p>${funnelSvg(c.fn_nodes)}</section>
 
+
+<section class="story reveal"><div class="two"><div><p class="k">${esc(c.crm_k)}</p><h2>${esc(c.crm_h)}</h2><p class="sub">${esc(c.crm_sub)}</p>
+<ul class="ticks">${c.crm_list.map(([b, s]) => `<li><strong>${esc(b)}</strong> — ${esc(s)}</li>`).join("")}</ul></div>
+<div class="crm-card" aria-hidden="true"><div class="cc-top"><div class="cc-av">${esc(c.crm_card.name.split(" ").map((w) => w[0]).join(""))}</div><div><b>${esc(c.crm_card.name)}</b><small>${esc(c.crm_card.email)}</small></div><span class="cc-tier">● ${esc(c.crm_card.tier)}</span></div>
+<div class="cc-score"><i></i></div><div class="cc-tags">${c.crm_card.tags.map((t, i) => `<span style="animation-delay:${0.4 + i * 0.25}s">${esc(t)}</span>`).join("")}</div>
+<ol class="cc-tl">${c.crm_card.tl.map(([k, v], i) => `<li style="animation-delay:${0.8 + i * 0.35}s"><b>${esc(k)}</b> ${esc(v)}</li>`).join("")}</ol></div></div></section>
 <div class="band"><section class="story reveal w" style="padding-left:0;padding-right:0"><p class="k">${esc(c.dl_k)}</p><h2>${esc(c.dl_h)}</h2><p class="sub">${esc(c.dl_sub)}</p>
 <div class="seals">${c.seals.map((s) => `<div class="seal"><i>✓</i>${esc(s)}</div>`).join("")}</div></section></div>
 

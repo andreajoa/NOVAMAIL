@@ -12,7 +12,7 @@ export function Broadcasts() {
   const qc = useQueryClient();
   const auds = useQuery({ queryKey: ["audiences"], queryFn: () => api("/audiences") });
   const q = useQuery({ queryKey: ["broadcasts"], queryFn: () => api("/broadcasts"), refetchInterval: 10_000 });
-  const [f, setF] = useState({ audience_id: "", from: "", subject: "", html: "", template_id: "" });
+  const [f, setF] = useState({ audience_id: new URLSearchParams(location.search).get("audience") ?? "", from: "", subject: "", html: "", template_id: "" });
   const tpls = useQuery({ queryKey: ["templates"], queryFn: () => api("/templates") });
   const create = useMutation({ mutationFn: () => api("/broadcasts", { body: { audience_id: f.audience_id, from: f.from, ...(f.subject ? { subject: f.subject } : {}), ...(f.template_id ? { template_id: f.template_id } : { html: f.html }) } }), onSuccess: () => (setF({ ...f, subject: "", html: "", template_id: "" }), qc.invalidateQueries({ queryKey: ["broadcasts"] })) });
   const act = useMutation({ mutationFn: ({ id, a }: { id: string; a: "send" | "cancel" }) => api(`/broadcasts/${id}/${a}`, { method: "POST" }), onSuccess: () => qc.invalidateQueries({ queryKey: ["broadcasts"] }) });

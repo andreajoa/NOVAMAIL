@@ -159,6 +159,29 @@ export const PAGES: Page[] = [
     ],
   },
   {
+    path: "/crm",
+    title: "Email Marketing CRM with Engagement Scoring | NovaMail",
+    description: "A CRM built for email marketing: contact profiles with opens, clicks and funnels, automatic engagement scoring, smart segments, custom fields and CSV import. Free plan.",
+    h1: "The CRM built for email marketing",
+    lead: "Every contact gets a living profile — opens, clicks, tags, lists, funnels, notes and your own fields — with automatic engagement scoring and segments that update themselves.",
+    priority: 0.85,
+    body: `<section>${cards([
+      ["Engagement scoring", "Each contact is scored 0–100 and labeled hot, warm or cold from recent opens and clicks (clicks weigh more, because Apple Mail Privacy inflates opens)."],
+      ["Smart segments", "Combine rules — tag, list, score, clicked or opened in the last N days, join date, company or any custom field — with a live count. Segments update themselves."],
+      ["Complete timeline", "Every email sent, open, click, bounce, tag change, list join, funnel step and note — in order, on one screen."],
+      ["Custom fields", "Create fields like City, Last order value or Birthday and import them from any CSV. Use them in segments."],
+      ["Bulk actions", "Select contacts to tag, untag or add to a list in one click. Export everything to CSV (spreadsheet-safe)."],
+      ["Privacy built in", "Delete a person everywhere with one click (GDPR/LGPD right to erasure). Unsubscribes are honoured across every list."],
+    ])}</section>
+<section class="prose"><h2>From segment to campaign in one click</h2><p>Build a segment like “clicked in the last 7 days <em>and</em> tagged <code>vip</code>”, watch the count update live, and press <strong>Send campaign</strong> — NovaMail freezes the segment into a list and opens the campaign composer with it selected.</p>
+<h2>Feeds your funnels</h2><p>Tags written by your store (<code>POST /contacts/tags</code>) or by funnel steps start other funnels, and funnel conditions can branch on tags and engagement. The CRM and automations share one source of truth.</p></section>`,
+    faq: [
+      ["Is the CRM included in the free plan?", "Yes. Contacts are unlimited on every plan, and the CRM, segments and scoring are included for free."],
+      ["How is the engagement score calculated?", "From opens and clicks in the last 30 days plus recency. Clicks weigh more than opens. Unsubscribed contacts score 0."],
+      ["Can I import my existing contacts?", "Yes — paste or upload a CSV. Known columns (email, first_name, last_name, phone, company, tags) map automatically; any other column becomes a custom field."],
+    ],
+  },
+  {
     path: "/transactional-email-api",
     title: "Transactional Email API — Resend-compatible | NovaMail",
     description: "Send order confirmations, password resets and receipts with a REST email API compatible with the Resend SDKs. Idempotency keys, signed webhooks, OpenAPI 3.1.",

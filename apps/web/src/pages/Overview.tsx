@@ -60,6 +60,12 @@ await nova.emails.send({
   return (
     <>
       <PageTitle>{t.overview}</PageTitle>
+      {p?.id === "free" && (
+        <a href="/plan" onClick={(e) => (e.preventDefault(), history.pushState(null, "", "/plan"), dispatchEvent(new PopStateEvent("popstate")))} className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-zinc-900 px-5 py-4 text-white dark:bg-white dark:text-zinc-900">
+          <span><b>{t.lang === "pt" ? "Pro: 50.000 e-mails/mês" : "Pro: 50,000 emails/month"}</b> · {t.lang === "pt" ? "US$15/mês ou US$150/ano (2 meses grátis)" : "$15/month or $150/year (2 months free)"}</span>
+          <span className="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-zinc-900 dark:bg-zinc-900 dark:text-white">{t.lang === "pt" ? "Assinar" : "Upgrade"} →</span>
+        </a>
+      )}
       {p && u && (
         <div className="grid gap-4 sm:grid-cols-2">
           <Meter label={t.today} used={u.today} limit={p.daily} />

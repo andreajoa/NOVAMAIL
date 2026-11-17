@@ -1,11 +1,13 @@
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, Ban, Bot, CreditCard, GitBranch, Globe, KeyRound, LayoutDashboard, LayoutTemplate, LogOut, Mail, Megaphone, Users, Webhook } from "lucide-react";
+import { Activity, Ban, Bot, Contact as ContactIcon, Filter, CreditCard, GitBranch, Globe, KeyRound, LayoutDashboard, LayoutTemplate, LogOut, Mail, Megaphone, Users, Webhook } from "lucide-react";
 import { StrictMode, useEffect, useState, type ComponentType } from "react";
 import { createRoot } from "react-dom/client";
 import { api, ApiError } from "./api";
 import { t } from "./i18n";
 import { navigate } from "./nav";
 import { Agents } from "./pages/Agents";
+import { Contacts } from "./pages/Contacts";
+import { Segments } from "./pages/Segments";
 import { Audiences } from "./pages/Audiences";
 import { Editor } from "./pages/Editor";
 import { FunnelCanvas } from "./pages/FunnelCanvas";
@@ -30,6 +32,8 @@ const queryClient = new QueryClient({
 
 const ROUTES: { path: string; label: string; icon: ComponentType<{ size?: number }>; page: ComponentType }[] = [
   { path: "/", label: t.overview, icon: LayoutDashboard, page: Overview },
+  { path: "/contacts", label: t.lang === "pt" ? "Contatos (CRM)" : "Contacts (CRM)", icon: ContactIcon, page: Contacts },
+  { path: "/segments", label: t.lang === "pt" ? "Segmentos" : "Segments", icon: Filter, page: Segments },
   { path: "/emails", label: t.emails, icon: Mail, page: Emails },
   { path: "/domains", label: t.domains, icon: Globe, page: Domains },
   { path: "/templates", label: t.lang === "pt" ? "Modelos" : "Templates", icon: LayoutTemplate, page: Templates },
@@ -64,7 +68,11 @@ function Shell() {
   if (legal) return <Legal doc={legal} />;
 
   if (me.isLoading && !me.isRefetchError) return <div className="grid h-full place-items-center text-sm text-zinc-500">{t.loading}</div>;
-  if (me.error instanceof ApiError && me.error.status === 401) return <Login onDone={() => { if (location.pathname === "/login") history.replaceState(null, "", "/"); qc.invalidateQueries(); }} />;
+  if (me.error instanceof ApiError && me.error.status === 401) {
+    const sp = new URLSearchParams(location.search);
+    if (sp.get("plan")) try { sessionStorage.setItem("nm_intent", JSON.stringify({ plan: sp.get("plan"), interval: sp.get("interval") ?? "month" })); } catch { /* private mode */ }
+    return <Login onDone={() => { let intent = false; try { intent = !!sessionStorage.getItem("nm_intent"); } catch { /* */ } history.replaceState(null, "", intent ? "/plan" : location.pathname === "/login" ? "/" : location.pathname); qc.invalidateQueries(); }} />;
+  }
 
   const editorId = path.match(/^\/templates\/([\w-]+)$/)?.[1];
   if (editorId) return <Editor id={editorId} />;

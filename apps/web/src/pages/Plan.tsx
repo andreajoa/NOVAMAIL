@@ -6,7 +6,8 @@ import { api } from "../api";
 import { lang, num, t } from "../i18n";
 import { Badge, Button, Card, ErrorText, PageTitle } from "../ui";
 
-const L = lang === "pt"
+const pt = lang === "pt";
+const L = pt
   ? { month: "/mês", year: "/ano", monthly: "Mensal", yearly: "Anual", save: "2 meses grátis", current: "Plano atual", upgrade: "Assinar", manage: "Gerenciar assinatura", free: "Grátis", emails: "e-mails por mês", day: "por dia", doms: "domínios", soon: "A cobrança online será ligada em breve.", ok: "Assinatura ativa. Os novos limites já valem.", checking: "Confirmando pagamento…", packs: "pacotes extras", packHint: (n: string, p: number) => `No checkout você pode adicionar pacotes de +${n} e-mails/mês por US$${p} cada.`, perYear: (v: number) => `US$${v}/ano`, close: "Fechar" }
   : { month: "/mo", year: "/yr", monthly: "Monthly", yearly: "Yearly", save: "2 months free", current: "Current plan", upgrade: "Upgrade", manage: "Manage subscription", free: "Free", emails: "emails per month", day: "per day", doms: "domains", soon: "Online billing is coming soon.", ok: "Subscription active. New limits apply now.", checking: "Confirming payment…", packs: "add-on packs", packHint: (n: string, p: number) => `At checkout you can add +${n} emails/month packs for $${p} each.`, perYear: (v: number) => `$${v}/yr`, close: "Close" };
 
@@ -55,8 +56,16 @@ export function Plan() {
     if (confirm.data?.status === "complete") qc.invalidateQueries({ queryKey: ["me"] });
   }, [confirm.data, qc]);
 
-  const checkout = useMutation({ mutationFn: (plan: string) => api("/billing/checkout", { body: { plan, interval, embedded: true } }), onSuccess: (r) => setSecret(r.client_secret) });
+  // Arriving from the website's "Subscribe" buttons: open checkout for that plan/interval right away.
+  const [intent] = useState<{ plan: string; interval: "month" | "year" } | null>(() => { try { const v = sessionStorage.getItem("nm_intent"); sessionStorage.removeItem("nm_intent"); return v ? JSON.parse(v) : null; } catch { return null; } });
+  const checkout = useMutation({ mutationFn: (plan: string) => api("/billing/checkout", { body: { plan, interval: intent?.interval ?? interval, embedded: true } }), onSuccess: (r) => setSecret(r.client_secret) });
   const portal = useMutation({ mutationFn: () => api("/billing/portal", { method: "POST" }), onSuccess: (r) => (location.href = r.url) });
+  useEffect(() => {
+    if (!intent || !plans.data?.enabled || !me.data) return;
+    if (intent.interval === "year") setInterval("year");
+    if (["pro", "scale"].includes(intent.plan) && !me.data.plan.subscribed) checkout.mutate(intent.plan);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intent, plans.data, me.data]);
   const current = me.data?.plan?.id;
   const subscribed = me.data?.plan?.subscribed;
   const cfg = plans.data;
@@ -66,15 +75,16 @@ export function Plan() {
     <>
       <PageTitle action={subscribed && enabled ? <Button variant="ghost" onClick={() => portal.mutate()}>{L.manage}</Button> : undefined}>{t.plan}</PageTitle>
       {sessionId && (
-        <p className="mb-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
+        <p className="mb-4 rounded-lg border border-zinc-900 px-4 py-3 text-sm font-medium dark:border-white">
           {confirm.data?.status === "complete" ? L.ok : L.checking}
         </p>
       )}
       {cfg?.yearly && (
-        <div className="mb-4 inline-flex rounded-lg border border-zinc-200 p-1 text-sm dark:border-zinc-800">
+        <div className="mb-6 inline-flex rounded-full border border-zinc-200 p-1 dark:border-zinc-800">
           {(["month", "year"] as const).map((i) => (
-            <button key={i} onClick={() => setInterval(i)} className={`rounded-md px-3 py-1.5 ${interval === i ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "text-zinc-600 dark:text-zinc-400"}`}>
-              {i === "month" ? L.monthly : <>{L.yearly} <span className="ml-1 text-emerald-600 dark:text-emerald-400">· {L.save}</span></>}
+            <button key={i} onClick={() => setInterval(i)} className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition ${interval === i ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900" : "text-zinc-600 dark:text-zinc-400"}`}>
+              {i === "month" ? L.monthly : L.yearly}
+              {i === "year" && <span className={`rounded-full border px-2 py-0.5 text-[11px] ${interval === i ? "border-white/40 dark:border-zinc-900/30" : "border-zinc-300 dark:border-zinc-700"}`}>{L.save}</span>}
             </button>
           ))}
         </div>
@@ -89,16 +99,17 @@ export function Plan() {
                 {p.id === current && <Badge value={L.current} />}
               </div>
               <div className="mt-3 flex items-baseline gap-1">
-                <span className="text-3xl font-semibold tracking-tight">{p.price_usd ? `US$${yearly ? p.price_usd_year : p.price_usd}` : L.free}</span>
-                {p.price_usd > 0 && <span className="text-sm text-zinc-500">{yearly ? L.year : L.month}</span>}
+                <span className="text-3xl font-semibold tracking-tight">{p.price_usd ? `US$${yearly ? (p.price_usd_year / 12).toFixed(2).replace(/\.00$/, "") : p.price_usd}` : L.free}</span>
+                {p.price_usd > 0 && <span className="text-sm text-zinc-500">{L.month}</span>}
               </div>
+              {yearly && <div className="text-xs text-zinc-500">{pt ? `cobrado US$${p.price_usd_year}/ano · economize US$${p.price_usd * 2}` : `billed $${p.price_usd_year}/year · save $${p.price_usd * 2}`}</div>}
               <ul className="mt-4 space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
                 <li className="flex gap-2"><Check size={16} className="shrink-0" />{num(p.monthly)} {L.emails}</li>
                 <li className="flex gap-2"><Check size={16} className="shrink-0" />{num(p.daily)} {L.day}</li>
                 <li className="flex gap-2"><Check size={16} className="shrink-0" />{num(p.domains)} {L.doms}</li>
               </ul>
               {p.id !== "free" && p.id !== current && current !== "internal" && !subscribed && (
-                <Button className="mt-5 w-full" disabled={!enabled || checkout.isPending} onClick={() => checkout.mutate(p.id)}>{L.upgrade}</Button>
+                <Button className="mt-5 w-full" disabled={!enabled || checkout.isPending} onClick={() => checkout.mutate(p.id)}>{pt ? `Assinar ${p.label} ${interval === "year" ? "anual" : "mensal"}` : `Subscribe ${interval === "year" ? "yearly" : "monthly"}`}</Button>
               )}
             </Card>
           );
