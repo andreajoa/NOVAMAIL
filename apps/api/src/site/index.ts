@@ -51,6 +51,14 @@ Key facts:
 - Webhooks: Standard Webhooks signatures (delivered, delayed, bounced, complained)
 - Drag-and-drop editor with 8 ready-made templates, image/GIF uploads, video-to-GIF, raw HTML
 - Funnels: visual node builder — triggers (list join, tag, API), waits, Yes/No conditions (opened, clicked, has tag, on list), tag actions; first-party open/click tracking on campaigns and funnels
+- Signup forms: inline, popup (delay/scroll/exit-intent) and hosted pages; double opt-in; consent records; bot protection
+- Campaigns: A/B subject tests with automatic winner, scheduling, smart send time per contact, resend to non-openers
+- AI: draft emails from a brief, rewrite/translate blocks, subject-line ideas
+- Reports: click map, mailbox providers, devices, revenue; security-scanner clicks filtered; Apple Mail Privacy opens separated
+- Sales pipeline: deals on drag-and-drop stages, tasks, weighted forecast; won/lost deals trigger email funnels
+- E-commerce: Shopify, WooCommerce and generic API; abandoned-cart recovery; products in emails; last-click revenue attribution
+- SMS & WhatsApp via the customer's own Twilio / Meta account, opt-in enforced
+- Teams with roles; Zapier/Make/n8n instant triggers (REST hooks)
 - IP reputation tiers: Free, paid and dedicated IPs are isolated; dedicated IP add-on US$29/month with automatic ~3-week warm-up
 - Built-in CRM: merged contact profiles with timeline (sent/opened/clicked/tags/lists/funnels/notes), engagement score (hot/warm/cold), smart segments with live counts, custom fields, CSV import/export, GDPR erase
 - MCP server for Claude Code/Codex: https://api.novamail.nexaclouds.online/mcp (restricted agent keys; agents cannot send or activate)

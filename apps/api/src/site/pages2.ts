@@ -11,9 +11,17 @@ const NOVAMAIL_ROWS: [string, string][] = [
   ["SMTP", "Port 587 STARTTLS (TLS 1.3) and 25"],
   ["Domain authentication", "SPF, DKIM 2048-bit, DMARC guidance, live verification"],
   ["Webhooks", "Standard Webhooks (signed)"],
-  ["Editor & templates", "Drag-and-drop editor, 8 ready-made templates, GIFs, video-to-GIF, or paste HTML"],
-  ["Automations", "Visual node builder: triggers (list, tag, API), waits, Yes/No conditions on opens/clicks/tags, tag actions"],
-  ["AI agents", "MCP server for Claude Code and Codex with restricted agent keys"],
+  ["Editor & templates", "Drag-and-drop editor, 30 ready-made templates (US holidays + everyday), GIFs, video-to-GIF, or paste HTML"],
+  ["AI writing", "Draft a whole email from a brief, rewrite or translate any block, subject-line ideas → one-click A/B test"],
+  ["Campaigns", "A/B subject tests with automatic winner, scheduling, smart send time per contact, resend to non-openers"],
+  ["Signup forms", "Inline, popup (time, scroll, exit-intent) and hosted pages with double opt-in, bot protection and consent records"],
+  ["Automations", "Visual node builder: triggers (list, tag, API), waits, Yes/No conditions, tags, email and SMS/WhatsApp steps"],
+  ["CRM & sales", "Contact profiles with timeline, engagement scoring, smart segments, deals pipeline, tasks and forecast"],
+  ["E-commerce", "Shopify, WooCommerce and API: abandoned-cart recovery, products in emails, revenue per campaign and funnel"],
+  ["Reports", "Click map, mailbox providers, devices; security-scanner clicks filtered and Apple privacy opens separated"],
+  ["Deliverability", "Pre-send check (spam, Gmail clipping, links, images, DMARC), isolated IP tiers, optional dedicated IP"],
+  ["SMS & WhatsApp", "With your own Twilio or Meta account — opt-in enforced, STOP handled automatically"],
+  ["Teams & integrations", "Owner/Admin/Editor/Viewer roles, Zapier/Make/n8n instant triggers, MCP for Claude Code and Codex"],
 ];
 
 function compare(o: { slug: string; name: string; kind: "marketing" | "api"; what: string; why: [string, string][]; switchHow: string; faq: [string, string][] }): Page {
