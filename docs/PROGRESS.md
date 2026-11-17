@@ -29,7 +29,7 @@ Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta impla
 - ✅ VM AWS `novamail-node` (t3.small, IP fixo 18.218.5.60) com Postal 3.4 no ar: HTTPS válido em postal.novamail.nexaclouds.online, SMTP 25/587 com STARTTLS, sidecar admin respondendo
 - ✅ DNS da plataforma publicado (SPF, DKIM do return-path, MX de bounce, tracking, DMARC, TLS-RPT)
 - ✅ PTR pedido à AWS (postal.novamail.nexaclouds.online)
-- 🔒 Porta 25 de SAÍDA liberada pela AWS (testado: bloqueada) — formulário no console root
+- ⏳ Porta 25 de SAÍDA: pedido ENVIADO à AWS em 17/11 01h45 (BRT); o servidor checa sozinho a cada 10 min (`outbound_25` em /opt/novamail/health.json)
 - ⏳ Primeiro e-mail real entregue em caixa de entrada do Gmail (prova)
 
 ## F2.5 — Prova em produção (2/3)
