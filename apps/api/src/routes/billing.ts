@@ -8,6 +8,7 @@ import { safeEqual } from "../lib/crypto";
 import { ApiError, errors, zodMessage } from "../lib/http";
 import { EXTRA_PACK, PAID_PLANS, planOf, type PaidPlan, type PlanId } from "../lib/plans";
 import { postalAdmin } from "../lib/postal";
+import { onPlanChange } from "../lib/lifecycle";
 
 const STRIPE = "https://api.stripe.com/v1";
 
@@ -52,7 +53,7 @@ export function readSubscription(env: Env, sub: { items?: { data?: { price?: { i
 
 /** Moves an account to `plan`, pushing hourly limit + IP pool to Postal. */
 export async function applyPlan(env: Env, accountId: string, plan: PlanId, sub: { customer?: string; subscription?: string | null; packs?: number; interval?: string | null }) {
-  const a = await env.DB.prepare("SELECT plan, postal_org, postal_server FROM accounts WHERE id = ?").bind(accountId).first<{ plan: PlanId; postal_org: string | null; postal_server: string | null }>();
+  const a = await env.DB.prepare("SELECT plan, email, extra_packs, billing_interval, postal_org, postal_server FROM accounts WHERE id = ?").bind(accountId).first<{ plan: PlanId; email: string; extra_packs: number; billing_interval: string | null; postal_org: string | null; postal_server: string | null }>();
   if (!a || a.plan === "internal") return;
   const pool = poolFor(plan);
   if (a.postal_org && a.postal_server) await postalAdmin.setLimits(env, { org: a.postal_org, server: a.postal_server, hourly_limit: planOf(plan).hourly || null, ip_pool: pool });
@@ -61,6 +62,8 @@ export async function applyPlan(env: Env, accountId: string, plan: PlanId, sub: 
       .bind(plan, pool, sub.customer ?? null, sub.subscription ?? null, sub.packs ?? 0, sub.interval ?? null, Date.now(), accountId),
     env.DB.prepare("INSERT INTO audit_log (account_id, actor, action, detail, created_at) VALUES (?, 'stripe', 'plan', ?, ?)").bind(accountId, `${a.plan} -> ${plan}`, Date.now()),
   ]);
+  const changed = a.plan !== plan || (a.extra_packs ?? 0) !== (sub.packs ?? 0) || a.billing_interval !== (sub.interval ?? null);
+  if (changed) await onPlanChange(env, a.email, plan, sub.interval ?? null, sub.packs ?? 0, a.plan);
 }
 
 export const billing = new Hono<AppEnv>();

@@ -85,3 +85,9 @@ admin.post("/accounts/:id/session", async (c) => {
   ]);
   return c.json({ cookie: `nm_session=${token}`, expires_in: 3600 });
 });
+
+/** Creates/updates NovaMail's own nurture funnel (free → paid) on the system account. */
+admin.post("/lifecycle/setup", async (c) => {
+  const { setupNurture } = await import("../lib/lifecycle");
+  return c.json(await setupNurture(c.env));
+});

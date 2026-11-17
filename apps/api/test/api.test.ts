@@ -687,3 +687,40 @@ describe("node funnels, tracking and tags", () => {
     expect(detail.body.graph.nodes).toHaveLength(8);
   });
 });
+
+describe("NovaMail lifecycle emails", () => {
+  it("welcomes signups, enrolls them in the nurture funnel, confirms payment and stops the nurture for payers", async () => {
+    const { processFunnels } = await import("../src/routes/funnels");
+    const sys = await verifiedAccount(postal, "internal");
+    testEnv.SYSTEM_ACCOUNT_ID = sys.id;
+    testEnv.SYSTEM_FROM = "NovaMail <no-reply@example.com>";
+    const setup = await call("/admin/lifecycle/setup", { method: "POST", token: OWNER });
+    expect(setup.body.templates).toHaveLength(4);
+
+    await call("/auth/start", { method: "POST", json: { email: "buyer@example.org" } });
+    const code = String(postal.sent.at(-1).plain_body).match(/(\d{3}) (\d{3})/)!;
+    const { app } = await import("../src/index");
+    const { createExecutionContext, waitOnExecutionContext } = await import("cloudflare:test");
+    const ctx = createExecutionContext();
+    await app.request("/auth/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "buyer@example.org", code: code[1]! + code[2]! }) }, testEnv, ctx);
+    await waitOnExecutionContext(ctx);
+    expect(postal.sent.some((m) => m.to[0] === "buyer@example.org" && /Welcome to NovaMail/.test(m.subject))).toBe(true);
+
+    const now = Date.now();
+    await processFunnels(testEnv, now); // trigger → starts the 1-day wait
+    await processFunnels(testEnv, now + 86_400_000 + 1000); // day 1: domain email
+    expect(postal.sent.at(-1).subject).toMatch(/lands? in the inbox/);
+
+    // Buyer pays → plan email + "paid" tag → nurture ends at the next condition.
+    const acc = await testEnv.DB.prepare("SELECT account_id FROM users WHERE email = ?").bind("buyer@example.org").first<{ account_id: string }>();
+    Object.assign(testEnv, { STRIPE_SECRET_KEY: "sk_test_x", STRIPE_PRICE_PRO: "price_pro", STRIPE_PRICE_EXTRA: "price_extra" });
+    const { applyPlan } = await import("../src/routes/billing");
+    await applyPlan(testEnv, acc!.account_id, "pro", { customer: "cus_1", subscription: "sub_1", packs: 0, interval: "year" });
+    expect(postal.sent.at(-1).subject).toBe("You're on NovaMail Pro 🎉");
+    const before = postal.sent.length;
+    await processFunnels(testEnv, now + 86_400_000 + 2000); // starts the 2-day wait
+    await processFunnels(testEnv, now + 3 * 86_400_000 + 5000); // condition "paid?" → yes → end
+    expect(postal.sent.length).toBe(before); // no more nurture emails
+    for (const k of ["STRIPE_SECRET_KEY", "STRIPE_PRICE_PRO", "STRIPE_PRICE_EXTRA"]) delete (testEnv as any)[k];
+  });
+});

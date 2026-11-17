@@ -8,6 +8,7 @@ import { createAccount } from "../lib/accounts";
 import { prefixedId, randomToken, safeEqual, sha256Hex } from "../lib/crypto";
 import { ApiError, errors, zodMessage } from "../lib/http";
 import { loginCodeEmail, sendSystemEmail } from "../lib/system-mail";
+import { onSignup } from "../lib/lifecycle";
 
 export const SESSION_COOKIE = "nm_session";
 const CODE_TTL = 10 * 60_000;
@@ -77,6 +78,8 @@ auth.post("/verify", async (c) => {
     const id = prefixedId("usr");
     await c.env.DB.prepare("INSERT INTO users (id, email, account_id, role, created_at) VALUES (?,?,?, 'owner', ?)").bind(id, email, created.id, now).run();
     user = { id, account_id: created.id };
+    // Welcome email now + NovaMail's own free→paid nurture funnel.
+    c.executionCtx.waitUntil(onSignup(c.env, email));
   }
 
   const token = randomToken(32);
