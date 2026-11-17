@@ -67,6 +67,32 @@ ul.ticks{list-style:none;padding:0;margin:0;display:grid;gap:12px}ul.ticks li{pa
 @keyframes dragit{0%,15%{transform:none}45%,60%{transform:translate(140px,64px) rotate(-2deg);box-shadow:0 10px 24px -8px rgba(0,0,0,.3)}80%,100%{transform:none}}
 @keyframes dropz{0%,35%{height:0;opacity:0}45%,62%{height:34px;opacity:1}75%,100%{height:0;opacity:0}}
 @keyframes travel{0%{transform:translateX(0);opacity:0}6%{opacity:1}94%{opacity:1}100%{transform:translateX(720px);opacity:0}}
+
+.topdark{position:relative}.topdark::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:linear-gradient(90deg,transparent,#27272a 12%,#27272a 88%,transparent)}
+.topdark::before{content:"";position:absolute;bottom:-1px;left:0;height:3px;width:220px;z-index:2;background:radial-gradient(ellipse at center,rgba(255,255,255,.95),rgba(255,255,255,.35) 35%,transparent 70%);filter:blur(.6px);animation:sweep 6s cubic-bezier(.45,0,.55,1) infinite}
+@keyframes sweep{0%{transform:translateX(-240px);opacity:0}8%{opacity:1}92%{opacity:1}100%{transform:translateX(calc(100vw + 20px));opacity:0}}
+.story h2{background:linear-gradient(var(--fg),var(--fg)) no-repeat left bottom/0 3px;padding-bottom:6px}
+@supports (animation-timeline: view()){.story h2{animation:draw linear both;animation-timeline:view();animation-range:entry 20% cover 40%}
+.big>div,.steps>div,.seals>.seal{animation:lift linear both;animation-timeline:view();animation-range:entry 0% cover 30%}
+.big>div:nth-child(2),.steps>div:nth-child(2),.seal:nth-child(2){animation-range:entry 6% cover 34%}.big>div:nth-child(3),.steps>div:nth-child(3),.seal:nth-child(3){animation-range:entry 12% cover 38%}.steps>div:nth-child(4),.seal:nth-child(4){animation-range:entry 18% cover 42%}.seal:nth-child(5){animation-range:entry 22% cover 46%}.seal:nth-child(6){animation-range:entry 26% cover 50%}}
+@keyframes draw{to{background-size:120px 3px}}
+@keyframes lift{from{opacity:0;transform:translateY(28px) scale(.97)}to{opacity:1;transform:none}}
+.big>div,.steps>div{transition:transform .25s ease,box-shadow .25s ease}.big>div:hover,.steps>div:hover{transform:translateY(-4px);box-shadow:0 18px 40px -20px rgba(0,0,0,.35)}
+.steps>div::before{position:relative}.steps>div:hover::before{animation:pulse 1.2s ease-in-out infinite}
+.seals{position:relative}.seal{position:relative;overflow:hidden}.seal::after{content:"";position:absolute;top:0;bottom:0;width:60px;left:-80px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.65),transparent);animation:glint 5s ease-in-out infinite}
+@media(prefers-color-scheme:dark){.seal::after{background:linear-gradient(90deg,transparent,rgba(255,255,255,.12),transparent)}}
+.seal:nth-child(2)::after{animation-delay:.25s}.seal:nth-child(3)::after{animation-delay:.5s}.seal:nth-child(4)::after{animation-delay:.75s}.seal:nth-child(5)::after{animation-delay:1s}.seal:nth-child(6)::after{animation-delay:1.25s}
+@keyframes glint{0%,60%{left:-80px}85%,100%{left:calc(100% + 20px)}}
+pre{position:relative;overflow:hidden}pre::after{content:"";position:absolute;left:0;right:0;height:38px;top:-40px;background:linear-gradient(180deg,transparent,rgba(255,255,255,.07),transparent);animation:scan 4.5s linear infinite}
+@keyframes scan{to{top:110%}}
+.plans>div::before{display:none!important}.plans>div{position:relative;transition:transform .25s ease}.plans>div:hover{transform:translateY(-4px)}
+.plans>div.hot{border-color:transparent;background:linear-gradient(var(--card),var(--card)) padding-box,conic-gradient(from var(--a),#18181b,#a1a1aa,#fafafa,#a1a1aa,#18181b) border-box;border:2px solid transparent;animation:spin 5s linear infinite}
+@property --a{syntax:"<angle>";inherits:false;initial-value:0deg}@keyframes spin{to{--a:360deg}}
+.plans .badge-hot{position:absolute;top:-12px;right:16px;background:var(--fg);color:var(--bg);font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px}
+.final .btn{position:relative;overflow:hidden}.final .btn::after{content:"";position:absolute;top:0;bottom:0;width:40px;left:-60px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);transform:skewX(-20deg);animation:shinebtn 3.2s ease-in-out infinite}
+@keyframes shinebtn{0%,55%{left:-60px}85%,100%{left:calc(100% + 20px)}}
+.final{position:relative}.final::before{content:"";position:absolute;left:50%;top:40px;width:520px;height:520px;margin-left:-260px;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--fg) 8%,transparent),transparent 65%);z-index:-1;animation:breathe 6s ease-in-out infinite}
+@keyframes breathe{50%{transform:scale(1.12);opacity:.6}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important}.in,.mail,.float{opacity:1;transform:none}.ed-can .drop{display:none}}
 `;
 
@@ -239,7 +265,7 @@ export function home(lang: "en" | "pt-BR") {
        "html":"<p>Thanks!</p>"}'`)}</code></pre></div></section>
 
 <section class="story reveal"><p class="k">${esc(c.pr_k)}</p><h2>${esc(c.pr_h)}</h2>
-<div class="steps" style="counter-reset:none">${c.plans.map(([n, p, d, y]) => `<div style="padding-top:22px"><h3>${esc(n)}</h3><p class="price">${esc(p)}</p><p>${esc(d)}</p>${y ? `<p style="color:var(--fg);font-size:14px;font-weight:600">${esc(y)}</p>` : ""}</div>`).join("")}</div>
+<div class="steps plans" style="counter-reset:none">${c.plans.map(([n, p, d, y], i) => `<div class="${i === 1 ? "hot" : ""}" style="padding-top:22px">${i === 1 ? `<span class="badge-hot">${lang === "en" ? "Most popular" : "Mais escolhido"}</span>` : ""}<h3>${esc(n)}</h3><p class="price">${esc(p)}</p><p>${esc(d)}</p>${y ? `<p style="color:var(--fg);font-size:14px;font-weight:600">${esc(y)}</p>` : ""}</div>`).join("")}</div>
 <p style="margin-top:16px">${esc(c.pr_note)}</p></section>`;
 
   const finale = `<section class="final reveal"><h2 style="font-size:clamp(30px,4.6vw,48px);letter-spacing:-.03em;line-height:1.05;max-width:720px">${esc(c.fin_h)}</h2><p class="sub" style="font-size:18px;color:var(--mut);max-width:560px">${esc(c.fin_sub)}</p><div class="cta"><a class="btn" href="/login">${esc(c.cta)} →</a></div></section>`;

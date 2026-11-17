@@ -43,7 +43,9 @@ pre{background:var(--code);color:#e4e4e7;border-radius:12px;padding:18px;overflo
 table{width:100%;border-collapse:collapse;font-size:15px;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}th{font-weight:600}td{color:var(--mut)}
 .price{font-size:36px;font-weight:650;letter-spacing:-.02em;color:var(--fg)}.price small{font-size:15px;color:var(--mut);font-weight:400}
 details{border-bottom:1px solid var(--line);padding:14px 0}summary{cursor:pointer;font-weight:600}details p{margin:8px 0 0}
-footer{border-top:1px solid var(--line);margin-top:48px;padding:28px 0 40px;font-size:14px;color:var(--mut)}footer .cols{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}footer a{text-decoration:none;display:block;margin:4px 0}footer b{color:var(--fg)}`;
+footer{background:#09090b;color:#a1a1aa;margin-top:64px;padding:56px 0 40px;font-size:14px}footer .cols{display:grid;gap:22px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-top:36px}footer a{text-decoration:none;display:block;margin:6px 0;color:#a1a1aa}footer a:hover{color:#fafafa;opacity:1}footer b{color:#fafafa}
+.flogo{display:flex;align-items:center;gap:12px;font-size:22px;font-weight:700;color:#fafafa;letter-spacing:-.02em;text-decoration:none}.flogo i{display:grid;place-items:center;width:40px;height:40px;border-radius:11px;background:#fafafa;color:#09090b;font-style:normal;font-size:19px}
+.ftag{margin:12px 0 0;color:#a1a1aa;max-width:420px}.fbottom{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;border-top:1px solid #27272a;margin-top:36px;padding-top:22px;color:#71717a}`;
 
 const NAV = `<nav class="m" aria-label="Main"><a href="/email-marketing">Email marketing</a><a href="/pricing">Pricing</a><a href="/guides">Guides</a><a href="${API_DOCS}">API docs</a><a href="/login">Sign in</a></nav>`;
 
@@ -123,7 +125,7 @@ export function render(p: Page, all: Page[], nonce = ""): string {
 <div class="${p.heroHtml ? "topdark" : ""}"><div class="w"><header class="top"><a class="logo" href="${lang === "en" ? "/" : "/pt/"}"><i aria-hidden="true">✉</i>NovaMail</a>${NAV}</header></div></div>
 <main class="w">${p.heroHtml ?? `<div class="hero">${crumbHtml}<h1>${esc(p.h1)}</h1><p class="lead">${esc(p.lead)}</p><div class="cta"><a class="btn" href="/login">${lang === "en" ? "Start free — no card" : "Comece grátis — sem cartão"}</a><a class="btn g" href="${API_DOCS}">${lang === "en" ? "Read the API docs" : "Documentação da API"}</a></div></div>`}
 ${p.body}${faqHtml}${p.finale ?? ""}</main>${p.heroHtml && nonce ? `<script nonce="${nonce}">${TYPEWRITER}</script>` : ""}
-<footer><div class="w"><div class="cols">${FOOTER_LINKS.map(([h, ls]) => `<div><b>${h}</b>${ls.map(([href, t]) => `<a href="${href}">${esc(t)}</a>`).join("")}</div>`).join("")}</div><p>© 2026 NovaMail · Updated ${UPDATED}</p></div></footer>
+<footer><div class="w"><a class="flogo" href="${lang === "en" ? "/" : "/pt/"}"><i aria-hidden="true">✉</i>NovaMail</a><p class="ftag">${lang === "en" ? "Email marketing that reaches the inbox." : "E-mail marketing que chega na caixa de entrada."}</p><div class="cols">${FOOTER_LINKS.map(([h, ls]) => `<div><b>${h}</b>${ls.map(([href, t]) => `<a href="${href}">${esc(t)}</a>`).join("")}</div>`).join("")}</div><div class="fbottom"><span>© 2026 NovaMail</span><span>${lang === "en" ? "Updated" : "Atualizado"} ${UPDATED}</span></div></div></footer>
 </body></html>`;
 }
 
