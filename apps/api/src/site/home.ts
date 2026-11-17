@@ -5,6 +5,7 @@
 import { API_DOCS, esc } from "./layout";
 
 export const HOME_CSS = `
+.h-grid>*,.two>*,.steps>*,.big>*{min-width:0}pre{max-width:100%}main{overflow-x:clip}
 :root{--accent:#2563eb;--accent-soft:#dbeafe;--ok:#059669}
 @media(prefers-color-scheme:dark){:root{--accent:#60a5fa;--accent-soft:#172554;--ok:#34d399}}
 .h-grid{display:grid;gap:48px;align-items:center;padding:48px 0 24px}@media(min-width:960px){.h-grid{grid-template-columns:1.05fr .95fr;padding:72px 0 40px}}
