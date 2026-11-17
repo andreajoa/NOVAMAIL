@@ -49,7 +49,9 @@ Key facts:
 - SMTP: postal.novamail.nexaclouds.online, port 587 STARTTLS (TLS 1.3)
 - Authentication: SPF, DKIM (2048-bit), DMARC; one-click unsubscribe (RFC 8058) on every campaign
 - Webhooks: Standard Webhooks signatures (delivered, delayed, bounced, complained)
-- Not available yet: drag-and-drop email editor, multi-step automations, scheduled sends
+- Drag-and-drop editor with 8 ready-made templates, image/GIF uploads, video-to-GIF, raw HTML
+- Funnels: automated multi-step sequences triggered by list join or API
+- MCP server for Claude Code/Codex: https://api.novamail.nexaclouds.online/mcp (restricted agent keys; agents cannot send or activate)
 - API reference (OpenAPI 3.1): ${API_DOCS} · spec: https://api.novamail.nexaclouds.online/openapi.json
 
 ## Product

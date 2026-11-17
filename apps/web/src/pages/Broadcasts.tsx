@@ -12,8 +12,9 @@ export function Broadcasts() {
   const qc = useQueryClient();
   const auds = useQuery({ queryKey: ["audiences"], queryFn: () => api("/audiences") });
   const q = useQuery({ queryKey: ["broadcasts"], queryFn: () => api("/broadcasts"), refetchInterval: 10_000 });
-  const [f, setF] = useState({ audience_id: "", from: "", subject: "", html: "" });
-  const create = useMutation({ mutationFn: () => api("/broadcasts", { body: f }), onSuccess: () => (setF({ ...f, subject: "", html: "" }), qc.invalidateQueries({ queryKey: ["broadcasts"] })) });
+  const [f, setF] = useState({ audience_id: "", from: "", subject: "", html: "", template_id: "" });
+  const tpls = useQuery({ queryKey: ["templates"], queryFn: () => api("/templates") });
+  const create = useMutation({ mutationFn: () => api("/broadcasts", { body: { audience_id: f.audience_id, from: f.from, ...(f.subject ? { subject: f.subject } : {}), ...(f.template_id ? { template_id: f.template_id } : { html: f.html }) } }), onSuccess: () => (setF({ ...f, subject: "", html: "", template_id: "" }), qc.invalidateQueries({ queryKey: ["broadcasts"] })) });
   const act = useMutation({ mutationFn: ({ id, a }: { id: string; a: "send" | "cancel" }) => api(`/broadcasts/${id}/${a}`, { method: "POST" }), onSuccess: () => qc.invalidateQueries({ queryKey: ["broadcasts"] }) });
   const audList: any[] = auds.data?.data ?? [];
   const rows: any[] = q.data?.data ?? [];
@@ -30,8 +31,12 @@ export function Broadcasts() {
             </select>
             <Input required value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} placeholder={L.from} />
           </div>
-          <Input required value={f.subject} onChange={(e) => setF({ ...f, subject: e.target.value })} placeholder={L.subject} />
-          <textarea required rows={6} value={f.html} onChange={(e) => setF({ ...f, html: e.target.value })} placeholder={L.html} className="w-full rounded-lg border border-zinc-200 bg-white p-3 font-mono text-xs dark:border-zinc-800 dark:bg-zinc-950" />
+          <select value={f.template_id} onChange={(e) => setF({ ...f, template_id: e.target.value })} className="h-9 w-full rounded-lg border border-zinc-200 bg-white px-2 text-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <option value="">{lang === "pt" ? "Usar um modelo (opcional)…" : "Use a template (optional)…"}</option>
+            {(tpls.data?.data ?? []).map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+          <Input required={!f.template_id} value={f.subject} onChange={(e) => setF({ ...f, subject: e.target.value })} placeholder={f.template_id ? `${L.subject} (${lang === "pt" ? "opcional" : "optional"})` : L.subject} />
+          {!f.template_id && <textarea required rows={6} value={f.html} onChange={(e) => setF({ ...f, html: e.target.value })} placeholder={L.html} className="w-full rounded-lg border border-zinc-200 bg-white p-3 font-mono text-xs dark:border-zinc-800 dark:bg-zinc-950" />}
           <p className="text-xs text-zinc-500">{L.hint}</p>
           <Button disabled={create.isPending}>{L.save}</Button>
         </form>

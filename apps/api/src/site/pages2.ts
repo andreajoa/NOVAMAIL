@@ -11,7 +11,9 @@ const NOVAMAIL_ROWS: [string, string][] = [
   ["SMTP", "Port 587 STARTTLS (TLS 1.3) and 25"],
   ["Domain authentication", "SPF, DKIM 2048-bit, DMARC guidance, live verification"],
   ["Webhooks", "Standard Webhooks (signed)"],
-  ["Drag-and-drop editor / automations", "Not yet — HTML or plain-text campaigns"],
+  ["Editor & templates", "Drag-and-drop editor, 8 ready-made templates, GIFs, video-to-GIF, or paste HTML"],
+  ["Automations", "Funnels: multi-step sequences with waits, triggered by list join or API"],
+  ["AI agents", "MCP server for Claude Code and Codex with restricted agent keys"],
 ];
 
 function compare(o: { slug: string; name: string; kind: "marketing" | "api"; what: string; why: [string, string][]; switchHow: string; faq: [string, string][] }): Page {
@@ -50,7 +52,7 @@ export const PAGES2: Page[] = [
     switchHow: MARKETING_SWITCH,
     faq: [
       ["Can I import my Mailchimp audience?", "Yes. Export your subscribed contacts from Mailchimp as CSV and import them into a NovaMail list (email, first name, last name)."],
-      ["Does NovaMail have a drag-and-drop editor like Mailchimp?", "Not yet. You can paste HTML from any email editor or write plain text."],
+      ["Does NovaMail have a drag-and-drop editor like Mailchimp?", "Yes: ready-made templates, drag-and-drop blocks, image and GIF uploads, video-to-GIF, desktop/mobile preview, or paste your own HTML."],
     ],
   }),
   compare({
@@ -153,6 +155,18 @@ export const PAGES2: Page[] = [
   }),
 
   // ---------------- guides ----------------
+  {
+    path: "/ai-agents",
+    title: "Email Marketing with Claude Code & Codex (MCP) | NovaMail",
+    description: "Connect Claude Code or Codex to NovaMail over MCP to build email templates, lists and automated funnels — with a restricted agent key that can't send without you.",
+    h1: "Let Claude Code or Codex set up your email marketing",
+    lead: "NovaMail ships an MCP server. Connect your AI coding agent and ask it to create templates, import contacts and build funnels — while sending and activation stay in your hands.",
+    priority: 0.7,
+    body: `<section class="prose"><h2>Connect in one line</h2>${code('claude mcp add --transport http novamail https://api.novamail.nexaclouds.online/mcp --header "Authorization: Bearer nm_your_agent_key"')}<p>Codex (<code>~/.codex/config.toml</code>):</p>${code('[mcp_servers.novamail]\nurl = "https://api.novamail.nexaclouds.online/mcp"\nbearer_token_env_var = "NOVAMAIL_AGENT_KEY"')}
+<h2>Safe by design</h2><ul><li>Agent keys can create and edit templates, lists and draft funnels/campaigns, and send a test to the owner's inbox.</li><li>They cannot email arbitrary people, send campaigns, activate funnels, delete anything or touch keys, webhooks, domains or billing.</li><li>120 actions per minute per key, every action logged, and the server tells the model to treat contact data and HTML as data, never as instructions.</li></ul>
+<h2>Example prompt</h2><p>“Create a 3-email welcome funnel for my store using the Welcome template, waiting 2 days between emails, for the Newsletter list. Send me a test.” Then review it in the dashboard and press Activate.</p></section>`,
+    faq: [["Can the AI send emails on its own?", "No. Agent keys can only build drafts and send tests to the account owner. A person activates funnels and sends campaigns in the dashboard."]],
+  },
   {
     path: "/guides",
     title: "Email Deliverability & Sending Guides | NovaMail",

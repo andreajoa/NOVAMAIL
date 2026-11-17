@@ -1,11 +1,15 @@
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, Ban, CreditCard, Globe, KeyRound, LayoutDashboard, LogOut, Mail, Megaphone, Users, Webhook } from "lucide-react";
+import { Activity, Ban, Bot, CreditCard, GitBranch, Globe, KeyRound, LayoutDashboard, LayoutTemplate, LogOut, Mail, Megaphone, Users, Webhook } from "lucide-react";
 import { StrictMode, useEffect, useState, type ComponentType } from "react";
 import { createRoot } from "react-dom/client";
 import { api, ApiError } from "./api";
 import { t } from "./i18n";
 import { navigate } from "./nav";
+import { Agents } from "./pages/Agents";
 import { Audiences } from "./pages/Audiences";
+import { Editor } from "./pages/Editor";
+import { Funnels } from "./pages/Funnels";
+import { Templates } from "./pages/Templates";
 import { Broadcasts } from "./pages/Broadcasts";
 import { Domains } from "./pages/Domains";
 import { Emails } from "./pages/Emails";
@@ -27,11 +31,14 @@ const ROUTES: { path: string; label: string; icon: ComponentType<{ size?: number
   { path: "/", label: t.overview, icon: LayoutDashboard, page: Overview },
   { path: "/emails", label: t.emails, icon: Mail, page: Emails },
   { path: "/domains", label: t.domains, icon: Globe, page: Domains },
+  { path: "/templates", label: t.lang === "pt" ? "Modelos" : "Templates", icon: LayoutTemplate, page: Templates },
   { path: "/audiences", label: t.lang === "pt" ? "Públicos" : "Audiences", icon: Users, page: Audiences },
   { path: "/broadcasts", label: t.lang === "pt" ? "Campanhas" : "Broadcasts", icon: Megaphone, page: Broadcasts },
+  { path: "/funnels", label: t.lang === "pt" ? "Funis" : "Funnels", icon: GitBranch, page: Funnels },
   { path: "/api-keys", label: t.apiKeys, icon: KeyRound, page: Keys },
   { path: "/webhooks", label: t.webhooks, icon: Webhook, page: Webhooks },
   { path: "/suppressions", label: t.suppressions, icon: Ban, page: Suppressions },
+  { path: "/agents", label: "Claude Code / Codex", icon: Bot, page: Agents },
   { path: "/plan", label: t.plan, icon: CreditCard, page: Plan },
 ];
 
@@ -58,6 +65,8 @@ function Shell() {
   if (me.isLoading && !me.isRefetchError) return <div className="grid h-full place-items-center text-sm text-zinc-500">{t.loading}</div>;
   if (me.error instanceof ApiError && me.error.status === 401) return <Login onDone={() => { if (location.pathname === "/login") history.replaceState(null, "", "/"); qc.invalidateQueries(); }} />;
 
+  const editorId = path.match(/^\/templates\/([\w-]+)$/)?.[1];
+  if (editorId) return <Editor id={editorId} />;
   const route = ROUTES.find((r) => r.path === path) ?? ROUTES[0]!;
   const Page = route.page;
   const account = me.data?.account;

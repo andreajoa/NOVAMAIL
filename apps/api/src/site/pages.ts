@@ -54,7 +54,10 @@ const WHAT_YOU_GET = cards([
   ["Campaigns & newsletters", "Write your email, pick a contact list and send. Personalise with <code>{{first_name}}</code>. Sending happens in safe batches and pauses automatically if you reach your plan limit."],
   ["Contact lists", "Create lists for customers, leads or newsletter subscribers. Paste or import a CSV (email, first name, last name). Duplicates are merged automatically."],
   ["One-click unsubscribe", "Every campaign carries the RFC 8058 unsubscribe headers Gmail and Yahoo require, plus a link you can place in the footer. Unsubscribed people are never emailed again."],
+  ["Works with Claude Code & Codex", "Connect your AI coding agent over MCP to build templates, lists and funnels for you — with a restricted key that can't send or activate anything without you."],
   ["Your own domain", "Send from <code>hello@yourbrand.com</code>, not from a shared address. We give you the SPF, DKIM and DMARC records and check them live."],
+  ["Drag-and-drop templates", "8 ready-made designs. Drag blocks, drop new images or GIFs, turn videos into looping GIFs, or paste your own HTML."],
+  ["Funnels", "Automated sequences: welcome series, onboarding, abandoned cart — with waits between emails."],
   ["Transactional email API", "Order confirmations, password resets and receipts from your app or store, through a REST API compatible with the Resend SDKs, or plain SMTP."],
   ["Bounce & complaint protection", "Hard bounces and spam complaints are suppressed automatically, which protects your sender reputation and keeps your emails out of spam."],
 ]);
@@ -136,11 +139,15 @@ export const PAGES: Page[] = [
     ])}</section>
 <section class="prose"><h2>Personalization</h2><p>Use <code>{{first_name}}</code>, <code>{{last_name}}</code> and <code>{{email}}</code> in the subject and body. Place <code>{{unsubscribe_url}}</code> in your footer — the one-click unsubscribe header is added automatically either way.</p>
 <h2>What happens when someone unsubscribes</h2><p>They are marked as unsubscribed in the list and added to your account's suppression list, so no future campaign or API email reaches them. Gmail and Yahoo show their own "Unsubscribe" button because of the RFC 8058 headers we add, which reduces spam complaints.</p>
-<h2>Honest limits</h2><p>NovaMail focuses on reliable delivery and simplicity. Campaigns are written in HTML or plain text (paste from any editor); there is no drag-and-drop designer or multi-step automation builder yet.</p>
+<h2>Drag-and-drop editor and ready-made templates</h2><p>Start from 8 ready-made templates (newsletter, sale, product launch, welcome, event invitation, abandoned cart, simple text, order confirmation) or a blank canvas. Drag blocks — heading, text, image, GIF, video, button, image + text, divider, HTML — reorder them with your mouse, drop a new image onto any picture to replace it, and preview on desktop and mobile. Prefer code? Paste your own HTML.</p>
+<h2>Video in email</h2><p>Gmail and Outlook don't play video inside an email. NovaMail turns your video into a looping, silent animated GIF right in your browser, which plays in every inbox and links to the full video.</p>
+<h2>Funnels (automated sequences)</h2><p>Build a welcome series, onboarding or abandoned-cart sequence: when someone joins a list they get email 1, wait any number of days, get email 2, and so on. People who unsubscribe leave the funnel automatically.</p>
 <h2>Do it by API</h2><p>Lists, contacts and campaigns are also available through the API (<code>/audiences</code>, <code>/audiences/{id}/contacts</code>, <code>/broadcasts</code>), so you can sync customers from your store automatically.</p></section>`,
     faq: [
       ["How many contacts can I have?", "Contacts are unlimited on every plan; you pay for emails sent. The Free plan sends 3,000 emails per month."],
-      ["Can I schedule a campaign?", "Campaigns are sent when you press Send and go out in batches every minute. Scheduled sending is on the roadmap."],
+      ["Can I schedule a campaign?", "Campaigns go out in batches as soon as you press Send. For timed sequences, use a funnel: each email waits the number of days or hours you choose."],
+      ["Is there a drag-and-drop editor?", "Yes. Pick a ready-made template or start blank, drag blocks into place, replace images by dropping a file on them, and preview on desktop and mobile. You can also paste your own HTML."],
+      ["Can I build automated email sequences?", "Yes. Funnels send a series of emails automatically when someone joins a list or when your app enrolls them through the API, with waits between emails."],
       ["Will my emails go to spam?", "Deliverability depends on your domain authentication, list quality and content. NovaMail handles SPF, DKIM, DMARC, one-click unsubscribe and bounce suppression; you should only email people who opted in."],
     ],
   },

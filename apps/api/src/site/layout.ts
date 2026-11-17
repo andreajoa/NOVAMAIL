@@ -44,7 +44,7 @@ footer{border-top:1px solid var(--line);margin-top:48px;padding:28px 0 40px;font
 const NAV = `<nav class="m" aria-label="Main"><a href="/email-marketing">Email marketing</a><a href="/pricing">Pricing</a><a href="/guides">Guides</a><a href="${API_DOCS}">API docs</a><a href="/login">Sign in</a></nav>`;
 
 export const FOOTER_LINKS: [string, [string, string][]][] = [
-  ["Product", [["/email-marketing", "Email marketing"], ["/transactional-email-api", "Transactional email API"], ["/smtp-relay", "SMTP relay"], ["/pricing", "Pricing"], [API_DOCS, "API reference"], [STATUS, "Status"]]],
+  ["Product", [["/email-marketing", "Email marketing"], ["/ai-agents", "Claude Code & Codex"], ["/transactional-email-api", "Transactional email API"], ["/smtp-relay", "SMTP relay"], ["/pricing", "Pricing"], [API_DOCS, "API reference"], [STATUS, "Status"]]],
   ["Compare", [["/mailchimp-alternative", "Mailchimp alternative"], ["/brevo-alternative", "Brevo alternative"], ["/mailerlite-alternative", "MailerLite alternative"], ["/resend-alternative", "Resend alternative"], ["/sendgrid-alternative", "SendGrid alternative"], ["/mailgun-alternative", "Mailgun alternative"], ["/postmark-alternative", "Postmark alternative"], ["/amazon-ses-alternative", "Amazon SES alternative"]]],
   ["Guides", [["/guides/spf-dkim-dmarc", "SPF, DKIM & DMARC setup"], ["/guides/gmail-yahoo-bulk-sender-requirements", "Gmail & Yahoo sender rules"], ["/guides/one-click-unsubscribe", "One-click unsubscribe"], ["/guides/send-email-nodejs", "Send email with Node.js"], ["/guides/send-email-python", "Send email with Python"]]],
   ["Company", [["/terms", "Terms"], ["/aup", "Acceptable use"], ["/privacy", "Privacy"], ["/pt/", "Português"]]],
@@ -75,6 +75,9 @@ export const PRODUCT = {
   ],
   featureList: [
     "Email campaigns and newsletters to your contact lists",
+    "Drag-and-drop email editor with ready-made templates, GIFs and video-to-GIF",
+    "Automated email funnels (multi-step sequences)",
+    "MCP server for Claude Code and Codex with restricted agent keys",
     "Contact lists with CSV import and personalization ({{first_name}})",
     "Resend-compatible REST API (POST /emails, /emails/batch)",
     "SMTP relay on port 587 with STARTTLS (TLS 1.3)",

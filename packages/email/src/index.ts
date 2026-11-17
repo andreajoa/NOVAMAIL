@@ -173,7 +173,7 @@ function renderBlock(b: Block, t: Theme): string {
 }
 
 /** Renders a design into a complete, email-client-safe HTML document. */
-export function renderDesign(input: Design | unknown, opts: { title?: string } = {}): string {
+export function renderDesign(input: Design | unknown, opts: { title?: string; bare?: boolean } = {}): string {
   const d = normalizeDesign(input);
   const t = d.theme;
   const rows = d.blocks.map((b) => renderBlock(b, t)).join("\n");
@@ -186,7 +186,7 @@ export function renderDesign(input: Design | unknown, opts: { title?: string } =
 @media (max-width:620px){.nm-wrap{width:100%!important}.nm-col{display:block!important;width:100%!important;padding:0 0 12px!important}}</style></head>
 <body style="margin:0;padding:0;background:${t.background}">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all">${esc(d.preheader ?? "")}&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${t.background}"><tr><td align="center" style="padding:24px 12px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${t.background}"><tr><td align="center" style="padding:${opts.bare ? "0" : "24px 12px"}">
 <!--[if mso]><table role="presentation" width="${t.width}" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
 <table role="presentation" class="nm-wrap" width="${t.width}" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:${t.width}px;background:${t.content};border-radius:${t.radius}px;overflow:hidden">
 ${rows}
@@ -209,6 +209,11 @@ export function designToText(input: Design | unknown): string {
     else if (b.type === "divider") out.push("---");
   }
   return out.filter(Boolean).join("\n\n");
+}
+
+/** One block rendered alone (editor canvas preview, shown in a script-less sandboxed iframe). */
+export function renderBlockDocument(block: Block, theme: Theme): string {
+  return renderDesign({ version: 1, theme: { ...theme, background: theme.content, radius: 0 }, blocks: [block] }, { bare: true });
 }
 
 export { TEMPLATES, type TemplatePreset } from "./templates";

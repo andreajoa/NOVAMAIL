@@ -10,12 +10,13 @@
     "test": "echo 'web: covered by typecheck + build'"
   },
   "dependencies": {
+    "@novamail/email": "workspace:*",
     "@stripe/stripe-js": "^10.3.0",
     "@tanstack/react-query": "^5.107.1",
+    "gifenc": "^1.0.3",
     "lucide-react": "^1.73.0",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1",
-    "@novamail/email": "workspace:*"
+    "react-dom": "^19.3.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.5",

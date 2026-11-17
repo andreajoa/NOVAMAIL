@@ -137,7 +137,7 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
       const res = await env.ASSETS.fetch(req);
       const h = new Headers(res.headers);
       // Stripe embedded Checkout needs js.stripe.com (script + frames) and api.stripe.com.
-      h.set("content-security-policy", "default-src 'self'; script-src 'self' https://js.stripe.com https://*.js.stripe.com; frame-src https://js.stripe.com https://*.js.stripe.com https://checkout.stripe.com https://hooks.stripe.com; connect-src 'self' https://api.stripe.com https://checkout.stripe.com https://*.stripe.com; img-src 'self' data: https://*.stripe.com; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self' https://checkout.stripe.com");
+      h.set("content-security-policy", "default-src 'self'; script-src 'self' https://js.stripe.com https://*.js.stripe.com; frame-src 'self' https://js.stripe.com https://*.js.stripe.com https://checkout.stripe.com https://hooks.stripe.com; connect-src 'self' https://api.stripe.com https://checkout.stripe.com https://*.stripe.com; img-src 'self' data: blob: https:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self' https://checkout.stripe.com");
       h.set("x-content-type-options", "nosniff");
       h.set("referrer-policy", "strict-origin-when-cross-origin");
       return new Response(res.body, { status: res.status, headers: h });
