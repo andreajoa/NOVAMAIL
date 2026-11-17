@@ -944,3 +944,87 @@ describe("public embeds are loadable cross-origin", () => {
     expect((await rawReq("/status")).headers.get("cross-origin-resource-policy")).toBe("same-origin");
   });
 });
+
+describe("A/B subject tests, scheduling and resend to non-openers", () => {
+  it("splits a test cohort, waits, sends the winner to the rest, then re-sends only to non-openers", async () => {
+    const { processBroadcasts } = await import("../src/routes/marketing");
+    const acc = await verifiedAccount(postal, "pro");
+    const t = (path: string, init: any = {}) => call(path, { token: acc.api_key, ...init });
+    const aud = await t("/audiences", { method: "POST", json: { name: "AB" } });
+    await t(`/audiences/${aud.body.id}/contacts`, { method: "POST", json: Array.from({ length: 20 }, (_, i) => ({ email: `ab${i}@x.com` })) });
+    const bc = await t("/broadcasts", { method: "POST", json: { audience_id: aud.body.id, from: "news@example.com", subject: "Subject A", html: "<p>hi</p>", ab: { subjects: ["Subject B"], test_percent: 40, metric: "opens", wait_hours: 2 } } });
+    expect(bc.status).toBe(201);
+    const id = bc.body.id;
+
+    // Scheduling: nothing goes out before send_at.
+    const at = Date.now() + 3_600_000;
+    expect((await t(`/broadcasts/${id}/send`, { method: "POST", json: { send_at: at } })).body.status).toBe("scheduled");
+    const n0 = postal.sent.length;
+    await processBroadcasts(testEnv as any, Date.now());
+    expect(postal.sent.length).toBe(n0);
+
+    await processBroadcasts(testEnv as any, at + 1);
+    const testMails = postal.sent.slice(n0);
+    expect(testMails).toHaveLength(8); // 40% of 20
+    expect(new Set(testMails.map((m: any) => m.subject))).toEqual(new Set(["Subject A", "Subject B"]));
+    expect((await t(`/broadcasts/${id}`)).body.status).toBe("testing");
+
+    // Variant B gets more opens.
+    const rows = await testEnv.DB.prepare("SELECT email_id, variant FROM broadcast_recipients WHERE broadcast_id = ?").bind(id).all<any>();
+    for (const r of rows.results.filter((r: any) => r.variant === 1))
+      await testEnv.DB.prepare("INSERT INTO email_events (id, email_id, account_id, type, recipient, data, created_at) VALUES (?, ?, ?, 'email.opened', NULL, '{}', ?)").bind(crypto.randomUUID(), r.email_id, acc.id, Date.now()).run();
+    await processBroadcasts(testEnv as any, at + 3600_000); // still waiting
+    expect((await t(`/broadcasts/${id}`)).body.status).toBe("testing");
+    await processBroadcasts(testEnv as any, at + 3 * 3600_000);
+    const ab = await t(`/broadcasts/${id}/ab`);
+    expect(ab.body.winner).toBe(1);
+    expect(ab.body.results[0]).toMatchObject({ sent: 4, opens: 0 });
+    expect(ab.body.results[1]).toMatchObject({ sent: 16, opens: 4 }); // 4 test + 12 winner sends
+    const rest = postal.sent.slice(n0 + 8);
+    expect(rest).toHaveLength(12);
+    expect(rest.every((m: any) => m.subject === "Subject B")).toBe(true);
+    expect((await t(`/broadcasts/${id}`)).body.status).toBe("sent");
+    expect(new Set(postal.sent.slice(n0).map((m: any) => m.to[0])).size).toBe(20); // nobody twice
+
+    // Resend to non-openers: only the 16 who didn't open (4 B-test openers excluded).
+    const rs = await t(`/broadcasts/${id}/resend`, { method: "POST", json: { subject: "In case you missed it", after_hours: 0 } });
+    expect(rs.body.status).toBe("scheduled");
+    const n1 = postal.sent.length;
+    await processBroadcasts(testEnv as any, at + 4 * 3600_000);
+    await processBroadcasts(testEnv as any, at + 4 * 3600_000 + 60_000);
+    const again = postal.sent.slice(n1);
+    expect(again).toHaveLength(16);
+    expect(again.every((m: any) => m.subject === "In case you missed it")).toBe(true);
+    expect((await t(`/broadcasts/${rs.body.id}`)).body.status).toBe("sent");
+  });
+});
+
+describe("smart send time", () => {
+  it("queues each contact at their usual open hour and sends only when due", async () => {
+    const { processBroadcasts, nextAt } = await import("../src/routes/marketing");
+    const acc = await verifiedAccount(postal, "pro");
+    const t = (path: string, init: any = {}) => call(path, { token: acc.api_key, ...init });
+    const aud = await t("/audiences", { method: "POST", json: { name: "Smart" } });
+    await t(`/audiences/${aud.body.id}/contacts`, { method: "POST", json: [{ email: "morning@x.com" }, { email: "night@x.com" }, { email: "new@x.com" }] });
+    const day0 = Date.UTC(2026, 10, 20, 0, 0); // midnight UTC
+    const ev = (email: string, h: number) => testEnv.DB.prepare("INSERT INTO email_events (id, email_id, account_id, type, recipient, data, created_at) VALUES (?, 'x', ?, 'email.opened', ?, '{}', ?)").bind(crypto.randomUUID(), acc.id, email, Date.UTC(2026, 10, 1, h, 15)).run();
+    for (let i = 0; i < 3; i++) await ev("morning@x.com", 9);
+    for (let i = 0; i < 2; i++) await ev("night@x.com", 21);
+    expect(nextAt(day0, 9, "a@x.com")).toBeGreaterThanOrEqual(day0 + 9 * 3600_000);
+    expect(nextAt(day0, 9, "a@x.com")).toBeLessThan(day0 + 10 * 3600_000);
+
+    const bc = await t("/broadcasts", { method: "POST", json: { audience_id: aud.body.id, from: "news@example.com", subject: "Smart", html: "<p>x</p>" } });
+    await t(`/broadcasts/${bc.body.id}/send`, { method: "POST", json: { smart_time: true } });
+    await testEnv.DB.prepare("UPDATE broadcasts SET started_at = ? WHERE id = ?").bind(day0, bc.body.id).run();
+    const n0 = postal.sent.length;
+    const to = () => postal.sent.slice(n0).map((m: any) => m.to[0]);
+    await processBroadcasts(testEnv as any, day0 + 60_000);
+    expect(to()).toEqual([]); // nobody's hour yet; "new" falls back to the list's favourite hour (9h)
+    await processBroadcasts(testEnv as any, day0 + 10 * 3600_000);
+    expect(to().sort()).toEqual(["morning@x.com", "new@x.com"]);
+    expect((await t(`/broadcasts/${bc.body.id}`)).body.status).toBe("sending");
+    await processBroadcasts(testEnv as any, day0 + 22 * 3600_000);
+    expect(to().sort()).toEqual(["morning@x.com", "new@x.com", "night@x.com"]);
+    expect((await t(`/broadcasts/${bc.body.id}`)).body.status).toBe("sent");
+  });
+});

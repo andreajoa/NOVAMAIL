@@ -135,6 +135,13 @@ const bcSchema = z
     html: z.string().max(2_000_000).optional(),
     text: z.string().max(2_000_000).optional(),
     template_id: z.string().optional(),
+    // A/B test: alternative subjects (the main `subject` is variant A).
+    ab: z.object({
+      subjects: z.array(z.string().min(1).max(998)).min(1).max(3),
+      test_percent: z.number().int().min(10).max(100).default(20),
+      metric: z.enum(["opens", "clicks"]).default("opens"),
+      wait_hours: z.number().min(1).max(72).default(4),
+    }).optional(),
   })
   .refine((v) => v.html || v.text || v.template_id, { message: "Provide `template_id`, `html` or `text`.", path: ["html"] });
 
@@ -152,14 +159,15 @@ broadcasts.post("/", async (c) => {
   }
   if (!subject) throw errors.validation("subject is required (or use a template with a subject).");
   const id = prefixedId("bc");
-  await c.env.DB.prepare("INSERT INTO broadcasts (id, account_id, audience_id, name, from_addr, reply_to, subject, html, text, template_id, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
-    .bind(id, p.accountId, b.audience_id, b.name ?? null, b.from, b.reply_to ?? null, subject, html ?? null, text ?? null, b.template_id ?? null, Date.now())
+  const ab = b.ab ? { variants: [subject, ...b.ab.subjects], test_percent: b.ab.test_percent, metric: b.ab.metric, wait_hours: b.ab.wait_hours, test_size: null, winner: null, test_done_at: null } : null;
+  await c.env.DB.prepare("INSERT INTO broadcasts (id, account_id, audience_id, name, from_addr, reply_to, subject, html, text, template_id, ab, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")
+    .bind(id, p.accountId, b.audience_id, b.name ?? null, b.from, b.reply_to ?? null, subject, html ?? null, text ?? null, b.template_id ?? null, ab ? JSON.stringify(ab) : null, Date.now())
     .run();
   return c.json({ object: "broadcast", id, status: "draft" }, 201);
 });
 
 broadcasts.get("/", async (c) => {
-  const r = await c.env.DB.prepare("SELECT id, name, audience_id, subject, status, status_reason, sent_count, skipped_count, created_at, started_at, finished_at FROM broadcasts WHERE account_id = ? ORDER BY created_at DESC LIMIT 100").bind(c.get("principal").accountId).all();
+  const r = await c.env.DB.prepare("SELECT id, name, audience_id, subject, status, status_reason, sent_count, skipped_count, created_at, started_at, finished_at, send_at, resend_of, smart_time, ab FROM broadcasts WHERE account_id = ? ORDER BY created_at DESC LIMIT 100").bind(c.get("principal").accountId).all();
   return c.json({ object: "list", data: r.results });
 });
 
@@ -167,9 +175,39 @@ broadcasts.get("/:id", async (c) => c.json({ object: "broadcast", ...(await own(
 
 broadcasts.post("/:id/send", async (c) => {
   const b = await own(c.env, "broadcasts", c.req.param("id"), c.get("principal").accountId);
-  if (!["draft", "paused"].includes(b.status as string)) throw errors.conflict(`Broadcast is ${b.status}.`);
-  await c.env.DB.prepare("UPDATE broadcasts SET status = 'sending', status_reason = NULL, started_at = COALESCE(started_at, ?) WHERE id = ?").bind(Date.now(), b.id).run();
+  if (!["draft", "paused", "scheduled"].includes(b.status as string)) throw errors.conflict(`Broadcast is ${b.status}.`);
+  const o = z.object({ send_at: z.union([z.number(), z.iso.datetime({ offset: true })]).optional(), smart_time: z.boolean().optional() }).safeParse(await c.req.json().catch(() => ({})));
+  if (!o.success) throw errors.validation(zodMessage(o.error));
+  const at = o.data.send_at === undefined ? null : typeof o.data.send_at === "number" ? o.data.send_at : Date.parse(o.data.send_at);
+  if (at && at > Date.now() + 60_000) {
+    await c.env.DB.prepare("UPDATE broadcasts SET status = 'scheduled', send_at = ?, smart_time = ? WHERE id = ?").bind(at, o.data.smart_time ? 1 : 0, b.id).run();
+    return c.json({ id: b.id, status: "scheduled", send_at: at });
+  }
+  await c.env.DB.prepare("UPDATE broadcasts SET status = 'sending', status_reason = NULL, smart_time = ?, started_at = COALESCE(started_at, ?) WHERE id = ?").bind(o.data.smart_time ? 1 : 0, Date.now(), b.id).run();
   return c.json({ id: b.id, status: "sending" });
+});
+
+/** Re-sends a finished campaign, with a new subject, only to people who didn't open (or click) it. */
+broadcasts.post("/:id/resend", async (c) => {
+  const p = c.get("principal");
+  const b = await own(c.env, "broadcasts", c.req.param("id"), p.accountId);
+  if (b.status !== "sent") throw errors.conflict("Only a sent campaign can be re-sent to non-openers.");
+  const o = z.object({ subject: z.string().min(1).max(998), after_hours: z.number().min(0).max(24 * 14).default(48) }).safeParse(await c.req.json().catch(() => null));
+  if (!o.success) throw errors.validation(zodMessage(o.error));
+  const id = prefixedId("bc");
+  const now = Date.now();
+  const at = Math.max(now, (b.finished_at as number) + o.data.after_hours * 3_600_000);
+  await c.env.DB.prepare("INSERT INTO broadcasts (id, account_id, audience_id, name, from_addr, reply_to, subject, html, text, template_id, resend_of, status, send_at, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?, 'scheduled', ?, ?)")
+    .bind(id, p.accountId, b.audience_id, `${b.name ?? b.subject} — resend to non-openers`, b.from_addr, b.reply_to, o.data.subject, b.html, b.text, b.template_id, b.id, at, now).run();
+  return c.json({ object: "broadcast", id, status: "scheduled", send_at: at, resend_of: b.id }, 201);
+});
+
+/** Per-variant results of an A/B test. */
+broadcasts.get("/:id/ab", async (c) => {
+  const b = await own(c.env, "broadcasts", c.req.param("id"), c.get("principal").accountId);
+  if (!b.ab) throw errors.notFound("A/B test");
+  const ab = JSON.parse(b.ab as string);
+  return c.json({ object: "ab_test", ...ab, results: await abResults(c.env, b.id as string, ab.variants.length) });
 });
 
 broadcasts.post("/:id/cancel", async (c) => {
@@ -186,43 +224,99 @@ broadcasts.delete("/:id", async (c) => {
   return c.json({ id: b.id, deleted: true });
 });
 
-/** Sends the next batch of every broadcast in `sending` state. Called by the cron trigger. */
+export async function abResults(env: Env, broadcastId: string, n: number) {
+  const r = await env.DB.prepare(
+    `SELECT r.variant, COUNT(*) AS sent,
+            COUNT(DISTINCT CASE WHEN e.type = 'email.opened' THEN r.email END) AS opens,
+            COUNT(DISTINCT CASE WHEN e.type = 'email.clicked' THEN r.email END) AS clicks
+       FROM broadcast_recipients r LEFT JOIN email_events e ON e.email_id = r.email_id AND e.type IN ('email.opened','email.clicked')
+      WHERE r.broadcast_id = ? GROUP BY r.variant`,
+  ).bind(broadcastId).all<{ variant: number; sent: number; opens: number; clicks: number }>();
+  return Array.from({ length: n }, (_, i) => {
+    const x = r.results.find((v) => v.variant === i) ?? { sent: 0, opens: 0, clicks: 0 };
+    return { variant: i, sent: x.sent, opens: x.opens, clicks: x.clicks, open_rate: x.sent ? x.opens / x.sent : 0, click_rate: x.sent ? x.clicks / x.sent : 0 };
+  });
+}
+
+interface AbState { variants: string[]; test_percent: number; metric: "opens" | "clicks"; wait_hours: number; test_size: number | null; winner: number | null; test_done_at: number | null }
+
+// ?6 = legacy cursor (campaigns started before the per-recipient log; '' for new ones).
+const eligibleSql = `FROM contacts c WHERE c.audience_id = ?1 AND c.id > ?6 AND c.unsubscribed = 0
+   AND NOT EXISTS (SELECT 1 FROM suppressions s WHERE s.account_id = ?2 AND s.address = c.email)
+   AND NOT EXISTS (SELECT 1 FROM broadcast_recipients x WHERE x.broadcast_id = ?3 AND x.email = c.email)
+   AND (?4 IS NULL OR EXISTS (SELECT 1 FROM broadcast_recipients r WHERE r.broadcast_id = ?4 AND r.email = c.email
+        AND NOT EXISTS (SELECT 1 FROM email_events e WHERE e.email_id = r.email_id AND e.type IN ('email.opened','email.clicked'))))`;
+
+const HOUR = 3_600_000;
+
+/** Usual open hour (UTC, 0–23) per recipient, plus the list-wide favourite as fallback. */
+export async function openHours(env: Env, accountId: string) {
+  const r = await env.DB.prepare(
+    `SELECT recipient AS email, CAST(strftime('%H', created_at / 1000, 'unixepoch') AS INTEGER) AS h, COUNT(*) AS n
+       FROM email_events WHERE account_id = ? AND type IN ('email.opened','email.clicked') AND recipient IS NOT NULL AND created_at > ?
+      GROUP BY recipient, h`,
+  ).bind(accountId, Date.now() - 180 * 86_400_000).all<{ email: string; h: number; n: number }>();
+  const per = new Map<string, { h: number; n: number }>();
+  const all = new Array(24).fill(0);
+  for (const x of r.results) {
+    all[x.h] += x.n;
+    const cur = per.get(x.email.toLowerCase());
+    if (!cur || x.n > cur.n) per.set(x.email.toLowerCase(), { h: x.h, n: x.n });
+  }
+  const top = all.some((n) => n > 0) ? all.indexOf(Math.max(...all)) : null;
+  return { per: new Map([...per].map(([e, v]) => [e, v.h])), top };
+}
+
+/** Next time (≥ start, < start+24h) at hour `h` UTC, spread across the hour so sends don't spike. */
+export function nextAt(start: number, h: number, email: string) {
+  const d = new Date(start);
+  let t = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), h);
+  if (t < start - HOUR / 2) t += 24 * HOUR;
+  let spread = 0;
+  for (const ch of email) spread = (spread * 31 + ch.charCodeAt(0)) % 3_000_000;
+  return Math.max(start, t + spread);
+}
+
+/** Cron: scheduled → sending, finished A/B tests pick a winner, then every `sending` campaign sends a batch. */
 export async function processBroadcasts(env: Env, now = Date.now(), fetcher: typeof fetch = fetch) {
+  await env.DB.prepare("UPDATE broadcasts SET status = 'sending', started_at = COALESCE(started_at, ?1) WHERE status = 'scheduled' AND send_at <= ?1").bind(now).run();
+  const testing = await env.DB.prepare("SELECT id, ab FROM broadcasts WHERE status = 'testing'").all<{ id: string; ab: string }>();
+  for (const t of testing.results) {
+    const ab = JSON.parse(t.ab) as AbState;
+    if (!ab.test_done_at || now < ab.test_done_at + ab.wait_hours * 3_600_000) continue;
+    const res = await abResults(env, t.id, ab.variants.length);
+    const score = (x: (typeof res)[number]) => (ab.metric === "clicks" ? x.click_rate * 1000 + x.open_rate : x.open_rate * 1000 + x.click_rate);
+    ab.winner = res.reduce((best, x) => (score(x) > score(res[best]!) ? x.variant : best), 0);
+    await env.DB.prepare("UPDATE broadcasts SET ab = ?, status = 'sending' WHERE id = ?").bind(JSON.stringify(ab), t.id).run();
+  }
+
   const active = await env.DB.prepare("SELECT * FROM broadcasts WHERE status = 'sending' ORDER BY started_at LIMIT 5").all<Record<string, any>>();
   const out: { id: string; sent: number; done: boolean }[] = [];
   for (const b of active.results) {
-    const contacts = await env.DB.prepare(
-      `SELECT c.id, c.email, c.first_name, c.last_name FROM contacts c
-        WHERE c.audience_id = ? AND c.id > ? AND c.unsubscribed = 0
-          AND NOT EXISTS (SELECT 1 FROM suppressions s WHERE s.account_id = ? AND s.address = c.email)
-        ORDER BY c.id LIMIT ?`,
-    ).bind(b.audience_id, b.cursor, b.account_id, BATCH_SIZE).all<{ id: string; email: string; first_name: string | null; last_name: string | null }>();
-    const principal: Principal = { accountId: b.account_id, apiKeyId: `broadcast:${b.id}`, permission: "full", domainId: null };
+    const ab: AbState | null = b.ab ? JSON.parse(b.ab) : null;
+    if (ab && ab.test_size === null) {
+      const total = (await env.DB.prepare(`SELECT COUNT(*) AS n ${eligibleSql}`).bind(b.audience_id, b.account_id, b.id, b.resend_of ?? null, null, b.cursor ?? "").first<{ n: number }>())!.n;
+      ab.test_size = ab.test_percent >= 100 ? total : Math.max(ab.variants.length * 2, Math.ceil((total * ab.test_percent) / 100));
+      await env.DB.prepare("UPDATE broadcasts SET ab = ? WHERE id = ?").bind(JSON.stringify(ab), b.id).run();
+    }
+    if (b.smart_time && !ab) {
+      out.push(await processSmart(env, b, now, fetcher));
+      continue;
+    }
+    const inTest = ab && ab.winner === null;
+    const room = inTest ? Math.max(0, ab!.test_size! - b.sent_count) : BATCH_SIZE;
+    const contacts = await env.DB.prepare(`SELECT c.id, c.email, c.first_name, c.last_name ${eligibleSql} ORDER BY c.id LIMIT ?5`)
+      .bind(b.audience_id, b.account_id, b.id, b.resend_of ?? null, Math.min(BATCH_SIZE, room), b.cursor ?? "")
+      .all<{ id: string; email: string; first_name: string | null; last_name: string | null }>();
     let sent = 0;
     let skipped = 0;
-    let cursor = b.cursor as string;
     let pause: string | null = null;
     for (const ct of contacts.results) {
-      const unsub = `${env.PUBLIC_URL}/u/${await unsubscribeToken(env, ct.id)}`;
-      const vars = { first_name: ct.first_name ?? "", last_name: ct.last_name ?? "", email: ct.email, unsubscribe_url: unsub, preferences_url: unsub };
+      const variant = !ab ? 0 : inTest ? (b.sent_count + sent + skipped) % ab.variants.length : ab.winner!;
+      const subject = ab ? ab.variants[variant]! : b.subject;
+      let emailId: string | null = null;
       try {
-        await sendOne(
-          env,
-          principal,
-          {
-            from: b.from_addr,
-            to: [ct.email],
-            reply_to: b.reply_to ? [b.reply_to] : undefined,
-            subject: personalize(b.subject, vars)!,
-            html: personalize(b.html, vars),
-            text: personalize(b.text, vars),
-            headers: { "List-Unsubscribe": `<${unsub}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click", Precedence: "bulk" },
-            tags: [{ name: "category", value: "broadcast" }, { name: "broadcast", value: b.id.replace(/[^A-Za-z0-9_-]/g, "") }],
-          },
-          `${b.id}:${ct.id}`,
-          fetcher,
-          { track: true },
-        );
+        emailId = await sendToContact(env, b, ct, subject, variant, ab ? [{ name: "variant", value: String.fromCharCode(65 + variant) }] : [], fetcher);
         sent++;
       } catch (e) {
         if (e instanceof ApiError && (e.status === 429 || e.status === 403)) {
@@ -231,16 +325,86 @@ export async function processBroadcasts(env: Env, now = Date.now(), fetcher: typ
         }
         skipped++; // invalid address, suppressed, upstream reject: skip and continue
       }
-      cursor = ct.id;
+      await env.DB.prepare("INSERT OR IGNORE INTO broadcast_recipients (broadcast_id, email, email_id, variant, created_at) VALUES (?,?,?,?,?)").bind(b.id, ct.email, emailId, variant, now).run();
     }
-    const done = !pause && contacts.results.length < BATCH_SIZE;
+    const testFilled = inTest && ab!.test_percent < 100 && b.sent_count + sent + skipped >= ab!.test_size!;
+    const done = !pause && !testFilled && contacts.results.length < Math.min(BATCH_SIZE, room || BATCH_SIZE);
+    if (testFilled) ab!.test_done_at = now;
+    const status = pause ? "paused" : testFilled ? "testing" : done ? "sent" : "sending";
     await env.DB.prepare(
-      `UPDATE broadcasts SET cursor = ?, sent_count = sent_count + ?, skipped_count = skipped_count + ?,
+      `UPDATE broadcasts SET sent_count = sent_count + ?, skipped_count = skipped_count + ?, ab = COALESCE(?, ab),
               status = ?, status_reason = ?, finished_at = CASE WHEN ? THEN ? ELSE finished_at END WHERE id = ?`,
-    ).bind(cursor, sent, skipped, pause ? "paused" : done ? "sent" : "sending", pause, done ? 1 : 0, now, b.id).run();
+    ).bind(sent, skipped, testFilled ? JSON.stringify(ab) : null, status, pause, done ? 1 : 0, now, b.id).run();
     out.push({ id: b.id, sent, done });
   }
   return out;
+}
+
+async function sendToContact(env: Env, b: Record<string, any>, ct: { id: string; email: string; first_name: string | null; last_name: string | null }, subject: string, variant: number, extraTags: { name: string; value: string }[], fetcher: typeof fetch) {
+  const principal: Principal = { accountId: b.account_id, apiKeyId: `broadcast:${b.id}`, permission: "full", domainId: null };
+  const unsub = `${env.PUBLIC_URL}/u/${await unsubscribeToken(env, ct.id)}`;
+  const vars = { first_name: ct.first_name ?? "", last_name: ct.last_name ?? "", email: ct.email, unsubscribe_url: unsub, preferences_url: unsub };
+  return (await sendOne(
+    env,
+    principal,
+    {
+      from: b.from_addr,
+      to: [ct.email],
+      reply_to: b.reply_to ? [b.reply_to] : undefined,
+      subject: personalize(subject, vars)!,
+      html: personalize(b.html, vars),
+      text: personalize(b.text, vars),
+      headers: { "List-Unsubscribe": `<${unsub}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click", Precedence: "bulk" },
+      tags: [{ name: "category", value: "broadcast" }, { name: "broadcast", value: b.id.replace(/[^A-Za-z0-9_-]/g, "") }, ...extraTags],
+    },
+    `${b.id}:${ct.id}`,
+    fetcher,
+    { track: true },
+  )).id;
+}
+
+/** Smart send time: queue everyone at their usual open hour once, then send whoever is due. */
+async function processSmart(env: Env, b: Record<string, any>, now: number, fetcher: typeof fetch) {
+  if (!b.queued_at) {
+    const start = b.started_at ?? now;
+    const { per, top } = await openHours(env, b.account_id);
+    const people = await env.DB.prepare(`SELECT c.id, c.email ${eligibleSql}`).bind(b.audience_id, b.account_id, b.id, b.resend_of ?? null, null, b.cursor ?? "").all<{ id: string; email: string }>();
+    const stmts = people.results.map((p) => {
+      const h = per.get(p.email.toLowerCase()) ?? top;
+      return env.DB.prepare("INSERT OR IGNORE INTO broadcast_queue (broadcast_id, contact_id, due_at) VALUES (?,?,?)").bind(b.id, p.id, h === null ? start : nextAt(start, h, p.email));
+    });
+    for (let i = 0; i < stmts.length; i += 100) await env.DB.batch(stmts.slice(i, i + 100));
+    await env.DB.prepare("UPDATE broadcasts SET queued_at = ? WHERE id = ?").bind(now, b.id).run();
+  }
+  const due = await env.DB.prepare(
+    `SELECT q.contact_id AS id, c.email, c.first_name, c.last_name, c.unsubscribed,
+            EXISTS (SELECT 1 FROM suppressions s WHERE s.account_id = ? AND s.address = c.email) AS suppressed
+       FROM broadcast_queue q JOIN contacts c ON c.id = q.contact_id WHERE q.broadcast_id = ? AND q.due_at <= ? ORDER BY q.due_at LIMIT ?`,
+  ).bind(b.account_id, b.id, now, BATCH_SIZE).all<{ id: string; email: string; first_name: string | null; last_name: string | null; unsubscribed: number; suppressed: number }>();
+  let sent = 0, skipped = 0;
+  let pause: string | null = null;
+  for (const ct of due.results) {
+    let emailId: string | null = null;
+    if (ct.unsubscribed || ct.suppressed) skipped++;
+    else {
+      try {
+        emailId = await sendToContact(env, b, ct, b.subject, 0, [{ name: "send_time", value: "smart" }], fetcher);
+        sent++;
+      } catch (e) {
+        if (e instanceof ApiError && (e.status === 429 || e.status === 403)) { pause = e.message; break; }
+        skipped++;
+      }
+    }
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM broadcast_queue WHERE broadcast_id = ? AND contact_id = ?").bind(b.id, ct.id),
+      env.DB.prepare("INSERT OR IGNORE INTO broadcast_recipients (broadcast_id, email, email_id, variant, created_at) VALUES (?,?,?,0,?)").bind(b.id, ct.email, emailId, now),
+    ]);
+  }
+  const left = (await env.DB.prepare("SELECT COUNT(*) AS n FROM broadcast_queue WHERE broadcast_id = ?").bind(b.id).first<{ n: number }>())!.n;
+  const done = !pause && left === 0;
+  await env.DB.prepare("UPDATE broadcasts SET sent_count = sent_count + ?, skipped_count = skipped_count + ?, status = ?, status_reason = ?, finished_at = CASE WHEN ? THEN ? ELSE finished_at END WHERE id = ?")
+    .bind(sent, skipped, pause ? "paused" : done ? "sent" : "sending", pause, done ? 1 : 0, now, b.id).run();
+  return { id: b.id as string, sent, done };
 }
 
 // ---------------- public unsubscribe (RFC 8058) ----------------
