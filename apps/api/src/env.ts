@@ -1,5 +1,7 @@
 export interface Env {
+  /** D1-compatible handle; backed by the NovaDB Durable Object (see lib/dodb.ts). */
   DB: D1Database;
+  NOVADB: DurableObjectNamespace<import("./lib/dodb").NovaDB>;
   WEBHOOK_QUEUE?: Queue<WebhookJob>;
 
   /** Public base URL of this API, e.g. https://novamail.nexaclouds.online */

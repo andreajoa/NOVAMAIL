@@ -3,8 +3,9 @@ import { env } from "cloudflare:workers";
 import { vi } from "vitest";
 import type { Env } from "../src/env";
 import { app } from "../src/index";
+import { openDb } from "../src/lib/dodb";
 
-export const testEnv = env as unknown as Env & { TEST_POSTAL_PRIVATE_KEY: string };
+export const testEnv = { ...env, DB: openDb(env.NOVADB) } as unknown as Env & { TEST_POSTAL_PRIVATE_KEY: string };
 
 /** Calls the Hono app in-process with real D1 and waits for waitUntil() work. */
 export async function call(path: string, init: RequestInit & { json?: unknown; token?: string } = {}) {

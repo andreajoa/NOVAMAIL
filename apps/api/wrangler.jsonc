@@ -12,7 +12,7 @@
     "POSTAL_URL": "https://postal.novamail.nexaclouds.online",
     "POSTAL_ADMIN_URL": "https://postal.novamail.nexaclouds.online/_novamail"
   },
-  "d1_databases": [
-    { "binding": "DB", "database_name": "novamail", "database_id": "REPLACED_BY_CI", "migrations_dir": "migrations" }
-  ]
+  // Free-plan friendly: SQLite-backed Durable Object instead of D1 (account is at its D1 cap).
+  "durable_objects": { "bindings": [{ "name": "NOVADB", "class_name": "NovaDB" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["NovaDB"] }]
 }

@@ -16,6 +16,7 @@ jobs:
       - uses: actions/setup-node@v5
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
+      - run: node scripts/gen-schema.mjs --check
       - run: pnpm --filter @novamail/api typecheck
       - run: pnpm --filter @novamail/api test
 

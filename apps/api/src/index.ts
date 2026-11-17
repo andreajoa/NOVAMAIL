@@ -11,6 +11,9 @@ import { domains } from "./routes/domains";
 import { emails } from "./routes/emails";
 import { postalHooks } from "./routes/postal-hooks";
 import { UpstreamError } from "./lib/postal";
+import { openDb } from "./lib/dodb";
+
+export { NovaDB } from "./lib/dodb";
 
 export const VERSION = "0.1.0";
 
@@ -55,7 +58,10 @@ app.onError((err, c) => {
   return c.json({ statusCode: 500, name: "internal_server_error", message: "Something went wrong. It has been logged." }, 500);
 });
 
+/** Attaches the D1-compatible handle (SQLite Durable Object) unless a real D1 is bound. */
+const withDb = (env: Env): Env => (env.DB ? env : { ...env, DB: openDb(env.NOVADB) });
+
 export default {
-  fetch: app.fetch,
-  queue: (batch: MessageBatch<WebhookJob>, env: Env) => handleQueue(batch, env),
+  fetch: (req, env, ctx) => app.fetch(req, withDb(env), ctx),
+  queue: (batch, env) => handleQueue(batch, withDb(env)),
 } satisfies ExportedHandler<Env, WebhookJob>;
