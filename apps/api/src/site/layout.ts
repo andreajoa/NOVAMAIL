@@ -20,11 +20,15 @@ export interface Page {
   alternates?: { en: string; pt: string };
   type?: "page" | "guide" | "compare";
   priority?: number;
+  /** Custom hero + closing section (home page); replaces the default hero. */
+  heroHtml?: string;
+  finale?: string;
+  extraCss?: string;
 }
 
 const CSS = `:root{--fg:#18181b;--mut:#52525b;--bg:#fafafa;--card:#fff;--line:#e4e4e7;--code:#09090b;--acc:#18181b}
 @media(prefers-color-scheme:dark){:root{--fg:#f4f4f5;--mut:#a1a1aa;--bg:#09090b;--card:#18181b;--line:#27272a;--acc:#fafafa}}
-*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Inter,sans-serif}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Inter,sans-serif}
 a{color:inherit}a:hover{opacity:.75}.w{max-width:1080px;margin:0 auto;padding:0 20px}
 header.top{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 0}
 .logo{display:flex;align-items:center;gap:8px;font-weight:650;text-decoration:none;letter-spacing:-.01em}.logo i{display:grid;place-items:center;width:28px;height:28px;border-radius:8px;background:var(--acc);color:var(--bg);font-style:normal;font-size:14px}
@@ -115,10 +119,10 @@ export function render(p: Page, all: Page[]): string {
 <meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(p.title)}"><meta name="twitter:description" content="${esc(p.description)}"><meta name="twitter:image" content="${SITE}/og.png">
 <link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="alternate" type="text/plain" title="LLM summary" href="/llms.txt">
 <script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@graph": ld }).replace(/</g, "\\u003c")}</script>
-<style>${CSS}</style></head><body>
+<style>${CSS}${p.extraCss ?? ""}</style></head><body>
 <div class="w"><header class="top"><a class="logo" href="${lang === "en" ? "/" : "/pt/"}"><i aria-hidden="true">✉</i>NovaMail</a>${NAV}</header></div>
-<main class="w"><div class="hero">${crumbHtml}<h1>${esc(p.h1)}</h1><p class="lead">${esc(p.lead)}</p><div class="cta"><a class="btn" href="/login">${lang === "en" ? "Start free — no card" : "Comece grátis — sem cartão"}</a><a class="btn g" href="${API_DOCS}">${lang === "en" ? "Read the API docs" : "Documentação da API"}</a></div></div>
-${p.body}${faqHtml}</main>
+<main class="w">${p.heroHtml ?? `<div class="hero">${crumbHtml}<h1>${esc(p.h1)}</h1><p class="lead">${esc(p.lead)}</p><div class="cta"><a class="btn" href="/login">${lang === "en" ? "Start free — no card" : "Comece grátis — sem cartão"}</a><a class="btn g" href="${API_DOCS}">${lang === "en" ? "Read the API docs" : "Documentação da API"}</a></div></div>`}
+${p.body}${faqHtml}${p.finale ?? ""}</main>
 <footer><div class="w"><div class="cols">${FOOTER_LINKS.map(([h, ls]) => `<div><b>${h}</b>${ls.map(([href, t]) => `<a href="${href}">${esc(t)}</a>`).join("")}</div>`).join("")}</div><p>© 2026 NovaMail · Updated ${UPDATED}</p></div></footer>
 </body></html>`;
 }

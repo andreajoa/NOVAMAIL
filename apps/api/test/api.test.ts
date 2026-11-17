@@ -461,7 +461,8 @@ describe("public site (SEO/GEO)", () => {
   it("serves server-rendered, crawlable pages with structured data", async () => {
     const home = await get("/");
     expect(home.type).toContain("text/html");
-    expect(home.text).toContain("<h1>Email marketing for your customers.");
+    expect(home.text).toContain("Turn your customer list into <em>sales</em>");
+    expect(home.text.match(/<h1/g)?.length).toBe(1);
     expect(home.text).toContain('"@type":"FAQPage"');
     expect(home.text).toContain('"@type":"SoftwareApplication"');
     expect(home.text).toContain('hreflang="pt-BR"');

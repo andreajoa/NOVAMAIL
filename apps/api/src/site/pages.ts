@@ -1,4 +1,8 @@
+import { home, HOME_CSS } from "./home";
 import { API_DOCS, esc, type Page } from "./layout";
+
+const HOME_EN = home("en");
+const HOME_PT = home("pt-BR");
 
 const code = (s: string) => `<pre><code>${esc(s)}</code></pre>`;
 const steps = (items: [string, string][]) =>
@@ -72,17 +76,14 @@ const HOW = steps([
 export const PAGES: Page[] = [
   {
     path: "/",
-    title: "NovaMail — Email marketing & email API, free to start",
+    title: "NovaMail — Email marketing that reaches the inbox | Free",
     description: "Send email campaigns and newsletters to your customers from your own domain. Contact lists, one-click unsubscribe, email API and SMTP. 3,000 emails/month free.",
-    h1: "Email marketing for your customers. Simple, fast and free to start.",
+    h1: "Turn your customer list into sales — with emails that reach the inbox.",
     lead: "Send newsletters, promotions and announcements to your customers from your own domain — and order confirmations from your store or app. 3,000 emails a month free, paid plans from $15.",
     alternates: { en: "/", pt: "/pt/" },
     priority: 1,
-    body: `<section><h2>Everything you need to email your customers</h2>${WHAT_YOU_GET}</section>
-<section><h2>Start sending in four steps</h2>${HOW}</section>
-<section><h2>Simple pricing</h2>${PLANS_TABLE}</section>
-<section class="prose"><h2>Built for deliverability</h2><p>NovaMail runs its own mail servers. Every sending domain is authenticated with SPF, DKIM (2048-bit keys) and DMARC; every marketing email carries one-click unsubscribe; hard bounces and complaints are suppressed automatically; and accounts that send to bad lists are paused before they can hurt anyone else's delivery. That is exactly what Gmail, Yahoo and Outlook check in 2026.</p>
-<h2>For developers too</h2><p>Use the REST API (compatible with the Resend SDKs — change only the base URL) or SMTP on port 587. Signed webhooks tell your app when an email is delivered, delayed, bounced or marked as spam. <a href="${API_DOCS}">Read the API reference</a>.</p>${code(CURL)}</section>`,
+    ...HOME_EN,
+    extraCss: HOME_CSS,
     faq: [
       ["What is NovaMail?", "NovaMail is an email marketing and transactional email platform. You can send campaigns and newsletters to your contact lists from your own domain, and send automatic emails (order confirmations, password resets) from your website or app through an API or SMTP."],
       ["Is there a free plan?", "Yes. The Free plan includes 3,000 emails per month (100 per day) and one sending domain, with no credit card required. Pro is $15/month for 50,000 emails and Scale is $60/month for 250,000 emails."],
@@ -98,25 +99,12 @@ export const PAGES: Page[] = [
     lang: "pt-BR",
     title: "NovaMail — E-mail marketing e API de e-mail, grátis para começar",
     description: "Envie campanhas e newsletters para seus clientes com o seu domínio. Listas de contatos, descadastro em 1 clique, API e SMTP. 3.000 e-mails/mês grátis.",
-    h1: "E-mail marketing para os seus clientes. Simples, rápido e grátis para começar.",
+    h1: "Transforme sua lista de clientes em vendas — com e-mails que chegam na caixa de entrada.",
     lead: "Envie newsletters, promoções e novidades para seus clientes com o seu próprio domínio — e confirmações de pedido da sua loja ou app. 3.000 e-mails por mês grátis, planos a partir de US$15.",
     alternates: { en: "/", pt: "/pt/" },
     priority: 0.9,
-    body: `<section><h2>Tudo para mandar e-mail aos seus clientes</h2>${cards([
-      ["Campanhas e newsletters", "Escreva, escolha a lista e envie. Personalize com <code>{{first_name}}</code>. O envio é feito em lotes seguros e pausa sozinho se o limite do plano acabar."],
-      ["Listas de contatos", "Crie listas de clientes, leads ou assinantes. Cole ou importe um CSV (e-mail, nome, sobrenome). Duplicados são unidos automaticamente."],
-      ["Descadastro em 1 clique", "Toda campanha leva o descadastro exigido por Gmail e Yahoo. Quem sai nunca mais recebe."],
-      ["Seu próprio domínio", "Envie como <code>contato@suamarca.com</code>. Mostramos os registros SPF, DKIM e DMARC e verificamos na hora."],
-      ["API e SMTP", "Confirmações de pedido, senhas e recibos do seu site ou app pela API (compatível com Resend) ou por SMTP."],
-      ["Proteção de reputação", "Devoluções e reclamações viram supressão automática — seus e-mails continuam chegando na caixa de entrada."],
-    ])}</section>
-<section><h2>Comece em quatro passos</h2>${steps([
-      ["Crie sua conta grátis", "Entre com seu e-mail — sem senha e sem cartão."],
-      ["Adicione seu domínio", "Copie os registros DNS que mostramos e clique em Verificar."],
-      ["Importe seus contatos", "Crie uma lista e cole os e-mails dos seus clientes."],
-      ["Envie sua campanha", "Assunto, conteúdo, lista e Enviar. Acompanhe no painel."],
-    ])}</section>
-<section><h2>Preços</h2><table><thead><tr><th>Plano</th><th>Preço</th><th>E-mails/mês</th><th>Domínios</th></tr></thead><tbody><tr><td><strong>Free</strong></td><td>US$0</td><td>3.000</td><td>1</td></tr><tr><td><strong>Pro</strong></td><td>US$15/mês</td><td>50.000</td><td>10</td></tr><tr><td><strong>Scale</strong></td><td>US$60/mês</td><td>250.000</td><td>100</td></tr></tbody></table></section>`,
+    ...HOME_PT,
+    extraCss: HOME_CSS,
     faq: [
       ["O que é o NovaMail?", "Uma plataforma de e-mail marketing e e-mail transacional: você envia campanhas e newsletters para suas listas com o seu domínio e e-mails automáticos (pedidos, senhas) do seu site ou app por API ou SMTP."],
       ["Tem plano grátis?", "Sim: 3.000 e-mails por mês, 100 por dia e 1 domínio, sem cartão. Pro custa US$15/mês (50.000 e-mails) e Scale US$60/mês (250.000)."],
