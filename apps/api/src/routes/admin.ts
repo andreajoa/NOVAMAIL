@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { AppEnv } from "../env";
 import { createAccount, poolFor } from "../lib/accounts";
+import { prefixedId, randomToken, sha256Hex } from "../lib/crypto";
 import { errors, zodMessage } from "../lib/http";
 import { planOf, type PlanId } from "../lib/plans";
 import { postalAdmin } from "../lib/postal";
@@ -65,4 +66,22 @@ admin.post("/fbl", async (c) => {
   const domain = (c.env.SYSTEM_FROM ?? "").match(/@([^>\s]+)/)?.[1] ?? "";
   const r = await postalAdmin.fbl(c.env, { org: a.postal_org, server: a.postal_server, domain, url: `${c.env.PUBLIC_URL}/hooks/fbl` });
   return c.json({ address: r.address });
+});
+
+/** Owner support: a short-lived (1 h) dashboard session for an account's owner user (created if missing). */
+admin.post("/accounts/:id/session", async (c) => {
+  const a = await c.env.DB.prepare("SELECT id, email FROM accounts WHERE id = ?").bind(c.req.param("id")).first<{ id: string; email: string }>();
+  if (!a) throw errors.notFound("Account");
+  let u = await c.env.DB.prepare("SELECT id FROM users WHERE account_id = ? ORDER BY created_at LIMIT 1").bind(a.id).first<{ id: string }>();
+  if (!u) {
+    u = { id: prefixedId("usr") };
+    await c.env.DB.prepare("INSERT INTO users (id, email, account_id, role, created_at) VALUES (?,?,?, 'owner', ?)").bind(u.id, a.email, a.id, Date.now()).run();
+  }
+  const token = randomToken(32);
+  const now = Date.now();
+  await c.env.DB.batch([
+    c.env.DB.prepare("INSERT INTO sessions (id_hash, user_id, created_at, expires_at, user_agent) VALUES (?,?,?,?, 'owner-support')").bind(await sha256Hex(token), u.id, now, now + 3_600_000),
+    c.env.DB.prepare("INSERT INTO audit_log (account_id, actor, action, detail, created_at) VALUES (?, 'owner', 'support_session', NULL, ?)").bind(a.id, now),
+  ]);
+  return c.json({ cookie: `nm_session=${token}`, expires_in: 3600 });
 });

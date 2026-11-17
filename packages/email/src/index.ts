@@ -183,7 +183,7 @@ export function renderDesign(input: Design | unknown, opts: { title?: string; ba
 <meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><title>${esc(opts.title ?? "")}</title>
 <!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
 <style>body{margin:0;padding:0;width:100%!important}img{-ms-interpolation-mode:bicubic}a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important}
-@media (max-width:620px){.nm-wrap{width:100%!important}.nm-col{display:block!important;width:100%!important;padding:0 0 12px!important}}</style></head>
+@media (max-width:520px){.nm-wrap{width:100%!important}.nm-col{display:block!important;width:100%!important;padding:0 0 12px!important}}</style></head>
 <body style="margin:0;padding:0;background:${t.background}">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all">${esc(d.preheader ?? "")}&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${t.background}"><tr><td align="center" style="padding:${opts.bare ? "0" : "24px 12px"}">

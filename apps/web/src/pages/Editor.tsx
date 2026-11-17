@@ -323,7 +323,15 @@ export function Editor({ id }: { id: string }) {
           <iframe title="preview" sandbox="allow-same-origin" srcDoc={rawHtml} className="h-full w-full bg-white" />
         </div>
       ) : (
-        <div className="flex flex-1 overflow-hidden">
+        <div className="relative flex flex-1 flex-col overflow-hidden md:flex-row">
+          {/* Mobile: palette as a horizontal strip */}
+          <div className="flex gap-1.5 overflow-x-auto border-b border-zinc-200 bg-white p-2 md:hidden dark:border-zinc-800 dark:bg-zinc-900">
+            {PALETTE.map((p) => (
+              <button key={p.type} onClick={() => insertAt(selected ? blocks.indexOf(selected) + 1 : blocks.length, newBlock(p.type))} className="flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs dark:border-zinc-800">
+                {p.icon} {p.label}
+              </button>
+            ))}
+          </div>
           <aside className="hidden w-52 shrink-0 overflow-y-auto border-r border-zinc-200 bg-white p-3 md:block dark:border-zinc-800 dark:bg-zinc-900">
             <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">{L.blocks}</h3>
             <p className="mb-3 text-[11px] text-zinc-400">{L.dragHint}</p>
@@ -382,7 +390,8 @@ export function Editor({ id }: { id: string }) {
             </div>
           </main>
 
-          <aside className="w-72 shrink-0 space-y-3 overflow-y-auto border-l border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+          <aside className={`${selected ? "fixed inset-x-0 bottom-0 z-20 max-h-[60vh] rounded-t-2xl shadow-2xl" : "hidden"} space-y-3 overflow-y-auto border-l border-zinc-200 bg-white p-4 md:static md:block md:max-h-none md:w-72 md:shrink-0 md:rounded-none md:shadow-none dark:border-zinc-800 dark:bg-zinc-900`}>
+            {selected && <button className="mb-1 w-full text-center text-xs text-zinc-500 md:hidden" onClick={() => setSel(null)}>▾</button>}
             {selected ? (
               <Inspector block={selected} onChange={(nb) => update({ ...design!, blocks: blocks.map((x) => (x.id === nb.id ? nb : x)) })} />
             ) : (

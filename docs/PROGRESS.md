@@ -2,7 +2,7 @@
 
 Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta implantar/provar · ⏳ a fazer · 🔒 depende do André
 
-**Progresso geral: 39 / 47 itens (83%)** — atualizado 17/11/2026 03h (BRT)
+**Progresso geral: 52 / 58 itens (90%)** — atualizado 17/11/2026 05h (BRT)
 
 ## F0 — Auditoria (100%)
 - ✅ 5 repositórios auditados (Postal, listmonk, Plunk, BillionMail, Mautic) → Postal MIT escolhido
@@ -69,6 +69,20 @@ Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta impla
 - ✅ Cabeçalho Feedback-ID em todo envio (Gmail Postmaster por categoria/conta)
 - ✅ Página de status pública https://api.novamail.nexaclouds.online/status
 - 🔒 Cadastrar o endereço FBL no Yahoo CFL e Microsoft JMRP/SNDS + domínio no Google Postmaster Tools
+
+## F8 — Editor, funis, IA e vendas (11/12)
+- ✅ Editor visual arrasta-e-solta (título, texto, imagem/GIF, vídeo→GIF, botão, imagem+texto, divisor, espaço, HTML, rodapé), soltar arquivo troca a imagem, prévia desktop/celular, envio de teste, Ctrl/Cmd+S
+- ✅ 8 modelos prontos + colar HTML; mesmo renderizador no painel e na API (@novamail/email), HTML compatível com Outlook
+- ✅ Upload de mídia em KV (grátis) com checagem do tipo real; SVG recusado; cota por plano
+- ✅ Funis (sequências com espera, gatilho por lista ou API, saída automática no descadastro)
+- ✅ MCP para Claude Code/Codex com chave de agente restrita (sem enviar/ativar/apagar), 120 req/min, auditoria
+- ✅ Plano interno SEM limite para as marcas do André
+- ✅ Checkout Stripe embutido no painel + plano anual (2 meses grátis) + pacote +50k e-mails dentro do checkout
+- 🔒 Rodar de novo `bash scripts/ativar-stripe.sh` para criar preços anuais e o pacote extra
+- ✅ Site SEO/GEO em inglês (24 páginas server-side, JSON-LD, hreflang, llms.txt, IndexNow 200)
+- ✅ Página /ai-agents e comparativos Mailchimp/Brevo/MailerLite/Resend/SendGrid/Mailgun/Postmark/SES
+- ✅ Acesso de suporte do dono (sessão de 1 h por conta) + capturas reais do painel validadas
+- ✅ 39 testes automáticos (inclui ataques de agente e XSS)
 
 ## Lançamento (1/2)
 - ✅ Landing com preços + cadastro, Termos, Política de Uso Aceitável e Privacidade (LGPD) em app.novamail.nexaclouds.online (revisar com advogado antes de escala)
