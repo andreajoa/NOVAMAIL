@@ -1,4 +1,5 @@
 import type { MiddlewareHandler } from "hono";
+import { getCookie } from "hono/cookie";
 import type { AppEnv } from "../env";
 import { prefixedId, randomToken, safeEqual, sha256Hex } from "./crypto";
 import { errors } from "./http";
@@ -19,6 +20,18 @@ export async function createApiKey(db: D1Database, accountId: string, name: stri
 export const requireApiKey: MiddlewareHandler<AppEnv> = async (c, next) => {
   const h = c.req.header("authorization") ?? "";
   const token = h.startsWith("Bearer ") ? h.slice(7).trim() : "";
+  if (!token) {
+    // Dashboard: session cookie. Mutations must carry a custom header, which a cross-site
+    // form or image cannot send without a CORS preflight (CSRF defence on top of SameSite=Lax).
+    const { sessionPrincipal, SESSION_COOKIE } = await import("../routes/auth");
+    const s = await sessionPrincipal(c.env, getCookie(c, SESSION_COOKIE));
+    if (s) {
+      if (c.req.method !== "GET" && c.req.header("x-novamail-client") !== "dashboard") throw errors.forbidden("Missing dashboard header.");
+      if (s.status !== "active") throw errors.suspended(s.suspended_reason);
+      c.set("principal", { accountId: s.account_id, apiKeyId: null, permission: "full", domainId: null, userId: s.user_id });
+      return next();
+    }
+  }
   if (!token.startsWith(KEY_PREFIX)) throw errors.unauthorized();
   const row = await c.env.DB.prepare(
     `SELECT k.id, k.account_id, k.permission, k.domain_id, k.last_used_at, a.status, a.suspended_reason

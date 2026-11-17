@@ -104,3 +104,33 @@ usage.get("/", async (c) => {
     reputation: { sent_7d: rep.sent, bounce_rate: rep.bounceRate, complaint_rate: rep.complaintRate },
   });
 });
+
+export const me = new Hono<AppEnv>();
+
+me.get("/", async (c) => {
+  const p = c.get("principal");
+  const a = await c.env.DB.prepare("SELECT id, name, email, plan, status, suspended_reason, created_at FROM accounts WHERE id = ?").bind(p.accountId).first<Record<string, unknown>>();
+  const u = p.userId ? await c.env.DB.prepare("SELECT email, role FROM users WHERE id = ?").bind(p.userId).first<{ email: string; role: string }>() : null;
+  const plan = planOf((a?.plan as string) ?? "free");
+  const counts = await c.env.DB.prepare(
+    `SELECT (SELECT COUNT(*) FROM domains WHERE account_id = ?1) AS domains,
+            (SELECT COUNT(*) FROM domains WHERE account_id = ?1 AND status = 'verified') AS verified_domains,
+            (SELECT COUNT(*) FROM api_keys WHERE account_id = ?1 AND revoked_at IS NULL) AS api_keys,
+            (SELECT COUNT(*) FROM webhooks WHERE account_id = ?1) AS webhooks`,
+  ).bind(p.accountId).first<Record<string, number>>();
+  return c.json({
+    user: u,
+    account: { ...a, created_at: new Date(a!.created_at as number).toISOString() },
+    plan: { id: plan.id, label: plan.label, daily: plan.daily, monthly: plan.monthly, domains: plan.domains },
+    usage: await usageSnapshot(c.env.DB, p.accountId),
+    counts,
+  });
+});
+
+/** Daily sent/bounced series for the dashboard chart (last N days, UTC). */
+me.get("/stats", async (c) => {
+  const days = Math.min(Math.max(Number(c.req.query("days") ?? 30) || 30, 1), 90);
+  const since = new Date(Date.now() - (days - 1) * 86_400_000).toISOString().slice(0, 10);
+  const r = await c.env.DB.prepare("SELECT day, sent, bounced, complained FROM usage_daily WHERE account_id = ? AND day >= ? ORDER BY day").bind(c.get("principal").accountId, since).all();
+  return c.json({ object: "list", data: r.results });
+});

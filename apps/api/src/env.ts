@@ -11,6 +11,13 @@ export interface Env {
   /** Internal Postal admin sidecar (behind the same Caddy, bearer-protected). */
   POSTAL_ADMIN_URL: string;
 
+  /** Internal account + sender used for platform e-mails (login codes). */
+  SYSTEM_ACCOUNT_ID?: string;
+  SYSTEM_FROM?: string;
+  /** Dashboard origin, e.g. https://app.novamail.nexaclouds.online */
+  APP_URL?: string;
+  ASSETS?: Fetcher;
+
   // Secrets (wrangler secret put ...)
   POSTAL_ADMIN_TOKEN: string;
   POSTAL_WEBHOOK_PUBLIC_KEY: string; // PEM of Postal's signing.key public part
@@ -29,7 +36,8 @@ export interface WebhookJob {
 
 export interface Principal {
   accountId: string;
-  apiKeyId: string;
+  apiKeyId: string | null;
+  userId?: string;
   permission: "full" | "sending";
   domainId: string | null;
 }

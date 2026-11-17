@@ -192,3 +192,85 @@ describe("primitives", () => {
     expect(a[14]).toBe("7");
   });
 });
+
+describe("dashboard login (passwordless)", () => {
+  async function systemSender() {
+    const sys = await verifiedAccount(postal, "internal");
+    testEnv.SYSTEM_ACCOUNT_ID = sys.id;
+    testEnv.SYSTEM_FROM = "NovaMail <no-reply@example.com>";
+    return sys;
+  }
+  const lastCode = () => {
+    const m = String(postal.sent.at(-1)?.plain_body ?? "").match(/(\d{3}) (\d{3})/);
+    return m ? m[1]! + m[2]! : "";
+  };
+  const cookieOf = (setCookie: string | null) => (setCookie ?? "").split(";")[0]!;
+
+  async function login(email: string) {
+    await call("/auth/start", { method: "POST", json: { email } });
+    const ctxRes = await rawCall("/auth/verify", { method: "POST", json: { email, code: lastCode() } });
+    return ctxRes;
+  }
+  async function rawCall(path: string, init: RequestInit & { json?: unknown } = {}) {
+    const { app } = await import("../src/index");
+    const { createExecutionContext, waitOnExecutionContext } = await import("cloudflare:test");
+    const headers = new Headers(init.headers);
+    if (init.json !== undefined) headers.set("content-type", "application/json");
+    const ctx = createExecutionContext();
+    const res = await app.request(path, { ...init, headers, body: init.json !== undefined ? JSON.stringify(init.json) : init.body }, testEnv, ctx);
+    await waitOnExecutionContext(ctx);
+    return { status: res.status, body: (await res.json()) as any, cookie: cookieOf(res.headers.get("set-cookie")) };
+  }
+
+  it("sends a code through NovaMail itself and signs up a Free account", async () => {
+    await systemSender();
+    const r = await call("/auth/start", { method: "POST", json: { email: "Nova.Cliente@Example.org" } });
+    expect(r.body.sent).toBe(true);
+    expect(postal.sent.at(-1).to).toEqual(["nova.cliente@example.org"]);
+    expect(postal.sent.at(-1).subject).toMatch(/^\d{3} \d{3} é o seu código/);
+
+    const v = await rawCall("/auth/verify", { method: "POST", json: { email: "nova.cliente@example.org", code: lastCode() } });
+    expect(v.status).toBe(200);
+    expect(v.body.new_account).toBe(true);
+    expect(v.body.api_key).toMatch(/^nm_/);
+    expect(v.cookie).toMatch(/^nm_session=/);
+
+    const me = await rawCall("/me", { headers: { cookie: v.cookie } });
+    expect(me.body.plan.id).toBe("free");
+    expect(me.body.user.email).toBe("nova.cliente@example.org");
+  });
+
+  it("second login reuses the account and does not leak the key again", async () => {
+    await systemSender();
+    await login("again@example.org");
+    const v = await login("again@example.org");
+    expect(v.body.new_account).toBe(false);
+    expect(v.body.api_key).toBeUndefined();
+  });
+
+  it("rejects wrong codes and locks after 5 attempts", async () => {
+    await systemSender();
+    await call("/auth/start", { method: "POST", json: { email: "brute@example.org" } });
+    for (let i = 0; i < 5; i++) expect((await call("/auth/verify", { method: "POST", json: { email: "brute@example.org", code: "000000" } })).status).toBe(401);
+    const r = await call("/auth/verify", { method: "POST", json: { email: "brute@example.org", code: lastCode() } });
+    expect(r.status).toBe(429);
+  });
+
+  it("rate-limits code requests and refuses disposable inboxes", async () => {
+    await systemSender();
+    for (let i = 0; i < 3; i++) expect((await call("/auth/start", { method: "POST", json: { email: "spam@example.org" } })).status).toBe(200);
+    expect((await call("/auth/start", { method: "POST", json: { email: "spam@example.org" } })).status).toBe(429);
+    expect((await call("/auth/start", { method: "POST", json: { email: "x@mailinator.com" } })).status).toBe(422);
+  });
+
+  it("cookie mutations need the dashboard header (CSRF) and logout kills the session", async () => {
+    await systemSender();
+    const v = await login("csrf@example.org");
+    const noHeader = await rawCall("/api-keys", { method: "POST", json: { name: "x" }, headers: { cookie: v.cookie } });
+    expect(noHeader.status).toBe(403);
+    const ok = await rawCall("/api-keys", { method: "POST", json: { name: "x" }, headers: { cookie: v.cookie, "x-novamail-client": "dashboard" } });
+    expect(ok.status).toBe(201);
+    await rawCall("/auth/logout", { method: "POST", headers: { cookie: v.cookie } });
+    expect((await rawCall("/me", { headers: { cookie: v.cookie } })).status).toBe(401);
+  });
+});

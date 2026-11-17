@@ -5,7 +5,8 @@ import type { AppEnv, Env, WebhookJob } from "./env";
 import { requireApiKey, requireFullAccess, requireOwner } from "./lib/auth";
 import { ApiError, sendError } from "./lib/http";
 import { handleQueue } from "./lib/webhooks";
-import { apiKeys, suppressions, usage, webhooks } from "./routes/account";
+import { apiKeys, me, suppressions, usage, webhooks } from "./routes/account";
+import { auth } from "./routes/auth";
 import { admin } from "./routes/admin";
 import { domains } from "./routes/domains";
 import { emails } from "./routes/emails";
@@ -36,7 +37,9 @@ app.use("/emails/*", requireApiKey);
 app.use("/emails", requireApiKey);
 app.route("/emails", emails);
 
-for (const path of ["/domains", "/api-keys", "/webhooks", "/suppressions", "/usage"]) {
+app.route("/auth", auth);
+
+for (const path of ["/domains", "/api-keys", "/webhooks", "/suppressions", "/usage", "/me"]) {
   app.use(path, requireApiKey, requireFullAccess);
   app.use(`${path}/*`, requireApiKey, requireFullAccess);
 }
@@ -45,6 +48,7 @@ app.route("/api-keys", apiKeys);
 app.route("/webhooks", webhooks);
 app.route("/suppressions", suppressions);
 app.route("/usage", usage);
+app.route("/me", me);
 
 // Platform owner.
 app.use("/admin/*", requireOwner);
@@ -61,7 +65,30 @@ app.onError((err, c) => {
 /** Attaches the D1-compatible handle (SQLite Durable Object) unless a real D1 is bound. */
 const withDb = (env: Env): Env => (env.DB ? env : { ...env, DB: openDb(env.NOVADB) });
 
+/**
+ * app.<domain>  → dashboard (static assets) + same-origin API under /api/*
+ * api.<domain>  → public API
+ */
+export async function route(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  const url = new URL(req.url);
+  if (env.APP_URL && url.hostname === new URL(env.APP_URL).hostname) {
+    if (url.pathname === "/api" || url.pathname.startsWith("/api/")) {
+      url.pathname = url.pathname.slice(4) || "/";
+      return app.fetch(new Request(url, req), withDb(env), ctx);
+    }
+    if (env.ASSETS) {
+      const res = await env.ASSETS.fetch(req);
+      const h = new Headers(res.headers);
+      h.set("content-security-policy", "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+      h.set("x-content-type-options", "nosniff");
+      h.set("referrer-policy", "strict-origin-when-cross-origin");
+      return new Response(res.body, { status: res.status, headers: h });
+    }
+  }
+  return app.fetch(req, withDb(env), ctx);
+}
+
 export default {
-  fetch: (req, env, ctx) => app.fetch(req, withDb(env), ctx),
+  fetch: route,
   queue: (batch, env) => handleQueue(batch, withDb(env)),
 } satisfies ExportedHandler<Env, WebhookJob>;
