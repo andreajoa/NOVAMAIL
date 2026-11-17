@@ -40,7 +40,8 @@ Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta impla
 ## F3 — Marcas do André no NovaMail (2/4)
 - ✅ 6 contas internas criadas (Gilberto, AMB, Atenza, Trilha, FlowNexa, NexaCloud) com subdomínio `mail.<marca>` — chaves em ~/.config/novamail/marcas (600)
 - ✅ mail.nexaclouds.online publicado e VERIFICADO
-- 🔒 DNS das outras 5: `bash scripts/publicar-dns-marcas.sh flownexa atenza` (+ `CF_TOKEN=… … gilberto amb trilha` nas outras contas Cloudflare) — bloqueado para mim
+- ✅ mail.flownex.online e mail.atenza.online VERIFICADOS (17/11)
+- 🔒 DNS de gilberto, amb, trilha: `CF_TOKEN=… bash scripts/publicar-dns-marcas.sh gilberto amb trilha` (outras contas Cloudflare)
 - ⏳ Trocar Resend/Brevo pelo NovaMail em cada projeto, seguindo a rampa de aquecimento (depois da porta 25)
 
 ## F4 — Painel do cliente (5/5) — https://app.novamail.nexaclouds.online
