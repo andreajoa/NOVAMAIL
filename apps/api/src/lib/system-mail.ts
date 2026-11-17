@@ -35,6 +35,17 @@ export function loginCodeEmail(code: string) {
 }
 
 export async function sendSystemEmail(env: Env, to: string, msg: { subject: string; html: string; text: string }, category = "system") {
+  // Temporary bridge while the node's outbound port 25 is still blocked by the cloud
+  // provider: platform mail only (never customer mail). Remove the secret to switch back.
+  if (env.SYSTEM_RESEND_KEY && env.SYSTEM_RESEND_FROM) {
+    const r = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { authorization: `Bearer ${env.SYSTEM_RESEND_KEY}`, "content-type": "application/json" },
+      body: JSON.stringify({ from: env.SYSTEM_RESEND_FROM, to: [to], subject: msg.subject, html: msg.html, text: msg.text, tags: [{ name: "category", value: category }] }),
+    });
+    if (!r.ok) throw new Error(`system mail bridge failed: ${r.status}`);
+    return { id: ((await r.json()) as { id: string }).id };
+  }
   if (!env.SYSTEM_ACCOUNT_ID || !env.SYSTEM_FROM) throw new Error("SYSTEM_ACCOUNT_ID / SYSTEM_FROM not configured");
   return sendOne(
     env,

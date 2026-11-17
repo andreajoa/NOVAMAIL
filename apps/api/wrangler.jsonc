@@ -9,12 +9,20 @@
   "routes": [
     { "pattern": "api.novamail.nexaclouds.online", "custom_domain": true },
     // NexaCloud's wildcard route (*.nexaclouds.online/*) would win otherwise; a more specific route takes precedence.
-    { "pattern": "api.novamail.nexaclouds.online/*", "zone_name": "nexaclouds.online" }
+    { "pattern": "api.novamail.nexaclouds.online/*", "zone_name": "nexaclouds.online" },
+    { "pattern": "app.novamail.nexaclouds.online", "custom_domain": true },
+    { "pattern": "app.novamail.nexaclouds.online/*", "zone_name": "nexaclouds.online" }
   ],
+  // Dashboard (apps/web build). The Worker runs first and serves assets only on the app host.
+  "assets": { "directory": "../web/dist", "binding": "ASSETS", "not_found_handling": "single-page-application", "run_worker_first": true },
   "vars": {
     "PUBLIC_URL": "https://api.novamail.nexaclouds.online",
     "POSTAL_URL": "https://postal.novamail.nexaclouds.online",
-    "POSTAL_ADMIN_URL": "https://postal.novamail.nexaclouds.online/_novamail"
+    "POSTAL_ADMIN_URL": "https://postal.novamail.nexaclouds.online/_novamail",
+    "APP_URL": "https://app.novamail.nexaclouds.online",
+    "SYSTEM_ACCOUNT_ID": "acc_mn7lzpMXNkDqWoiQ",
+    "SYSTEM_FROM": "NovaMail <no-reply@envio.novamail.nexaclouds.online>",
+    "SYSTEM_RESEND_FROM": "NovaMail <no-reply@nexaclouds.online>"
   },
   // Free-plan friendly: SQLite-backed Durable Object instead of D1 (account is at its D1 cap).
   "durable_objects": { "bindings": [{ "name": "NOVADB", "class_name": "NovaDB" }] },

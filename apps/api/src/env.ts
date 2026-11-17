@@ -14,6 +14,9 @@ export interface Env {
   /** Internal account + sender used for platform e-mails (login codes). */
   SYSTEM_ACCOUNT_ID?: string;
   SYSTEM_FROM?: string;
+  /** Temporary platform-mail bridge (Resend) until outbound port 25 is open. */
+  SYSTEM_RESEND_KEY?: string;
+  SYSTEM_RESEND_FROM?: string;
   /** Dashboard origin, e.g. https://app.novamail.nexaclouds.online */
   APP_URL?: string;
   ASSETS?: Fetcher;

@@ -17,9 +17,14 @@ print(json.dumps({
   "OWNER_TOKEN": (c / "owner-token").read_text().strip(),
   "POSTAL_ADMIN_TOKEN": sys.argv[2].strip(),
   "POSTAL_WEBHOOK_PUBLIC_KEY": (c / "signing.pub").read_text(),
+  # Temporary platform-mail bridge until outbound port 25 opens (delete the file to stop using it).
+  **({"SYSTEM_RESEND_KEY": p.read_text().strip()} if (p := pathlib.Path.home() / ".config/nexacloud/resend-key").exists() and not (c / "port25-open").exists() else {}),
 }))
 PY
 chmod 600 "$CONF/.worker-secrets.json"
+
+echo "▶ build do painel"
+(cd ../web && pnpm run build >/dev/null)
 
 echo "▶ deploy"
 npx wrangler deploy </dev/null
