@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Liga a cobrança do NovaMail no Stripe (conta CoreUnit, modo live). Idempotente.
 # Cria (ou reaproveita) Pro US$15/mês·US$150/ano, Scale US$60/mês·US$600/ano, pacote +50k e-mails
-# US$10/mês·US$100/ano (oferecido dentro do Checkout), o webhook
+# US$10/mês·US$100/ano (oferecido dentro do Checkout), IP dedicado US$29/mês·US$290/ano, o webhook
 # https://api.novamail.nexaclouds.online/hooks/stripe e grava os segredos no Worker.
 # Custo fixo: zero — o Stripe só cobra taxa por pagamento recebido.
 set -euo pipefail
@@ -29,7 +29,9 @@ PRO_Y=$(price_for novamail_pro_yearly 15000 "NovaMail Pro" year)        # 2 mont
 SCALE_Y=$(price_for novamail_scale_yearly 60000 "NovaMail Scale" year)  # 2 months free
 EXTRA=$(price_for novamail_extra_monthly 1000 "NovaMail +50,000 emails/month" month)
 EXTRA_Y=$(price_for novamail_extra_yearly 10000 "NovaMail +50,000 emails/month" year)
-echo "pro=$PRO scale=$SCALE pro_y=$PRO_Y scale_y=$SCALE_Y extra=$EXTRA extra_y=$EXTRA_Y"
+DED=$(price_for novamail_dedicated_ip_monthly 2900 "NovaMail Dedicated IP" month)
+DED_Y=$(price_for novamail_dedicated_ip_yearly 29000 "NovaMail Dedicated IP" year)
+echo "pro=$PRO scale=$SCALE pro_y=$PRO_Y scale_y=$SCALE_Y extra=$EXTRA extra_y=$EXTRA_Y ded=$DED ded_y=$DED_Y"
 
 URL=https://api.novamail.nexaclouds.online/hooks/stripe
 WH=$(S /webhook_endpoints -G -d limit=100 | python3 -c "import sys,json;print(next((w['id'] for w in json.load(sys.stdin)['data'] if w['url']=='$URL'),''))")
@@ -41,9 +43,9 @@ if [ -z "$WH" ] || [ ! -s "$CONF/stripe-webhook-secret" ]; then
 fi
 echo "webhook ok"
 
-python3 - "$SK" "$(cat "$CONF/stripe-webhook-secret")" "$PRO" "$SCALE" "$PRO_Y" "$SCALE_Y" "$EXTRA" "$EXTRA_Y" > "$CONF/.stripe-secrets.json" <<'PY'
+python3 - "$SK" "$(cat "$CONF/stripe-webhook-secret")" "$PRO" "$SCALE" "$PRO_Y" "$SCALE_Y" "$EXTRA" "$EXTRA_Y" "$DED" "$DED_Y" > "$CONF/.stripe-secrets.json" <<'PY'
 import json, sys
-k = ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_PRO", "STRIPE_PRICE_SCALE", "STRIPE_PRICE_PRO_YEAR", "STRIPE_PRICE_SCALE_YEAR", "STRIPE_PRICE_EXTRA", "STRIPE_PRICE_EXTRA_YEAR"]
+k = ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_PRO", "STRIPE_PRICE_SCALE", "STRIPE_PRICE_PRO_YEAR", "STRIPE_PRICE_SCALE_YEAR", "STRIPE_PRICE_EXTRA", "STRIPE_PRICE_EXTRA_YEAR", "STRIPE_PRICE_DEDICATED_IP", "STRIPE_PRICE_DEDICATED_IP_YEAR"]
 print(json.dumps(dict(zip(k, sys.argv[1:]))))
 PY
 chmod 600 "$CONF/.stripe-secrets.json"

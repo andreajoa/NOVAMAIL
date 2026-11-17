@@ -8,6 +8,7 @@ import { prefixedId, randomToken, sha256Hex } from "../lib/crypto";
 import { errors, zodMessage } from "../lib/http";
 import { planOf, type PlanId } from "../lib/plans";
 import { postalAdmin } from "../lib/postal";
+import { dedicatedPoolName, notifyOwner, syncSending } from "../lib/ip-pools";
 
 export const admin = new Hono<AppEnv>();
 
@@ -90,4 +91,56 @@ admin.post("/accounts/:id/session", async (c) => {
 admin.post("/lifecycle/setup", async (c) => {
   const { setupNurture } = await import("../lib/lifecycle");
   return c.json(await setupNurture(c.env));
+});
+
+// ---------------------------------------------------------------- IP pools / dedicated IPs
+
+/** Postal's pools and the dedicated-IP queue (requested = paid, waiting for an address). */
+admin.get("/ips", async (c) => {
+  const [pools, ded, tiers] = await Promise.all([
+    postalAdmin.pools(c.env).catch((e) => ({ pools: [], error: String(e) })),
+    c.env.DB.prepare("SELECT d.*, a.email, a.plan FROM dedicated_ips d JOIN accounts a ON a.id = d.account_id ORDER BY d.requested_at DESC").all(),
+    c.env.DB.prepare("SELECT ip_pool, COUNT(*) AS accounts FROM accounts GROUP BY ip_pool").all(),
+  ]);
+  return c.json({ ...pools, dedicated: ded.results.map((d: any) => ({ ...d, suggested_pool: dedicatedPoolName(d.account_id) })), accounts_per_pool: tiers.results });
+});
+
+/** Creates/updates a Postal pool with one address (used by scripts/ip-pool.sh). */
+admin.post("/ips/pools", async (c) => {
+  const b = z.object({ name: z.string().regex(/^[a-z0-9_-]{2,60}$/), ipv4: z.ipv4(), hostname: z.string().min(3).max(253), ipv6: z.string().optional() }).safeParse(await c.req.json().catch(() => null));
+  if (!b.success) throw errors.validation(zodMessage(b.error));
+  return c.json(await postalAdmin.upsertPool(c.env, b.data));
+});
+
+admin.delete("/ips/pools/:name", async (c) => {
+  await postalAdmin.removePool(c.env, { name: c.req.param("name") });
+  await c.env.DB.prepare("UPDATE dedicated_ips SET pool = NULL, ip = NULL WHERE pool = ? AND status = 'released'").bind(c.req.param("name")).run();
+  return c.json({ deleted: true });
+});
+
+/** Attaches a pool to an account that bought a dedicated IP; warm-up starts now. */
+admin.post("/ips/dedicated/:account/assign", async (c) => {
+  const b = z.object({ pool: z.string().regex(/^[a-z0-9_-]{2,60}$/), ip: z.string().max(64) }).safeParse(await c.req.json().catch(() => null));
+  if (!b.success) throw errors.validation(zodMessage(b.error));
+  const id = c.req.param("account");
+  const a = await c.env.DB.prepare("SELECT email FROM accounts WHERE id = ?").bind(id).first<{ email: string }>();
+  if (!a) throw errors.notFound("Account");
+  const now = Date.now();
+  await c.env.DB.prepare(
+    `INSERT INTO dedicated_ips (account_id, status, pool, ip, requested_at, assigned_at) VALUES (?, 'warming', ?, ?, ?, ?)
+     ON CONFLICT(account_id) DO UPDATE SET status = 'warming', pool = excluded.pool, ip = excluded.ip, assigned_at = excluded.assigned_at, released_at = NULL`,
+  ).bind(id, b.data.pool, b.data.ip, now, now).run();
+  const s = await syncSending(c.env, id, now);
+  await notifyOwner(c.env, `Dedicated IP ${b.data.ip} attached — ${a.email}`, `<p>Warm-up started for <code>${id}</code>: ${s?.hourly ?? "?"} emails/hour today, doubling about every 2 days.</p>`);
+  return c.json({ account_id: id, status: "warming", ...s });
+});
+
+/** Re-applies tier pools + limits to every account (run after adding a new pool). */
+admin.post("/ips/resync", async (c) => {
+  const r = await c.env.DB.prepare("SELECT id FROM accounts WHERE postal_org IS NOT NULL").all<{ id: string }>();
+  const out: Record<string, string> = {};
+  for (const x of r.results) {
+    try { out[x.id] = (await syncSending(c.env, x.id))?.pool ?? "?"; } catch (e) { out[x.id] = `error: ${String(e).slice(0, 80)}`; }
+  }
+  return c.json({ synced: r.results.length, pools: out });
 });

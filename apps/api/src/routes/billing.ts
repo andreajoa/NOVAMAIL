@@ -9,6 +9,7 @@ import { ApiError, errors, zodMessage } from "../lib/http";
 import { EXTRA_PACK, PAID_PLANS, planOf, type PaidPlan, type PlanId } from "../lib/plans";
 import { postalAdmin } from "../lib/postal";
 import { onPlanChange } from "../lib/lifecycle";
+import { applyDedicated, DEDICATED_IP, syncSending } from "../lib/ip-pools";
 
 const STRIPE = "https://api.stripe.com/v1";
 
@@ -34,6 +35,7 @@ type Interval = "month" | "year";
 const priceFor = (env: Env, plan: PaidPlan, interval: Interval) =>
   interval === "year" ? (plan === "pro" ? env.STRIPE_PRICE_PRO_YEAR : env.STRIPE_PRICE_SCALE_YEAR) : plan === "pro" ? env.STRIPE_PRICE_PRO : env.STRIPE_PRICE_SCALE;
 const extraPriceFor = (env: Env, interval: Interval) => (interval === "year" ? env.STRIPE_PRICE_EXTRA_YEAR : env.STRIPE_PRICE_EXTRA);
+const dedicatedPriceFor = (env: Env, interval: Interval) => (interval === "year" ? env.STRIPE_PRICE_DEDICATED_IP_YEAR : env.STRIPE_PRICE_DEDICATED_IP);
 const planForPrice = (env: Env, price: string | undefined): PlanId | null =>
   !price ? null : [env.STRIPE_PRICE_PRO, env.STRIPE_PRICE_PRO_YEAR].includes(price) ? "pro" : [env.STRIPE_PRICE_SCALE, env.STRIPE_PRICE_SCALE_YEAR].includes(price) ? "scale" : null;
 
@@ -42,26 +44,28 @@ export function readSubscription(env: Env, sub: { items?: { data?: { price?: { i
   let plan: PlanId | null = null;
   let interval: string | null = null;
   let packs = 0;
+  let dedicated = false;
   for (const it of sub.items?.data ?? []) {
     const id = it.price?.id;
     const pl = planForPrice(env, id);
     if (pl) (plan = pl), (interval = it.price?.recurring?.interval ?? null);
     else if (id && (id === env.STRIPE_PRICE_EXTRA || id === env.STRIPE_PRICE_EXTRA_YEAR)) packs += it.quantity ?? 1;
+    else if (id && (id === env.STRIPE_PRICE_DEDICATED_IP || id === env.STRIPE_PRICE_DEDICATED_IP_YEAR)) dedicated = true;
   }
-  return { plan, interval, packs };
+  return { plan, interval, packs, dedicated };
 }
 
-/** Moves an account to `plan`, pushing hourly limit + IP pool to Postal. */
-export async function applyPlan(env: Env, accountId: string, plan: PlanId, sub: { customer?: string; subscription?: string | null; packs?: number; interval?: string | null }) {
-  const a = await env.DB.prepare("SELECT plan, email, extra_packs, billing_interval, postal_org, postal_server FROM accounts WHERE id = ?").bind(accountId).first<{ plan: PlanId; email: string; extra_packs: number; billing_interval: string | null; postal_org: string | null; postal_server: string | null }>();
+/** Moves an account to `plan` (and the dedicated-IP add-on), pushing hourly limit + IP pool to Postal. */
+export async function applyPlan(env: Env, accountId: string, plan: PlanId, sub: { customer?: string; subscription?: string | null; packs?: number; interval?: string | null; dedicated?: boolean }) {
+  const a = await env.DB.prepare("SELECT plan, email, extra_packs, billing_interval FROM accounts WHERE id = ?").bind(accountId).first<{ plan: PlanId; email: string; extra_packs: number; billing_interval: string | null }>();
   if (!a || a.plan === "internal") return;
-  const pool = poolFor(plan);
-  if (a.postal_org && a.postal_server) await postalAdmin.setLimits(env, { org: a.postal_org, server: a.postal_server, hourly_limit: planOf(plan).hourly || null, ip_pool: pool });
   await env.DB.batch([
-    env.DB.prepare("UPDATE accounts SET plan = ?, ip_pool = ?, stripe_customer = COALESCE(?, stripe_customer), stripe_subscription = ?, extra_packs = ?, billing_interval = ?, updated_at = ? WHERE id = ?")
-      .bind(plan, pool, sub.customer ?? null, sub.subscription ?? null, sub.packs ?? 0, sub.interval ?? null, Date.now(), accountId),
-    env.DB.prepare("INSERT INTO audit_log (account_id, actor, action, detail, created_at) VALUES (?, 'stripe', 'plan', ?, ?)").bind(accountId, `${a.plan} -> ${plan}`, Date.now()),
+    env.DB.prepare("UPDATE accounts SET plan = ?, stripe_customer = COALESCE(?, stripe_customer), stripe_subscription = ?, extra_packs = ?, billing_interval = ?, updated_at = ? WHERE id = ?")
+      .bind(plan, sub.customer ?? null, sub.subscription ?? null, sub.packs ?? 0, sub.interval ?? null, Date.now(), accountId),
+    env.DB.prepare("INSERT INTO audit_log (account_id, actor, action, detail, created_at) VALUES (?, 'stripe', 'plan', ?, ?)").bind(accountId, `${a.plan} -> ${plan}${sub.dedicated ? " +dedicated_ip" : ""}`, Date.now()),
   ]);
+  await applyDedicated(env, accountId, !!sub.dedicated && plan !== "free", a.email);
+  await syncSending(env, accountId);
   const changed = a.plan !== plan || (a.extra_packs ?? 0) !== (sub.packs ?? 0) || a.billing_interval !== (sub.interval ?? null);
   if (changed) await onPlanChange(env, a.email, plan, sub.interval ?? null, sub.packs ?? 0, a.plan);
 }
@@ -74,6 +78,7 @@ billing.get("/plans", (c) =>
     publishable_key: c.env.STRIPE_PUBLISHABLE_KEY ?? null,
     yearly: !!(c.env.STRIPE_PRICE_PRO_YEAR && c.env.STRIPE_PRICE_SCALE_YEAR),
     extra_pack: { ...EXTRA_PACK, available: !!c.env.STRIPE_PRICE_EXTRA },
+    dedicated_ip: { ...DEDICATED_IP, available: !!c.env.STRIPE_PRICE_DEDICATED_IP },
     data: (["free", ...PAID_PLANS] as PlanId[]).map((id) => {
       const p = planOf(id);
       return { id, label: p.label, price_usd: p.priceUsd, price_usd_year: p.priceUsd * 10, monthly: p.monthly, daily: p.daily, domains: p.domains };
@@ -92,6 +97,8 @@ billing.post("/checkout", async (c) => {
   if (a?.stripe_subscription) throw errors.conflict("You already have a subscription — change it from Manage subscription.");
   const app = c.env.APP_URL ?? c.env.PUBLIC_URL;
   const extra = extraPriceFor(c.env, interval);
+  // A dedicated IP only helps senders with steady volume, so it's offered on Scale.
+  const ded = plan === "scale" ? dedicatedPriceFor(c.env, interval) : undefined;
   const s = await stripe<{ url?: string; client_secret?: string; id: string }>(c.env, "/checkout/sessions", {
     mode: "subscription",
     "line_items[0][price]": price,
@@ -106,6 +113,7 @@ billing.post("/checkout", async (c) => {
           "optional_items[0][adjustable_quantity][maximum]": 20,
         }
       : {}),
+    ...(ded ? { [`optional_items[${extra ? 1 : 0}][price]`]: ded, [`optional_items[${extra ? 1 : 0}][quantity]`]: 1 } : {}),
     client_reference_id: p.accountId,
     "metadata[account_id]": p.accountId,
     "subscription_data[metadata][account_id]": p.accountId,
@@ -130,6 +138,29 @@ billing.get("/session/:id", async (c) => {
     if (r.plan) await applyPlan(c.env, c.get("principal").accountId, r.plan, { customer: s.customer, subscription: s.subscription, packs: r.packs, interval: r.interval });
   }
   return c.json({ status: s.status });
+});
+
+/** Status of the dedicated-IP add-on for this account. */
+billing.get("/dedicated-ip", async (c) => {
+  const r = await c.env.DB.prepare("SELECT status, ip, requested_at, assigned_at FROM dedicated_ips WHERE account_id = ?").bind(c.get("principal").accountId).first<{ status: string; ip: string | null; requested_at: number; assigned_at: number | null }>();
+  return c.json({ object: "dedicated_ip", ...DEDICATED_IP, available: !!c.env.STRIPE_PRICE_DEDICATED_IP, status: r?.status ?? "none", ip: r?.status === "released" ? null : r?.ip ?? null, requested_at: r?.requested_at ?? null, assigned_at: r?.assigned_at ?? null });
+});
+
+/** Adds the dedicated-IP add-on to an existing paid subscription (prorated, same interval). */
+billing.post("/dedicated-ip", async (c) => {
+  const p = c.get("principal");
+  if (p.permission === "agent") throw errors.forbidden("Agents cannot change billing.");
+  const a = await c.env.DB.prepare("SELECT plan, stripe_subscription, billing_interval FROM accounts WHERE id = ?").bind(p.accountId).first<{ plan: PlanId; stripe_subscription: string | null; billing_interval: string | null }>();
+  if (!a?.stripe_subscription || !PAID_PLANS.includes(a.plan as PaidPlan)) throw errors.validation("Subscribe to Pro or Scale first.");
+  const price = dedicatedPriceFor(c.env, a.billing_interval === "year" ? "year" : "month");
+  if (!price) throw new ApiError(503, "billing_disabled", "Dedicated IPs are not available yet.");
+  const sub = await stripe(c.env, `/subscriptions/${a.stripe_subscription}`);
+  if (readSubscription(c.env, sub).dedicated) throw errors.conflict("You already have a dedicated IP.");
+  await stripe(c.env, "/subscription_items", { subscription: a.stripe_subscription, price, quantity: 1, proration_behavior: "create_prorations" });
+  const fresh = await stripe(c.env, `/subscriptions/${a.stripe_subscription}`);
+  const r = readSubscription(c.env, fresh);
+  if (r.plan) await applyPlan(c.env, p.accountId, r.plan, { subscription: a.stripe_subscription, packs: r.packs, interval: r.interval, dedicated: r.dedicated });
+  return c.json({ object: "dedicated_ip", status: "requested" });
 });
 
 billing.post("/portal", async (c) => {
@@ -165,7 +196,7 @@ stripeHooks.post("/", async (c) => {
       if (!accountId || !o.subscription) break;
       const sub = await stripe(c.env, `/subscriptions/${o.subscription}`);
       const r = readSubscription(c.env, sub);
-      if (r.plan) await applyPlan(c.env, accountId, r.plan, { customer: o.customer, subscription: o.subscription, packs: r.packs, interval: r.interval });
+      if (r.plan) await applyPlan(c.env, accountId, r.plan, { customer: o.customer, subscription: o.subscription, packs: r.packs, interval: r.interval, dedicated: r.dedicated });
       break;
     }
     case "customer.subscription.updated":
@@ -173,8 +204,8 @@ stripeHooks.post("/", async (c) => {
       const accountId = o.metadata?.account_id;
       if (!accountId) break;
       const active = evt.type === "customer.subscription.updated" && ["active", "trialing", "past_due"].includes(o.status);
-      const r = active ? readSubscription(c.env, o) : { plan: "free" as PlanId, packs: 0, interval: null };
-      if (r.plan) await applyPlan(c.env, accountId, r.plan, { customer: o.customer, subscription: active ? o.id : null, packs: r.packs, interval: r.interval });
+      const r = active ? readSubscription(c.env, o) : { plan: "free" as PlanId, packs: 0, interval: null, dedicated: false };
+      if (r.plan) await applyPlan(c.env, accountId, r.plan, { customer: o.customer, subscription: active ? o.id : null, packs: r.packs, interval: r.interval, dedicated: r.dedicated });
       break;
     }
   }

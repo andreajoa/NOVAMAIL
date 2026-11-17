@@ -12,6 +12,7 @@ import { audiences, broadcasts, processBroadcasts, unsubscribe } from "./routes/
 import { contactTags, funnels, processFunnels } from "./routes/funnels";
 import { track } from "./routes/track";
 import { crmFields, people, segments } from "./routes/crm";
+import { processWarmups } from "./lib/ip-pools";
 import { mcp } from "./routes/mcp";
 import { media, serveMedia, templates } from "./routes/templates";
 import { admin } from "./routes/admin";
@@ -162,5 +163,6 @@ export default {
     const e = withDb(env);
     ctx.waitUntil(processBroadcasts(e).then((r) => r.length && console.log(JSON.stringify({ level: "info", broadcasts: r }))));
     ctx.waitUntil(processFunnels(e).then((r) => r.due && console.log(JSON.stringify({ level: "info", funnels: r }))));
+    if (new Date(_ctrl.scheduledTime).getUTCMinutes() === 7) ctx.waitUntil(processWarmups(e).then((n) => n && console.log(JSON.stringify({ level: "info", warmups: n }))));
   },
 } satisfies ExportedHandler<Env, WebhookJob>;

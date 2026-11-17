@@ -27,6 +27,8 @@ export interface Env {
   POSTAL_ADMIN_TOKEN: string;
   POSTAL_WEBHOOK_PUBLIC_KEY: string; // PEM of Postal's signing.key public part
   ENCRYPTION_KEY: string; // seals Postal server credentials in D1
+  STRIPE_PRICE_DEDICATED_IP?: string;
+  STRIPE_PRICE_DEDICATED_IP_YEAR?: string;
   OWNER_TOKEN: string; // platform-owner token for /admin routes
   STRIPE_SECRET_KEY?: string;
   STRIPE_WEBHOOK_SECRET?: string;

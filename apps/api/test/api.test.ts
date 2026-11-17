@@ -771,3 +771,73 @@ describe("CRM", () => {
     expect((await t("/people")).body.total).toBe(2);
   });
 });
+
+describe("IP tiers and dedicated IPs", () => {
+  beforeEach(() => {
+    Object.assign(testEnv, { STRIPE_SECRET_KEY: "sk_test_x", STRIPE_PRICE_PRO: "price_pro", STRIPE_PRICE_SCALE: "price_scale", STRIPE_PRICE_EXTRA: "price_extra", STRIPE_PRICE_DEDICATED_IP: "price_ded" });
+  });
+  afterEach(() => {
+    for (const k of ["STRIPE_SECRET_KEY", "STRIPE_PRICE_PRO", "STRIPE_PRICE_SCALE", "STRIPE_PRICE_EXTRA", "STRIPE_PRICE_DEDICATED_IP"]) delete (testEnv as any)[k];
+  });
+
+  it("maps plans to isolated tiers and only offers the dedicated IP on Scale", async () => {
+    const { tierPool, warmupCap, effectiveSending } = await import("../src/lib/ip-pools");
+    expect([tierPool("free"), tierPool("pro"), tierPool("scale"), tierPool("internal")]).toEqual(["shared", "trusted", "trusted", "brands"]);
+    const t0 = Date.now();
+    expect(warmupCap(t0, t0)).toBe(50);
+    expect(warmupCap(t0, t0 + 5 * 86_400_000)).toBe(200);
+    expect(warmupCap(t0, t0 + 40 * 86_400_000)).toBeNull();
+    expect(effectiveSending("scale", { status: "warming", pool: "ded_x", assigned_at: t0 }, t0)).toEqual({ pool: "ded_x", hourly: 50, warming: true });
+    expect(effectiveSending("free", null).pool).toBe("shared");
+
+    const acc = await newAccount();
+    await call("/billing/checkout", { method: "POST", token: acc.api_key, json: { plan: "pro" } });
+    await call("/billing/checkout", { method: "POST", token: acc.api_key, json: { plan: "scale" } });
+    const calls = postal.stripeCalls.filter((x) => x.startsWith("/v1/checkout/sessions")).map(decodeURIComponent);
+    expect(calls[0]).not.toContain("price_ded");
+    expect(calls[1]).toContain("optional_items[1][price]=price_ded");
+  });
+
+  it("buy → owner notified → IP attached with warm-up → cancel returns to the shared tier", async () => {
+    const acc = await newAccount();
+    postal.subItems = [{ price: { id: "price_scale", recurring: { interval: "month" } }, quantity: 1 }];
+    // Subscribe to Scale (session confirmation path), then add the IP from the dashboard.
+    await call("/hooks/stripe", { method: "POST", body: "{}" }); // unsigned → ignored
+    const { applyPlan } = await import("../src/routes/billing");
+    await applyPlan(testEnv as any, acc.id, "scale", { subscription: "sub_1", interval: "month" });
+    expect(postal.limits.at(-1)!.ip_pool).toBe("trusted");
+
+    const add = await call("/billing/dedicated-ip", { method: "POST", token: acc.api_key });
+    expect(add.body.status).toBe("requested");
+    expect(postal.stripeCalls.some((x) => x.startsWith("/v1/subscription_items") && x.includes("price_ded"))).toBe(true);
+    expect((await call("/billing/dedicated-ip", { token: acc.api_key })).body.status).toBe("requested");
+    const notice = await testEnv.DB.prepare("SELECT detail FROM audit_log WHERE action = 'owner_notice' ORDER BY id DESC LIMIT 1").first<{ detail: string }>();
+    expect(notice!.detail).toContain("Dedicated IP bought");
+    expect((await call("/billing/dedicated-ip", { method: "POST", token: acc.api_key })).status).toBe(409);
+
+    const q = await call("/admin/ips", { token: OWNER });
+    const pending = q.body.dedicated.find((d: any) => d.account_id === acc.id);
+    expect(pending.status).toBe("requested");
+    await call("/admin/ips/pools", { method: "POST", token: OWNER, json: { name: pending.suggested_pool, ipv4: "172.31.5.10", hostname: "ip2.novamail.test" } });
+    const as = await call(`/admin/ips/dedicated/${acc.id}/assign`, { method: "POST", token: OWNER, json: { pool: pending.suggested_pool, ip: "3.3.3.3" } });
+    expect(as.body).toMatchObject({ status: "warming", pool: pending.suggested_pool, hourly: 50 });
+    expect(postal.limits.at(-1)).toMatchObject({ ip_pool: pending.suggested_pool, hourly_limit: 50 });
+
+    const { processWarmups } = await import("../src/lib/ip-pools");
+    await processWarmups(testEnv as any, Date.now() + 9 * 86_400_000);
+    expect(postal.limits.at(-1)!.hourly_limit).toBe(700);
+    await processWarmups(testEnv as any, Date.now() + 40 * 86_400_000);
+    expect((await call("/billing/dedicated-ip", { token: acc.api_key })).body.status).toBe("active");
+    expect(postal.limits.at(-1)!.hourly_limit).toBe(10_000); // Scale's own cap
+
+    // Cancelling the add-on releases it and moves sending back to the paid tier.
+    await applyPlan(testEnv as any, acc.id, "scale", { subscription: "sub_1", interval: "month", dedicated: false });
+    expect(postal.limits.at(-1)!.ip_pool).toBe("trusted");
+    expect((await call("/billing/dedicated-ip", { token: acc.api_key })).body).toMatchObject({ status: "released", ip: null });
+  });
+
+  it("free accounts must subscribe before buying a dedicated IP", async () => {
+    const acc = await newAccount();
+    expect((await call("/billing/dedicated-ip", { method: "POST", token: acc.api_key })).status).toBe(422);
+  });
+});

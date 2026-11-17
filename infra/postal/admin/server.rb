@@ -48,14 +48,43 @@ module NovaMailAdmin
     org.servers.present.find_by(permalink: permalink) || raise(HttpError.new(404, "server #{permalink} not found"))
   end
 
+  # Risk tiers, most isolated first. A pool that doesn't exist yet falls back to the next
+  # one, so accounts keep sending from the main IP until a dedicated IP is added.
+  POOL_FALLBACK = %w[trusted brands].freeze
+
   def apply_pool(org, server, pool_name)
     return unless Postal::Config.postal.use_ip_pools?
 
-    pool = IPPool.find_by(name: pool_name)
+    pool = ([pool_name] + POOL_FALLBACK).lazy.map { |n| IPPool.find_by(name: n) }.find { |p| p && p.ip_addresses.any? }
     return unless pool
 
     org.ip_pools << pool unless org.ip_pools.include?(pool)
     server.update!(ip_pool: pool)
+  end
+
+  # Creates (or updates) an IP pool with one sending address. ipv4 is the address bound on
+  # the host (EC2: the private address behind the Elastic IP); hostname is its PTR name.
+  def pool_upsert(b)
+    name = b.fetch("name").to_s
+    raise HttpError.new(422, "invalid pool name") unless name.match?(/\A[a-z0-9_-]{2,60}\z/)
+
+    pool = IPPool.find_or_create_by!(name: name)
+    addr = IPAddress.find_by(ipv4: b.fetch("ipv4")) || pool.ip_addresses.build(ipv4: b.fetch("ipv4"))
+    addr.update!(ip_pool: pool, hostname: b.fetch("hostname"), ipv6: b["ipv6"].presence, priority: b.fetch("priority", 100))
+    { name: pool.name, uuid: pool.uuid, addresses: pool.ip_addresses.map { |a| { ipv4: a.ipv4, hostname: a.hostname } } }
+  end
+
+  def pool_list(_b)
+    { pools: IPPool.all.map { |p| { name: p.name, servers: Server.where(ip_pool_id: p.id).count, addresses: p.ip_addresses.map { |a| { ipv4: a.ipv4, hostname: a.hostname } } } } }
+  end
+
+  # Removes a pool; its servers go back to the fallback chain on the next /v1/limits.
+  def pool_remove(b)
+    pool = IPPool.find_by(name: b.fetch("name").to_s) || raise(HttpError.new(404, "pool not found"))
+    Server.where(ip_pool_id: pool.id).update_all(ip_pool_id: nil)
+    pool.ip_addresses.destroy_all
+    pool.destroy!
+    {}
   end
 
   def records_for(domain)
@@ -160,6 +189,9 @@ module NovaMailAdmin
     "/v1/domains/check" => :domain_check,
     "/v1/domains/remove" => :domain_remove,
     "/v1/fbl" => :fbl_route,
+    "/v1/pools/upsert" => :pool_upsert,
+    "/v1/pools/list" => :pool_list,
+    "/v1/pools/remove" => :pool_remove,
   }.freeze
 
   def json(status, body)

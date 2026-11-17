@@ -24,11 +24,15 @@ export interface FakePostal {
   nextId: number;
   adminCalls: string[];
   stripeCalls: string[];
+  /** Overrides the items of the fake Stripe subscription. */
+  subItems?: { price: { id: string; recurring: { interval: string } }; quantity: number }[];
+  limits: { server: string; hourly_limit: number | null; ip_pool: string }[];
+  pools: Record<string, { ipv4: string; hostname: string }[]>;
 }
 
 /** Replaces global fetch with an in-memory Postal (send API + admin sidecar). */
 export function fakePostal(): FakePostal {
-  const state: FakePostal = { sent: [], domainVerified: false, nextId: 1000, adminCalls: [], stripeCalls: [] };
+  const state: FakePostal = { sent: [], domainVerified: false, nextId: 1000, adminCalls: [], stripeCalls: [], limits: [], pools: {} };
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
     const raw = init?.body ? String(init.body) : "";
@@ -58,6 +62,17 @@ export function fakePostal(): FakePostal {
           return json({ ok: true, uuid: crypto.randomUUID(), records });
         case "/v1/domains/check":
           return json({ ok: true, verified: state.domainVerified, dns_ok: state.domainVerified, checks: { spf: state.domainVerified ? "OK" : "Missing", dkim: state.domainVerified ? "OK" : "Missing" }, records });
+        case "/v1/limits":
+          state.limits.push({ server: body.org, hourly_limit: body.hourly_limit, ip_pool: body.ip_pool });
+          return json({ ok: true });
+        case "/v1/pools/upsert":
+          state.pools[body.name] = [{ ipv4: body.ipv4, hostname: body.hostname }];
+          return json({ ok: true, name: body.name, addresses: state.pools[body.name] });
+        case "/v1/pools/list":
+          return json({ ok: true, pools: Object.entries(state.pools).map(([name, addresses]) => ({ name, servers: 0, addresses })) });
+        case "/v1/pools/remove":
+          delete state.pools[body.name];
+          return json({ ok: true });
         default:
           return json({ ok: true });
       }
@@ -66,8 +81,13 @@ export function fakePostal(): FakePostal {
       state.stripeCalls.push(url.pathname + " " + String(init?.body ?? ""));
       if (url.pathname === "/v1/checkout/sessions") return json({ id: "cs_test_1", url: "https://checkout.stripe.com/c/pay/cs_test_1", client_secret: "cs_test_1_secret_x" });
       if (url.pathname === "/v1/billing_portal/sessions") return json({ url: "https://billing.stripe.com/p/session/test" });
+      if (url.pathname === "/v1/subscription_items") {
+        const price = new URLSearchParams(String(init?.body ?? "")).get("price")!;
+        state.subItems = [...(state.subItems ?? []), { price: { id: price, recurring: { interval: "month" } }, quantity: 1 }];
+        return json({ id: "si_1" });
+      }
       if (url.pathname.startsWith("/v1/subscriptions/"))
-        return json({ id: "sub_1", status: "active", items: { data: [{ price: { id: "price_pro", recurring: { interval: "month" } }, quantity: 1 }, { price: { id: "price_extra", recurring: { interval: "month" } }, quantity: 2 }] } });
+        return json({ id: "sub_1", status: "active", items: { data: state.subItems ?? [{ price: { id: "price_pro", recurring: { interval: "month" } }, quantity: 1 }, { price: { id: "price_extra", recurring: { interval: "month" } }, quantity: 2 }] } });
     }
     return json({ error: "unexpected fetch " + url.href }, 599);
   });

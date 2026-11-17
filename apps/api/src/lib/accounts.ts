@@ -1,3 +1,4 @@
+import { tierPool } from "./ip-pools";
 import type { Env } from "../env";
 import { createApiKey } from "./auth";
 import { prefixedId, seal } from "./crypto";
@@ -5,7 +6,7 @@ import { errors } from "./http";
 import { PLANS, planOf, type PlanId } from "./plans";
 import { postalAdmin } from "./postal";
 
-export const poolFor = (plan: PlanId, override?: string) => override ?? (PLANS[plan].ipPool === "shared" ? "shared" : "trusted");
+export const poolFor = (plan: PlanId, override?: string) => override ?? tierPool(plan);
 
 /** Creates the Postal org+server for an account and stores its sealed API key. */
 export async function provisionAccount(env: Env, accountId: string, fetcher?: typeof fetch) {

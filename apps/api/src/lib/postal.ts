@@ -89,6 +89,10 @@ export const postalAdmin = {
     admin<{ verified: boolean; dns_ok: boolean; checks: Record<string, string | null>; records: DnsRecord[] }>(env, "/v1/domains/check", b, f),
   fbl: (env: Env, b: { org: string; server: string; domain: string; url: string }, f?: typeof fetch) => admin<{ address: string }>(env, "/v1/fbl", b, f),
   removeDomain: (env: Env, b: { org: string; server: string; uuid: string }, f?: typeof fetch) => admin<{}>(env, "/v1/domains/remove", b, f),
+  pools: (env: Env, f?: typeof fetch) => admin<{ pools: { name: string; servers: number; addresses: { ipv4: string; hostname: string }[] }[] }>(env, "/v1/pools/list", {}, f),
+  upsertPool: (env: Env, b: { name: string; ipv4: string; hostname: string; ipv6?: string }, f?: typeof fetch) =>
+    admin<{ name: string; addresses: { ipv4: string; hostname: string }[] }>(env, "/v1/pools/upsert", b, f),
+  removePool: (env: Env, b: { name: string }, f?: typeof fetch) => admin<{}>(env, "/v1/pools/remove", b, f),
 };
 
 export interface DnsRecord {

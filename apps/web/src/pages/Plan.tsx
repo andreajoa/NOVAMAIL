@@ -118,8 +118,42 @@ export function Plan() {
       {cfg?.extra_pack?.available && <p className="mt-4 text-sm text-zinc-500">{L.packHint(num(cfg.extra_pack.monthly), interval === "year" ? cfg.extra_pack.priceUsdYear : cfg.extra_pack.priceUsd)}</p>}
       {me.data?.plan?.extra_packs > 0 && <p className="mt-2 text-sm text-zinc-500">{me.data.plan.extra_packs} {L.packs}</p>}
       {cfg && !enabled && <p className="mt-4 text-sm text-zinc-500">{L.soon}</p>}
+      {cfg?.dedicated_ip?.available && current !== "internal" && <DedicatedIp subscribed={!!subscribed} yearly={me.data?.plan?.interval === "year"} />}
       <div className="mt-3"><ErrorText error={checkout.error ?? portal.error ?? confirm.error} /></div>
       {secret && cfg?.publishable_key && <EmbeddedCheckout publishableKey={cfg.publishable_key} clientSecret={secret} onClose={() => setSecret(null)} />}
     </>
+  );
+}
+
+function DedicatedIp({ subscribed, yearly }: { subscribed: boolean; yearly: boolean }) {
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ["dedicated-ip"], queryFn: () => api("/billing/dedicated-ip") });
+  const buy = useMutation({ mutationFn: () => api("/billing/dedicated-ip", { body: {} }), onSuccess: () => qc.invalidateQueries({ queryKey: ["dedicated-ip"] }) });
+  const d = q.data;
+  if (!d) return null;
+  const price = yearly ? `US$${d.priceUsdYear}${pt ? "/ano" : "/year"}` : `US$${d.priceUsd}${pt ? "/mês" : "/month"}`;
+  const status: Record<string, string> = pt
+    ? { requested: "Pago — estamos reservando o seu IP (até 1 dia útil).", warming: `Aquecendo ${d.ip}: o limite por hora sobe sozinho por ~3 semanas para proteger a reputação.`, active: `Ativo: você envia só pelo IP ${d.ip}.` }
+    : { requested: "Paid — we're reserving your IP (within 1 business day).", warming: `Warming up ${d.ip}: your hourly limit rises automatically for ~3 weeks to protect its reputation.`, active: `Active: you send only from ${d.ip}.` };
+  return (
+    <Card className="mt-8">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="max-w-xl">
+          <div className="font-semibold">{pt ? "IP dedicado" : "Dedicated IP"} <span className="ml-1 text-sm font-normal text-zinc-500">{price}</span></div>
+          <p className="mt-1 text-sm text-zinc-500">
+            {pt
+              ? `Sua reputação de envio passa a depender só de você. Recomendado a partir de ${num(d.recommendedMonthly)} e-mails por mês, todo mês — com pouco volume, o IP compartilhado entrega melhor.`
+              : `Your sending reputation depends only on you. Recommended from ${num(d.recommendedMonthly)} emails a month, every month — at low volume the shared pool delivers better.`}
+          </p>
+          {status[d.status] && <p className="mt-3 text-sm font-medium">{status[d.status]}</p>}
+        </div>
+        {(d.status === "none" || d.status === "released") && (
+          <Button variant="ghost" disabled={!subscribed || buy.isPending} onClick={() => window.confirm(pt ? `Adicionar IP dedicado por ${price}? O valor proporcional entra na próxima fatura.` : `Add a dedicated IP for ${price}? The prorated amount goes on your next invoice.`) && buy.mutate()}>
+            {subscribed ? (pt ? "Adicionar IP dedicado" : "Add dedicated IP") : pt ? "Disponível em planos pagos" : "Available on paid plans"}
+          </Button>
+        )}
+      </div>
+      <ErrorText error={buy.error} />
+    </Card>
   );
 }

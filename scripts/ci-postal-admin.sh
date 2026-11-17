@@ -18,7 +18,7 @@ postal:
   web_hostname: postal.ci.test
   web_protocol: http
   smtp_hostname: postal.ci.test
-  use_ip_pools: false
+  use_ip_pools: true
   signing_key_path: /config/signing.key
 main_db: { host: 127.0.0.1, username: root, password: $PW, database: postal }
 message_db: { host: 127.0.0.1, username: root, password: $PW, database_name_prefix: postal }
@@ -90,5 +90,19 @@ check "$r2" ".address == $(echo "$r" | jq .address)"
 echo "== domain remove / 404s"
 check "$(post /v1/domains/remove "{\"org\":\"acc-ci123\",\"server\":\"main\",\"uuid\":\"$UUID\"}")" '.ok'
 check "$(post /v1/limits '{"org":"nope","server":"main"}')" '.ok == false'
+
+echo "== IP pools (tiers + dedicated)"
+check "$(post /v1/pools/upsert '{"name":"Bad Name!","ipv4":"127.0.0.2","hostname":"x.ci.test"}')" '.ok == false'
+check "$(post /v1/pools/upsert '{"name":"brands","ipv4":"127.0.0.1","hostname":"postal.ci.test"}')" '.ok and .addresses[0].ipv4 == "127.0.0.1"'
+check "$(post /v1/pools/upsert '{"name":"ded_ci","ipv4":"127.0.0.3","hostname":"ip3.ci.test"}')" '.ok'
+check "$(post /v1/pools/upsert '{"name":"ded_ci","ipv4":"127.0.0.3","hostname":"ip3b.ci.test"}')" '.ok and (.addresses | length) == 1 and .addresses[0].hostname == "ip3b.ci.test"'
+# "shared" doesn't exist yet → falls back to brands; then the dedicated pool is applied.
+check "$(post /v1/limits '{"org":"acc-ci123","server":"main","ip_pool":"shared"}')" '.ok'
+check "$(post /v1/limits '{"org":"acc-ci123","server":"main","ip_pool":"ded_ci"}')" '.ok'
+r=$(post /v1/pools/list '{}')
+check "$r" '.ok and ([.pools[] | select(.name == "ded_ci")][0].servers) >= 0'
+check "$(post /v1/pools/remove '{"name":"ded_ci"}')" '.ok'
+check "$(post /v1/pools/list '{}')" '[.pools[].name] | index("ded_ci") == null'
+check "$(post /v1/pools/remove '{"name":"ded_ci"}')" '.ok == false'
 
 echo "ALL POSTAL ADMIN CHECKS PASSED"
