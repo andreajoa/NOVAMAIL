@@ -41,7 +41,7 @@ apiKeys.delete("/:id", async (c) => {
 
 export const webhooks = new Hono<AppEnv>();
 
-const EVENTS = ["email.delivered", "email.delivery_delayed", "email.bounced", "email.held", "email.opened", "email.clicked", "email.complained"] as const;
+import { EVENTS } from "../lib/events";
 
 webhooks.post("/", async (c) => {
   const parsed = z

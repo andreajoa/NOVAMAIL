@@ -6,6 +6,7 @@ import type { AppEnv, Env } from "../env";
 import { b64encode, open, prefixedId, randomToken, safeEqual, seal, uuidv7 } from "../lib/crypto";
 import { errors, zodMessage } from "../lib/http";
 import { applyTags, onAudienceJoin } from "./funnels";
+import { emit } from "../lib/events";
 
 const CLICK_WINDOW = 5 * 86_400_000; // last human click within 5 days
 const OPEN_WINDOW = 86_400_000; // or a human open within 24 h
@@ -99,6 +100,7 @@ export async function ingestOrder(env: Env, s: Store, o: OrderIn) {
     `INSERT INTO orders (store_id, external_id, account_id, email, amount_cents, currency, items, email_id, broadcast_id, funnel_id, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)
      ON CONFLICT(store_id, external_id) DO UPDATE SET amount_cents = excluded.amount_cents, items = excluded.items`,
   ).bind(s.id, o.external_id, s.account_id, email, o.amount_cents, o.currency, JSON.stringify(o.items.slice(0, 50)), attr.email_id, attr.broadcast_id, attr.funnel_id, at).run();
+  if (ins.meta.changes) await emit(env, s.account_id, "order.created", { store_id: s.id, order_id: o.external_id, email, total: o.amount_cents / 100, currency: o.currency, items: o.items.map((i) => ({ title: i.title, qty: i.qty, price: i.price_cents / 100 })), attributed_campaign: attr.broadcast_id, attributed_funnel: attr.funnel_id });
   if (!email) return { attributed: attr };
   await env.DB.batch([
     env.DB.prepare("UPDATE carts SET status = 'recovered', updated_at = ? WHERE account_id = ? AND email = ? AND status IN ('open','abandoned')").bind(Date.now(), s.account_id, email),
@@ -150,6 +152,8 @@ export async function processCarts(env: Env, now = Date.now()) {
     await env.DB.prepare("UPDATE carts SET status = ? WHERE store_id = ? AND external_id = ?").bind(bought ? "recovered" : "abandoned", c.store_id, c.external_id).run();
     if (bought) continue;
     await env.DB.prepare("INSERT INTO activities (account_id, email, type, data, created_at) VALUES (?,?, 'cart_abandoned', ?, ?)").bind(c.account_id, c.email, JSON.stringify({ store: c.store_id, cart: c.external_id }), now).run();
+    const cart = await env.DB.prepare("SELECT amount_cents, currency, url FROM carts WHERE store_id = ? AND external_id = ?").bind(c.store_id, c.external_id).first<{ amount_cents: number; currency: string; url: string | null }>();
+    await emit(env, c.account_id, "cart.abandoned", { store_id: c.store_id, cart_id: c.external_id, email: c.email, total: (cart?.amount_cents ?? 0) / 100, currency: cart?.currency ?? null, checkout_url: cart?.url ?? null });
     await applyTags(env, c.account_id, c.email, ["cart-abandoned"], ["purchased"]);
     n++;
   }

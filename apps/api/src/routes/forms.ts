@@ -8,6 +8,7 @@ import { prefixedId, randomToken, sha256Hex, uuidv7 } from "../lib/crypto";
 import { errors, zodMessage } from "../lib/http";
 import { sendOne } from "./emails";
 import { applyTags, onAudienceJoin } from "./funnels";
+import { emit } from "../lib/events";
 
 const PENDING_TTL = 7 * 86_400_000;
 const hex = z.string().regex(/^#[0-9a-fA-F]{3,8}$/);
@@ -273,6 +274,7 @@ async function subscribe(env: Env, f: FormRow & { cfg: FormConfig }, person: { e
     env.DB.prepare("INSERT INTO activities (account_id, email, type, data, created_at) VALUES (?,?, 'joined_list', ?, ?)").bind(f.account_id, person.email, JSON.stringify({ list: f.audience_id, form: f.id }), now),
     env.DB.prepare("UPDATE forms SET confirms = confirms + 1 WHERE id = ?").bind(f.id),
   ]);
+  await emit(env, f.account_id, "form.submitted", { form_id: f.id, form_name: f.name, email: person.email, first_name: person.first_name ?? null, last_name: person.last_name ?? null, list_id: f.audience_id, double_optin: !!confirmedAt, page: info.page });
   if (f.cfg.tags.length) await applyTags(env, f.account_id, person.email, f.cfg.tags, []);
   await onAudienceJoin(env, f.account_id, f.audience_id, [person.email]);
 }

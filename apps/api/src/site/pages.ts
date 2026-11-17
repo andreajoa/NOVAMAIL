@@ -182,6 +182,27 @@ export const PAGES: Page[] = [
     ],
   },
   {
+    path: "/integrations",
+    title: "NovaMail Integrations: Zapier, Make, n8n, Shopify, WooCommerce | NovaMail",
+    description: "Connect NovaMail to Shopify, WooCommerce, Zapier, Make and n8n. Instant triggers for new contacts, orders, abandoned carts, deals and email events; actions to add contacts, tag, send email and create deals.",
+    h1: "Connect NovaMail to everything you use",
+    lead: "Native Shopify and WooCommerce sync for abandoned carts and revenue, plus instant triggers and actions for Zapier, Make and n8n — and Claude Code or Codex through MCP.",
+    priority: 0.8,
+    body: `<section>${cards([
+      ["Shopify", "Orders, checkouts and products sync through signed webhooks. Abandoned carts start your recovery funnel; revenue is attributed to the campaign or funnel that drove it."],
+      ["WooCommerce", "Orders and products sync through signed WooCommerce webhooks; carts can be sent through the API."],
+      ["Zapier", "Instant triggers (REST hooks): new contact, tagged, unsubscribed, form submitted, new order, cart abandoned, deal won, email opened/clicked/bounced. Actions: add contact, tag, send email, create deal, create task, record order."],
+      ["Make & n8n", "Use any webhook module: subscribe with one API call, receive signed JSON events, map fields from sample payloads."],
+      ["Claude Code & Codex", "A least-privilege MCP server lets AI agents build funnels and templates without touching billing, keys or sending."],
+      ["REST API", "Resend-compatible email API, SMTP relay, contacts, segments, campaigns, funnels, deals, tasks and commerce — documented with OpenAPI."],
+    ])}</section>
+<section class="prose"><h2>Instant triggers in one call</h2><p><code>POST /integrations/subscriptions {"target_url": "https://your-hook", "event": "order.created"}</code> — NovaMail then POSTs every matching event, signed with Standard Webhooks headers. Remove it with <code>DELETE /integrations/subscriptions/{id}</code>. Sample payloads: <code>GET /integrations/samples/{event}</code>.</p></section>`,
+    faq: [
+      ["Does NovaMail work with Shopify?", "Yes. Add three kinds of webhooks in Shopify (orders, checkouts, products) and paste the signing key. NovaMail recovers abandoned carts, shows products in emails and attributes revenue."],
+      ["Can I use NovaMail with Zapier or Make?", "Yes — instant triggers via REST hooks and actions over the REST API. Any automation tool that can receive a webhook works."],
+    ],
+  },
+  {
     path: "/transactional-email-api",
     title: "Transactional Email API — Resend-compatible | NovaMail",
     description: "Send order confirmations, password resets and receipts with a REST email API compatible with the Resend SDKs. Idempotency keys, signed webhooks, OpenAPI 3.1.",

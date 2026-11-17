@@ -7,6 +7,7 @@ import { b64decode, base64url, prefixedId, safeEqual, uuidv7 } from "../lib/cryp
 import { ApiError, errors, zodMessage } from "../lib/http";
 import { sendOne } from "./emails";
 import { onAudienceJoin } from "./funnels";
+import { emit } from "../lib/events";
 
 export const BATCH_SIZE = 40; // per cron tick per broadcast (subrequest budget on the free plan)
 
@@ -432,6 +433,7 @@ async function doUnsubscribe(env: Env, token: string) {
     env.DB.prepare("INSERT OR IGNORE INTO suppressions (account_id, address, reason, created_at) VALUES (?,?, 'unsubscribe', ?)").bind(ct.account_id, ct.email, Date.now()),
     env.DB.prepare("INSERT INTO activities (account_id, email, type, data, created_at) VALUES (?,?, 'unsubscribed', NULL, ?)").bind(ct.account_id, ct.email, Date.now()),
   ]);
+  await emit(env, ct.account_id, "contact.unsubscribed", { email: ct.email });
   return ct.email;
 }
 

@@ -37,7 +37,8 @@ export async function deliver(env: Env, job: WebhookJob, fetcher: typeof fetch =
       signal: AbortSignal.timeout(15_000),
     });
     return res.ok;
-  } catch {
+  } catch (e) {
+    console.log(JSON.stringify({ level: "warn", webhook: job.webhookId, error: String(e).slice(0, 200) }));
     return false;
   }
 }

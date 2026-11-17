@@ -6,6 +6,7 @@ import type { AppEnv, Env } from "../env";
 import { prefixedId, uuidv7 } from "../lib/crypto";
 import { errors, zodMessage } from "../lib/http";
 import { applyTags, onAudienceJoin } from "./funnels";
+import { emit } from "../lib/events";
 
 const tagsOf = (s: unknown): string[] => { try { const v = JSON.parse(String(s ?? "[]")); return Array.isArray(v) ? v.map(String) : []; } catch { return []; } };
 const DAY = 86_400_000;
@@ -241,6 +242,7 @@ people.post("/", async (c) => {
   }
   const list = await upsertPerson(c.env, p.accountId, b.data);
   await logActivity(c.env, p.accountId, b.data.email, "created", { list });
+  c.executionCtx.waitUntil(emit(c.env, p.accountId, "contact.created", { email: b.data.email, first_name: b.data.first_name ?? null, last_name: b.data.last_name ?? null, list_id: list, source: "api" }));
   c.executionCtx.waitUntil(onAudienceJoin(c.env, p.accountId, list, [b.data.email]));
   return c.json({ object: "person", email: b.data.email }, 201);
 });

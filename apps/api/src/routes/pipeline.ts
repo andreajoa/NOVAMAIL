@@ -6,6 +6,7 @@ import type { AppEnv, Env } from "../env";
 import { prefixedId } from "../lib/crypto";
 import { errors, zodMessage } from "../lib/http";
 import { applyTags } from "./funnels";
+import { emit } from "../lib/events";
 
 export interface Stage { id: string; name: string; kind: "open" | "won" | "lost"; probability: number }
 const DEFAULT_STAGES: Stage[] = [
@@ -143,6 +144,9 @@ deals.patch("/:id", async (c) => {
     b.data.close_date === undefined ? d.close_date : b.data.close_date, b.data.notes === undefined ? d.notes : b.data.notes, b.data.position ?? d.position, status, status, now, now, d.id).run();
   if (stage.id !== d.stage_id) {
     await log(c.env, p.accountId, email, "deal_stage", { deal: d.id, title: d.title, from: d.stage_id, to: stage.name });
+    const ev = { deal_id: d.id, title: b.data.title ?? d.title, email, value: (b.data.value_cents ?? d.value_cents) / 100, currency: d.currency };
+    await emit(c.env, p.accountId, "deal.stage_changed", { ...ev, from_stage: d.stage_id, to_stage: stage.id });
+    if (status !== d.status && status !== "open") await emit(c.env, p.accountId, status === "won" ? "deal.won" : "deal.lost", ev);
     if (email && status !== d.status && status !== "open") await applyTags(c.env, p.accountId, email, [`deal-${status}`], [status === "won" ? "deal-lost" : "deal-won"]);
   }
   return c.json({ object: "deal", id: d.id, stage_id: stage.id, status });

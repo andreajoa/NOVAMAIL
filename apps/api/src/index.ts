@@ -20,6 +20,7 @@ import { commerceApi, processCarts, storeHooks, stores } from "./routes/commerce
 import { ai } from "./routes/ai";
 import { tools } from "./routes/tools";
 import { deals, pipelines, tasks } from "./routes/pipeline";
+import { integrations } from "./routes/integrations";
 import { mcp } from "./routes/mcp";
 import { media, serveMedia, templates } from "./routes/templates";
 import { admin } from "./routes/admin";
@@ -107,7 +108,7 @@ app.route("/emails", emails);
 
 app.route("/auth", auth);
 
-for (const path of ["/domains", "/api-keys", "/webhooks", "/suppressions", "/usage", "/me", "/billing", "/audiences", "/broadcasts", "/templates", "/media", "/funnels", "/contacts", "/people", "/segments", "/crm", "/forms", "/reports", "/team", "/stores", "/commerce", "/ai", "/tools", "/deals", "/pipelines", "/tasks"]) {
+for (const path of ["/domains", "/api-keys", "/webhooks", "/suppressions", "/usage", "/me", "/billing", "/audiences", "/broadcasts", "/templates", "/media", "/funnels", "/contacts", "/people", "/segments", "/crm", "/forms", "/reports", "/team", "/stores", "/commerce", "/ai", "/tools", "/deals", "/pipelines", "/tasks", "/integrations"]) {
   app.use(path, requireApiKey, requireFullAccess);
   app.use(`${path}/*`, requireApiKey, requireFullAccess);
 }
@@ -137,6 +138,7 @@ app.route("/tools", tools);
 app.route("/deals", deals);
 app.route("/pipelines", pipelines);
 app.route("/tasks", tasks);
+app.route("/integrations", integrations);
 
 // Platform owner.
 app.use("/admin/*", requireOwner);

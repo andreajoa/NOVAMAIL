@@ -9,6 +9,7 @@ import { prefixedId } from "../lib/crypto";
 import { ApiError, errors, zodMessage } from "../lib/http";
 import { sendOne } from "./emails";
 import { commerceVars } from "./commerce";
+import { emit } from "../lib/events";
 import { personalize, personalizeHtml, unsubscribeToken } from "./marketing";
 
 export const FUNNEL_BATCH = 30;
@@ -212,6 +213,7 @@ export async function applyTags(env: Env, accountId: string, email: string, add:
   for (const t of newly) stmts.push(env.DB.prepare("INSERT INTO activities (account_id, email, type, data, created_at) VALUES (?,?, 'tag_added', ?, ?)").bind(accountId, email, JSON.stringify({ tag: t }), now));
   for (const t of remove) if (rows.results.some((r) => tagsOf(r.tags).includes(t))) stmts.push(env.DB.prepare("INSERT INTO activities (account_id, email, type, data, created_at) VALUES (?,?, 'tag_removed', ?, ?)").bind(accountId, email, JSON.stringify({ tag: t }), now));
   if (stmts.length) await env.DB.batch(stmts);
+  for (const t of newly) await emit(env, accountId, "contact.tagged", { email, tag: t });
   for (const t of newly) await onTagAdded(env, accountId, email, t);
   return [...newly];
 }

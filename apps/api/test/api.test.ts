@@ -1323,3 +1323,36 @@ describe("sales pipeline and tasks", () => {
     expect((await t(`/pipelines/${pl}`, { method: "PATCH", json: { stages: [{ id: "a", name: "A", kind: "open", probability: 10 }, { id: "won", name: "Won", kind: "won", probability: 100 }] } })).status).toBe(409); // lost stage still has a deal
   });
 });
+
+describe("Zapier / Make REST hooks", () => {
+  it("subscribes a hook, delivers app events with the documented shape and unsubscribes", async () => {
+    const acc = await verifiedAccount(postal, "pro");
+    const t = (path: string, init: any = {}) => call(path, { token: acc.api_key, ...init });
+    expect((await t("/integrations/me")).body.label).toContain("NovaMail");
+    expect((await t("/integrations/samples/order.created")).body[0]).toMatchObject({ order_id: "5001", currency: "USD" });
+    expect((await t("/integrations/samples/nope")).status).toBe(404);
+    expect((await t("/integrations/subscriptions", { method: "POST", json: { target_url: "http://insecure.example.com", event: "contact.created" } })).status).toBe(422);
+    const sub = await t("/integrations/subscriptions", { method: "POST", json: { target_url: "https://hooks.zapier.com/hooks/standard/1/abc", event: "contact.created", source: "zapier" } });
+    expect(sub.status).toBe(201);
+
+    const delivered: any[] = [];
+    const orig = globalThis.fetch;
+    const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input: any, init?: any) => {
+      const url = String(input?.url ?? input);
+      if (url.startsWith("https://hooks.zapier.com/")) { delivered.push({ url, headers: new Headers(init?.headers), body: JSON.parse(String(init?.body)) }); return new Response("ok"); }
+      return (orig as any)(input, init);
+    });
+    try {
+      await t("/people", { method: "POST", json: { email: "zap@example.org", first_name: "Zed" } });
+      await t("/contacts/tags", { method: "POST", json: { email: "zap@example.org", add: ["vip"] } }).catch(() => undefined);
+    } finally { spy.mockRestore(); }
+    const created = delivered.filter((d) => d.body.type === "contact.created");
+    expect(created).toHaveLength(1);
+    expect(created[0].body.data).toMatchObject({ email: "zap@example.org", first_name: "Zed", source: "api" });
+    expect(created[0].headers.get("webhook-signature")).toMatch(/^v1,/);
+    expect(delivered.some((d) => d.body.type === "contact.tagged")).toBe(false); // only the subscribed event
+
+    await t(`/integrations/subscriptions/${sub.body.id}`, { method: "DELETE" });
+    expect((await t("/webhooks")).body.data.find((w: any) => w.id === sub.body.id)).toBeUndefined();
+  });
+});
