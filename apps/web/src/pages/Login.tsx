@@ -5,8 +5,15 @@ import { t } from "../i18n";
 import { Button, ErrorText, Input, Modal, Secret } from "../ui";
 
 export function Login({ onDone, embedded = false }: { onDone: () => void; embedded?: boolean }) {
-  const [step, setStep] = useState<"email" | "code">("email");
-  const [email, setEmail] = useState("");
+  // Step + e-mail survive a remount/reload of the tab (kept only in this tab's sessionStorage).
+  const saved = (() => { try { return JSON.parse(sessionStorage.getItem("nm_login") ?? "{}") as { step?: "email" | "code"; email?: string; at?: number }; } catch { return {}; } })();
+  const fresh = saved.at && Date.now() - saved.at < 10 * 60_000;
+  const [step, setStepRaw] = useState<"email" | "code">(fresh && saved.step === "code" && saved.email ? "code" : "email");
+  const [email, setEmail] = useState(fresh ? (saved.email ?? "") : "");
+  const setStep = (s: "email" | "code") => {
+    setStepRaw(s);
+    try { s === "code" ? sessionStorage.setItem("nm_login", JSON.stringify({ step: s, email, at: Date.now() })) : sessionStorage.removeItem("nm_login"); } catch { /* private mode */ }
+  };
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -54,7 +61,8 @@ export function Login({ onDone, embedded = false }: { onDone: () => void; embedd
             onSubmit={(e) => {
               e.preventDefault();
               run(async () => {
-                const r = await api("/auth/verify", { body: { email, code } });
+                const r = await api("/auth/verify", { body: { email: email.trim(), code: code.replace(/\D/g, "") } });
+                try { sessionStorage.removeItem("nm_login"); } catch { /* private mode */ }
                 if (r.new_account) setWelcome({ api_key: r.api_key, smtp: r.smtp });
                 else onDone();
               });
@@ -68,12 +76,12 @@ export function Login({ onDone, embedded = false }: { onDone: () => void; embedd
               id="code"
               inputMode="numeric"
               autoComplete="one-time-code"
-              pattern="\d{3}\s?\d{3}"
+              pattern="\d{3} ?\d{3}"
               maxLength={7}
               required
               autoFocus
               value={code}
-              onChange={(e) => setCode(e.target.value)}
+              onChange={(e) => setCode(e.target.value.replace(/[^\d ]/g, "").slice(0, 7))}
               className="text-center font-mono text-lg tracking-[0.3em]"
             />
             <Button className="w-full" disabled={busy}>{t.enter}</Button>

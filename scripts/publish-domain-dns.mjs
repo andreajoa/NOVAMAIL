@@ -15,9 +15,12 @@ for (const rec of dom.records) {
   const prefix = rec.value.split(/[;\s]/)[0];
   const same = existing.find((e) => e.content.replace(/^"|"$/g, "") === rec.value);
   if (same) { console.log(`ok      ${rec.record}`); continue; }
-  const target = rec.type === "TXT" ? existing.find((e) => e.content.replace(/^"/, "").startsWith(prefix)) : existing[0];
+  // Never overwrite someone else's record: if the name already has a record of the same kind
+  // (e.g. a DMARC/SPF from Resend), keep it and report it so a human decides.
+  const clash = rec.type === "TXT" ? existing.find((e) => e.content.replace(/^"/, "").startsWith(prefix)) : existing[0];
+  if (clash && !process.env.ALLOW_REPLACE) { console.log(`KEPT    ${rec.record}: ${rec.name} already has "${clash.content.slice(0, 70)}" (set ALLOW_REPLACE=1 to replace)`); continue; }
   const body = JSON.stringify({ type: rec.type, name: rec.name, content: rec.value, ttl: 300, proxied: false, priority: rec.priority, comment: `NovaMail ${rec.record}` });
-  if (target) await cf(`/dns_records/${target.id}`, { method: "PUT", body });
+  if (clash) await cf(`/dns_records/${clash.id}`, { method: "PUT", body });
   else await cf(`/dns_records`, { method: "POST", body });
-  console.log(`${target ? "updated" : "created"} ${rec.record}`);
+  console.log(`${clash ? "updated" : "created"} ${rec.record}`);
 }

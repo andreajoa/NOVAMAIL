@@ -49,11 +49,13 @@ function Shell() {
   const path = usePath();
   const qc = useQueryClient();
   const legal = ({ "/terms": "terms", "/aup": "aup", "/privacy": "privacy" } as const)[path as "/terms"];
-  const me = useQuery({ queryKey: ["me"], queryFn: () => api("/me"), enabled: !legal });
+  // Never refetch while signed out: a refetch on tab focus (user went to copy the code) would
+  // unmount the login form and reset it to the e-mail step.
+  const me = useQuery({ queryKey: ["me"], queryFn: () => api("/me"), enabled: !legal, refetchOnWindowFocus: (q) => q.state.status !== "error" });
 
   if (legal) return <Legal doc={legal} />;
 
-  if (me.isLoading) return <div className="grid h-full place-items-center text-sm text-zinc-500">{t.loading}</div>;
+  if (me.isLoading && !me.isRefetchError) return <div className="grid h-full place-items-center text-sm text-zinc-500">{t.loading}</div>;
   if (me.error instanceof ApiError && me.error.status === 401) return <Landing onDone={() => qc.invalidateQueries()} />;
 
   const route = ROUTES.find((r) => r.path === path) ?? ROUTES[0]!;
