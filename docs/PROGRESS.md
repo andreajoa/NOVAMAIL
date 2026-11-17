@@ -2,12 +2,12 @@
 
 Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta implantar/provar · ⏳ a fazer · 🔒 depende do André
 
-**Progresso geral: 21 / 44 itens (48%)** — atualizado 17/11/2026 01h30 (BRT)
+**Progresso geral: 36 / 46 itens (78%)** — atualizado 17/11/2026 02h30 (BRT)
 
 ## F0 — Auditoria (100%)
 - ✅ 5 repositórios auditados (Postal, listmonk, Plunk, BillionMail, Mautic) → Postal MIT escolhido
 
-## F1 — API / control plane (10/11)
+## F1 — API / control plane (11/11)
 - ✅ Esquema D1 (contas, chaves, domínios, e-mails, eventos, uso, supressão, webhooks, auditoria)
 - ✅ `POST /emails` e `/emails/batch` compatíveis com Resend + `Idempotency-Key`
 - ✅ Domínios: criar, registros DNS (verificação, SPF, DKIM, return-path, DMARC), verificar, remover
@@ -18,7 +18,7 @@ Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta impla
 - ✅ Webhooks do cliente no padrão Standard Webhooks + fila com 8 tentativas
 - ✅ 16 testes no runtime real da Cloudflare (workerd) passando, local e no GitHub Actions
 - ✅ NO AR em `https://api.novamail.nexaclouds.online` — banco em SQLite Durable Object (plano grátis; a conta já tinha 10/10 D1), custo zero
-- ⏳ Documentação OpenAPI + página /docs
+- ✅ OpenAPI 3.1 em /openapi.json + referência interativa em https://api.novamail.nexaclouds.online/docs
 
 ## F2 — Nó de envio (8/9)
 - ✅ Sidecar admin do Postal (provisiona org/servidor/credenciais/webhook, domínios, limites, suspensão)
@@ -40,26 +40,31 @@ Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta impla
 ## F3 — Marcas do André no NovaMail (0/6)
 - ⏳ Gilberto · ⏳ AMB · ⏳ Atenza · ⏳ Trilha Aprova · ⏳ FlowNexa · ⏳ NexaCloud (troca do Resend/Brevo, seguindo a rampa de aquecimento)
 
-## F4 — Painel do cliente (0/5)
-- ⏳ Cadastro/login (e-mail + Google/GitHub, como no NexaCloud)
-- ⏳ Domínios com DNS em 1 clique (Cloudflare) e verificação ao vivo
-- ⏳ Logs de e-mail, eventos, chaves, webhooks
-- ⏳ Uso e reputação em gráfico
-- ⏳ Integração no painel do NexaCloud (aba "E-mail")
+## F4 — Painel do cliente (5/5) — https://app.novamail.nexaclouds.online
+- ✅ Login sem senha (código de 6 dígitos enviado pelo próprio NovaMail; ponte temporária só para e-mails do sistema até a porta 25 abrir), cadastro automático no Free, sessão HttpOnly + proteção CSRF, limite de tentativas, bloqueio de e-mail descartável
+- ✅ Domínios: registros DNS com copiar, verificação ao vivo (SPF/DKIM/return-path)
+- ✅ E-mails (histórico com status), chaves de API (mostradas 1x), webhooks (segredo 1x), supressões
+- ✅ Visão geral: uso dia/mês vs plano, gráfico de 30 dias, quickstart com SDK do Resend
+- ✅ PT-BR/EN automático, claro/escuro, CSP estrita, mobile
 
-## F5 — Cobrança (0/4)
-- ⏳ Stripe: Free → Pro → Scale (assinatura mensal + excedente por uso)
-- ⏳ Webhook do Stripe muda plano/limites automaticamente
-- ⏳ Verificação anti-abuso no cadastro (domínio, e-mail descartável, captcha)
-- 🔒 Preços finais (sugestão: Conselho)
+## F5 — Cobrança (3/4)
+- ✅ Stripe Checkout (Pro US$15 · Scale US$60), Portal do cliente, webhook assinado que muda plano + limites no Postal (sem SDK)
+- ✅ Tela de planos no painel
+- ✅ Sem Stripe configurado = tudo grátis, custo fixo zero
+- 🔒 `bash scripts/ativar-stripe.sh` (cria produtos/webhook no Stripe live; bloqueado para mim)
 
-## F6 — Marketing (0/5)
-- ⏳ Contatos e audiências · ⏳ Broadcasts/campanhas · ⏳ Descadastro em 1 clique (RFC 8058) · ⏳ Templates · ⏳ Automações simples
+## F6 — Marketing (5/5)
+- ✅ Públicos + contatos (importação em massa até 1000/requisição, CSV colado no painel)
+- ✅ Campanhas com {{first_name}}/{{unsubscribe_url}}, rascunho → enviar → pausar/cancelar
+- ✅ Descadastro em 1 clique RFC 8058 (List-Unsubscribe + List-Unsubscribe-Post); GET só confirma (scanner não descadastra)
+- ✅ Disparo em lotes por cron (1/min), pausa automática quando a cota acaba
+- ✅ Telas Públicos e Campanhas no painel
 
-## F7 — Entregabilidade avançada (0/3)
-- ⏳ Feedback loops (reclamações Yahoo/Microsoft) → supressão
-- ⏳ Relatórios DMARC/TLS-RPT
-- ⏳ Página de status pública
+## F7 — Entregabilidade avançada (3/4)
+- ✅ Reclamações ARF: caixa fbl@envio.novamail.nexaclouds.online → Postal → API assinada → supressão + guarda (provado ponta a ponta 17/11)
+- ✅ Cabeçalho Feedback-ID em todo envio (Gmail Postmaster por categoria/conta)
+- ✅ Página de status pública https://api.novamail.nexaclouds.online/status
+- 🔒 Cadastrar o endereço FBL no Yahoo CFL e Microsoft JMRP/SNDS + domínio no Google Postmaster Tools
 
 ## Lançamento (0/1)
 - 🔒 Domínio próprio da marca + Termos, Política de Uso Aceitável e LGPD
