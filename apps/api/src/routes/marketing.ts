@@ -219,6 +219,7 @@ export async function processBroadcasts(env: Env, now = Date.now(), fetcher: typ
           },
           `${b.id}:${ct.id}`,
           fetcher,
+          { track: true },
         );
         sent++;
       } catch (e) {

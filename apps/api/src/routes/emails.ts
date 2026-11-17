@@ -6,6 +6,7 @@ import { open, uuidv7 } from "../lib/crypto";
 import { ApiError, errors, zodMessage } from "../lib/http";
 import { postalSend, type PostalSendInput } from "../lib/postal";
 import { assertQuota, bumpUsage } from "../lib/usage";
+import { addTracking } from "../lib/tracking";
 
 const addr = z.string().trim().min(3).max(320);
 const many = z.union([addr, z.array(addr).min(1).max(50)]).transform((v) => (Array.isArray(v) ? v : [v]));
@@ -50,7 +51,7 @@ interface AccountRow {
   postal_server_key: string | null;
 }
 
-export async function sendOne(env: Env, p: Principal, body: SendBody, idemKey: string | null, fetcher: typeof fetch = fetch): Promise<{ id: string }> {
+export async function sendOne(env: Env, p: Principal, body: SendBody, idemKey: string | null, fetcher: typeof fetch = fetch, opts: { track?: boolean } = {}): Promise<{ id: string }> {
   if (body.scheduled_at) throw errors.validation("`scheduled_at` is not available yet.");
   const all = [...body.to, ...(body.cc ?? []), ...(body.bcc ?? [])].map(bareAddress);
   for (const a of all) if (!EMAIL_RE.test(a)) throw errors.validation(`Invalid recipient address: ${a}`);
@@ -91,7 +92,7 @@ export async function sendOne(env: Env, p: Principal, body: SendBody, idemKey: s
     cc,
     bcc,
     subject: body.subject,
-    html: body.html,
+    html: body.html && opts.track ? await addTracking(env, body.html, id) : body.html,
     text: body.text,
     replyTo: body.reply_to?.join(", "),
     tag: body.tags?.find((t) => t.name === "category")?.value,

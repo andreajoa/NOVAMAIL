@@ -12,7 +12,7 @@ const NOVAMAIL_ROWS: [string, string][] = [
   ["Domain authentication", "SPF, DKIM 2048-bit, DMARC guidance, live verification"],
   ["Webhooks", "Standard Webhooks (signed)"],
   ["Editor & templates", "Drag-and-drop editor, 8 ready-made templates, GIFs, video-to-GIF, or paste HTML"],
-  ["Automations", "Funnels: multi-step sequences with waits, triggered by list join or API"],
+  ["Automations", "Visual node builder: triggers (list, tag, API), waits, Yes/No conditions on opens/clicks/tags, tag actions"],
   ["AI agents", "MCP server for Claude Code and Codex with restricted agent keys"],
 ];
 
@@ -283,6 +283,6 @@ export const PAGES2: Page[] = [
     h1: "Privacy Policy",
     lead: "How we handle your data and your contacts' data. Updated 17 November 2026.",
     priority: 0.3,
-    body: `<section class="prose"><h3>Roles</h3><p>NovaMail is the controller of your account data. For the emails you send and your contact lists, you are the controller and NovaMail is a processor acting on your instructions.</p><h3>What we collect</h3><p>Login email, access logs, API keys (stored only as hashes), sending metadata and payment data processed by Stripe (we never store card numbers).</p><h3>Retention</h3><p>Sending metadata up to 90 days; message bodies on the sending servers up to 30 days; suppression lists while the account exists; account data until closure plus legal retention.</p><h3>Sub-processors</h3><p>Cloudflare (API and dashboard hosting), Amazon Web Services (sending servers), Stripe (payments). We do not sell data.</p><h3>Your rights</h3><p>Access, correction, portability, deletion and objection under GDPR and Brazil's LGPD. Contact us through the dashboard; we reply within 15 days.</p></section>`,
+    body: `<section class="prose"><h3>Roles</h3><p>NovaMail is the controller of your account data. For the emails you send and your contact lists, you are the controller and NovaMail is a processor acting on your instructions.</p><h3>What we collect</h3><p>Login email, access logs, API keys (stored only as hashes), sending metadata and payment data processed by Stripe (we never store card numbers). Campaign and funnel emails include first-party open and click tracking (a pixel and signed links) so senders can measure engagement and branch automations; tracking data is tied to the email, not used for advertising, and kept for up to 90 days.</p><h3>Retention</h3><p>Sending metadata up to 90 days; message bodies on the sending servers up to 30 days; suppression lists while the account exists; account data until closure plus legal retention.</p><h3>Sub-processors</h3><p>Cloudflare (API and dashboard hosting), Amazon Web Services (sending servers), Stripe (payments). We do not sell data.</p><h3>Your rights</h3><p>Access, correction, portability, deletion and objection under GDPR and Brazil's LGPD. Contact us through the dashboard; we reply within 15 days.</p></section>`,
   },
 ];

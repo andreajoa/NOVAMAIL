@@ -61,7 +61,7 @@ const WHAT_YOU_GET = cards([
   ["Works with Claude Code & Codex", "Connect your AI coding agent over MCP to build templates, lists and funnels for you — with a restricted key that can't send or activate anything without you."],
   ["Your own domain", "Send from <code>hello@yourbrand.com</code>, not from a shared address. We give you the SPF, DKIM and DMARC records and check them live."],
   ["Drag-and-drop templates", "8 ready-made designs. Drag blocks, drop new images or GIFs, turn videos into looping GIFs, or paste your own HTML."],
-  ["Funnels", "Automated sequences: welcome series, onboarding, abandoned cart — with waits between emails."],
+  ["Visual funnels", "Drag-and-connect automation builder with waits, Yes/No conditions on opens, clicks and tags, and ready-made recipes."],
   ["Transactional email API", "Order confirmations, password resets and receipts from your app or store, through a REST API compatible with the Resend SDKs, or plain SMTP."],
   ["Bounce & complaint protection", "Hard bounces and spam complaints are suppressed automatically, which protects your sender reputation and keeps your emails out of spam."],
 ]);
@@ -129,7 +129,8 @@ export const PAGES: Page[] = [
 <h2>What happens when someone unsubscribes</h2><p>They are marked as unsubscribed in the list and added to your account's suppression list, so no future campaign or API email reaches them. Gmail and Yahoo show their own "Unsubscribe" button because of the RFC 8058 headers we add, which reduces spam complaints.</p>
 <h2>Drag-and-drop editor and ready-made templates</h2><p>Start from 8 ready-made templates (newsletter, sale, product launch, welcome, event invitation, abandoned cart, simple text, order confirmation) or a blank canvas. Drag blocks — heading, text, image, GIF, video, button, image + text, divider, HTML — reorder them with your mouse, drop a new image onto any picture to replace it, and preview on desktop and mobile. Prefer code? Paste your own HTML.</p>
 <h2>Video in email</h2><p>Gmail and Outlook don't play video inside an email. NovaMail turns your video into a looping, silent animated GIF right in your browser, which plays in every inbox and links to the full video.</p>
-<h2>Funnels (automated sequences)</h2><p>Build a welcome series, onboarding or abandoned-cart sequence: when someone joins a list they get email 1, wait any number of days, get email 2, and so on. People who unsubscribe leave the funnel automatically.</p>
+<h2>Funnels with a visual node builder</h2><p>Drag steps onto a canvas and connect them with your mouse: a trigger (joined a list, got a tag, or your app's API), emails, waits, conditions with Yes/No paths (opened or clicked the previous email, has a tag, is on a list) and tag actions. Start from ready-made recipes — welcome series, abandoned cart, re-engagement — and see how many people are at each step. People who unsubscribe leave automatically.</p>
+<h2>Opens and clicks</h2><p>Campaigns and funnels track opens and clicks with first-party, signed links, so your funnels can react ("didn't click? send a reminder"). Apple Mail Privacy Protection can inflate opens, so clicks are the stronger signal.</p>
 <h2>Do it by API</h2><p>Lists, contacts and campaigns are also available through the API (<code>/audiences</code>, <code>/audiences/{id}/contacts</code>, <code>/broadcasts</code>), so you can sync customers from your store automatically.</p></section>`,
     faq: [
       ["How many contacts can I have?", "Contacts are unlimited on every plan; you pay for emails sent. The Free plan sends 3,000 emails per month."],

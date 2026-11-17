@@ -8,6 +8,7 @@ import { navigate } from "./nav";
 import { Agents } from "./pages/Agents";
 import { Audiences } from "./pages/Audiences";
 import { Editor } from "./pages/Editor";
+import { FunnelCanvas } from "./pages/FunnelCanvas";
 import { Funnels } from "./pages/Funnels";
 import { Templates } from "./pages/Templates";
 import { Broadcasts } from "./pages/Broadcasts";
@@ -67,6 +68,8 @@ function Shell() {
 
   const editorId = path.match(/^\/templates\/([\w-]+)$/)?.[1];
   if (editorId) return <Editor id={editorId} />;
+  const funnelId = path.match(/^\/funnels\/([\w-]+)$/)?.[1];
+  if (funnelId) return <FunnelCanvas id={funnelId} />;
   const route = ROUTES.find((r) => r.path === path) ?? ROUTES[0]!;
   const Page = route.page;
   const account = me.data?.account;

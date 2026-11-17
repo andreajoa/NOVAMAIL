@@ -50,7 +50,7 @@ Key facts:
 - Authentication: SPF, DKIM (2048-bit), DMARC; one-click unsubscribe (RFC 8058) on every campaign
 - Webhooks: Standard Webhooks signatures (delivered, delayed, bounced, complained)
 - Drag-and-drop editor with 8 ready-made templates, image/GIF uploads, video-to-GIF, raw HTML
-- Funnels: automated multi-step sequences triggered by list join or API
+- Funnels: visual node builder — triggers (list join, tag, API), waits, Yes/No conditions (opened, clicked, has tag, on list), tag actions; first-party open/click tracking on campaigns and funnels
 - MCP server for Claude Code/Codex: https://api.novamail.nexaclouds.online/mcp (restricted agent keys; agents cannot send or activate)
 - API reference (OpenAPI 3.1): ${API_DOCS} · spec: https://api.novamail.nexaclouds.online/openapi.json
 

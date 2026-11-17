@@ -612,3 +612,78 @@ describe("MCP for Claude Code / Codex (agent keys)", () => {
     expect(u.body.error.code).toBe(-32602);
   });
 });
+
+describe("node funnels, tracking and tags", () => {
+  it("branches on clicks, applies tags and starts tag-triggered funnels", async () => {
+    const { processFunnels } = await import("../src/routes/funnels");
+    const acc = await verifiedAccount(postal, "pro");
+    const mk = async (name: string) => (await call("/templates", { method: "POST", token: acc.api_key, json: { name, subject: name, html: `<p>${name}</p><a href="https://shop.example.com/x">Buy</a>` } })).body.id as string;
+    const [welcome, vip, nudge, thanks] = [await mk("Welcome"), await mk("VIP"), await mk("Nudge"), await mk("Thanks")];
+    const aud = await call("/audiences", { method: "POST", token: acc.api_key, json: { name: "Leads" } });
+    const graph = {
+      version: 1,
+      nodes: [
+        { id: "t", type: "trigger", x: 0, y: 0, data: { kind: "audience", audience_id: aud.body.id } },
+        { id: "e1", type: "email", x: 0, y: 1, data: { template_id: welcome } },
+        { id: "w", type: "wait", x: 0, y: 2, data: { minutes: 1440 } },
+        { id: "c", type: "condition", x: 0, y: 3, data: { kind: "clicked" } },
+        { id: "tg", type: "tag", x: 0, y: 4, data: { action: "add", tag: "engaged" } },
+        { id: "e2", type: "email", x: 0, y: 5, data: { template_id: vip } },
+        { id: "e3", type: "email", x: 1, y: 4, data: { template_id: nudge } },
+        { id: "end", type: "end", x: 0, y: 6, data: {} },
+      ],
+      edges: [
+        { id: "1", from: "t", handle: "next", to: "e1" }, { id: "2", from: "e1", handle: "next", to: "w" }, { id: "3", from: "w", handle: "next", to: "c" },
+        { id: "4", from: "c", handle: "yes", to: "tg" }, { id: "5", from: "tg", handle: "next", to: "e2" }, { id: "6", from: "e2", handle: "next", to: "end" },
+        { id: "7", from: "c", handle: "no", to: "e3" },
+      ],
+    };
+    // An invalid graph (loop) cannot be activated.
+    const bad = await call("/funnels", { method: "POST", token: acc.api_key, json: { name: "Loop", from: "a@example.com", graph: { ...graph, edges: [...graph.edges, { id: "x", from: "e3", handle: "next", to: "e1" }] } } });
+    expect(bad.body.issues.some((i: any) => /loop/.test(i.message))).toBe(true);
+    expect((await call(`/funnels/${bad.body.id}/activate`, { method: "POST", token: acc.api_key })).status).toBe(422);
+
+    const f = await call("/funnels", { method: "POST", token: acc.api_key, json: { name: "Branching", from: "a@example.com", graph } });
+    expect(f.body.issues).toEqual([]);
+    expect((await call(`/funnels/${f.body.id}/activate`, { method: "POST", token: acc.api_key })).body.status).toBe("active");
+
+    // Tag-triggered funnel: "engaged" tag → Thanks email.
+    const tf = await call("/funnels", { method: "POST", token: acc.api_key, json: { name: "On engaged", from: "a@example.com", graph: { version: 1, nodes: [{ id: "t", type: "trigger", x: 0, y: 0, data: { kind: "tag", tag: "engaged" } }, { id: "m", type: "email", x: 0, y: 1, data: { template_id: thanks } }], edges: [{ id: "1", from: "t", handle: "next", to: "m" }] } } });
+    await call(`/funnels/${tf.body.id}/activate`, { method: "POST", token: acc.api_key });
+
+    await call(`/audiences/${aud.body.id}/contacts`, { method: "POST", token: acc.api_key, json: [{ email: "clicker@x.com" }, { email: "lurker@x.com" }] });
+    const now = Date.now();
+    expect((await processFunnels(testEnv, now)).sent).toBe(2);
+    const sentWelcome = postal.sent.slice(-2);
+    const clickerMail = sentWelcome.find((m) => m.to[0] === "clicker@x.com");
+    // Links are rewritten to signed redirects and an open pixel is added.
+    const link = clickerMail.html_body.match(/href="([^"]*\/t\/c\/[^"]+)"/)[1] as string;
+    expect(clickerMail.html_body).toMatch(/\/t\/o\/[\w-]+\.[\w-]+/);
+    const { app } = await import("../src/index");
+    const { createExecutionContext, waitOnExecutionContext } = await import("cloudflare:test");
+    const ctx = createExecutionContext();
+    const red = await app.request(new URL(link).pathname, {}, testEnv, ctx);
+    await waitOnExecutionContext(ctx);
+    expect(red.status).toBe(302);
+    expect(red.headers.get("location")).toBe("https://shop.example.com/x");
+    // Forged token → 404, never an open redirect.
+    expect((await app.request("/t/c/eyJlIjoieCIsInUiOiJodHRwczovL2V2aWwuY29tIn0.AAAA", {}, testEnv)).status).toBe(404);
+
+    expect((await processFunnels(testEnv, now + 60_000)).sent).toBe(0); // waiting a day
+    const r = await processFunnels(testEnv, now + 86_400_000 + 1000);
+    const subjects = postal.sent.slice(-3).map((m) => `${m.to[0]}:${m.subject}`).sort();
+    expect(r.sent).toBe(2);
+    expect(subjects).toContain("clicker@x.com:VIP");
+    expect(subjects).toContain("lurker@x.com:Nudge");
+    // The tag node enrolled the clicker in the tag-triggered funnel.
+    const r2 = await processFunnels(testEnv, now + 86_400_000 + 2000);
+    expect(r2.sent).toBe(1);
+    expect(postal.sent.at(-1)).toMatchObject({ to: ["clicker@x.com"], subject: "Thanks" });
+
+    // External systems can tag contacts too (e.g. "purchased" from a store).
+    const tagged = await call("/contacts/tags", { method: "POST", token: acc.api_key, json: { email: "lurker@x.com", add: ["purchased"] } });
+    expect(tagged.body.tags_added).toEqual(["purchased"]);
+    const detail = await call(`/funnels/${f.body.id}`, { token: acc.api_key });
+    expect(detail.body.graph.nodes).toHaveLength(8);
+  });
+});

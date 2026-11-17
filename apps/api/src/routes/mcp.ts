@@ -42,6 +42,25 @@ export const TOOLS: Tool[] = [
   { name: "get_account", description: "Plan, limits, usage this month and counts of domains/keys.", inputSchema: obj({}), call: () => ({ method: "GET", path: "/me" }) },
   { name: "list_domains", description: "Sending domains and their verification status. Use a verified domain in `from` addresses.", inputSchema: obj({}), call: () => ({ method: "GET", path: "/domains" }) },
   { name: "get_design_format", description: "The JSON format for template designs (blocks, theme, personalization tokens).", inputSchema: obj({}), call: () => ({ local: DESIGN_FORMAT }) },
+  {
+    name: "get_funnel_format",
+    description: "The JSON format for node-based funnel graphs (trigger, email, wait, condition yes/no, tag, end).",
+    inputSchema: obj({}),
+    call: () => ({
+      local: {
+        graph: "{ version: 1, nodes: Node[], edges: { id, from, handle: 'next'|'yes'|'no', to }[] }",
+        nodes: {
+          trigger: "{ kind: 'audience' (audience_id) | 'tag' (tag) | 'api' } — exactly one",
+          email: "{ template_id, subject? }",
+          wait: "{ minutes: 1..525600 }",
+          condition: "{ kind: 'opened'|'clicked' (refers to the previous email) | 'has_tag' (tag) | 'in_audience' (audience_id) } — needs both 'yes' and 'no' edges",
+          tag: "{ action: 'add'|'remove', tag } — adding a tag can start funnels triggered by that tag",
+          end: "{}",
+        },
+        rules: ["No loops", "Every node except conditions has at most one 'next' edge", "Each node needs id, type, x, y (canvas position) and data"],
+      },
+    }),
+  },
   { name: "list_template_presets", description: "Ready-made template designs (newsletter, promotion, launch, welcome, event, abandoned cart, plain, receipt) to start from.", inputSchema: obj({}), call: () => ({ method: "GET", path: "/templates/presets" }) },
   { name: "list_templates", description: "The account's templates.", inputSchema: obj({}), call: () => ({ method: "GET", path: "/templates" }) },
   { name: "get_template", description: "One template with its design JSON and rendered HTML.", inputSchema: obj({ template_id: id }, ["template_id"]), call: (a) => ({ method: "GET", path: `/templates/${enc(a.template_id)}` }) },
@@ -78,7 +97,7 @@ export const TOOLS: Tool[] = [
   { name: "get_funnel", description: "One funnel with its steps.", inputSchema: obj({ funnel_id: id }, ["funnel_id"]), call: (a) => ({ method: "GET", path: `/funnels/${enc(a.funnel_id)}` }) },
   {
     name: "create_funnel",
-    description: "Create a funnel as a DRAFT: trigger 'audience' (starts when a contact joins audience_id) or 'api'. Steps run in order; wait_minutes is the delay before each email. The owner activates it in the dashboard.",
+    description: "Create a funnel as a DRAFT. Either pass `graph` (node-based, branching — see get_funnel_format) or simple linear `steps` with trigger 'audience'/'api'. Returns validation issues. The owner activates it in the dashboard.",
     inputSchema: obj(
       {
         name: { type: "string", maxLength: 120 },
@@ -87,6 +106,7 @@ export const TOOLS: Tool[] = [
         from: { type: "string", maxLength: 320 },
         reply_to: { type: "string", maxLength: 320 },
         steps: { type: "array", maxItems: 30, items: obj({ template_id: id, wait_minutes: { type: "integer", minimum: 0, maximum: 525600 }, subject: { type: "string", maxLength: 300 } }, ["template_id"]) },
+        graph: { type: "object" },
       },
       ["name", "from"],
     ),
@@ -95,7 +115,7 @@ export const TOOLS: Tool[] = [
   {
     name: "update_funnel",
     description: "Change a funnel's name, audience, sender or replace its steps.",
-    inputSchema: obj({ funnel_id: id, name: { type: "string", maxLength: 120 }, audience_id: id, from: { type: "string", maxLength: 320 }, reply_to: { type: "string", maxLength: 320 }, steps: { type: "array", maxItems: 30, items: { type: "object" } } }, ["funnel_id"]),
+    inputSchema: obj({ funnel_id: id, name: { type: "string", maxLength: 120 }, audience_id: id, from: { type: "string", maxLength: 320 }, reply_to: { type: "string", maxLength: 320 }, steps: { type: "array", maxItems: 30, items: { type: "object" } }, graph: { type: "object" } }, ["funnel_id"]),
     call: ({ funnel_id, ...rest }) => ({ method: "PATCH", path: `/funnels/${enc(funnel_id)}`, body: rest }),
   },
   { name: "pause_funnel", description: "Pause a running funnel (safe; the owner can resume it).", inputSchema: obj({ funnel_id: id }, ["funnel_id"]), call: (a) => ({ method: "POST", path: `/funnels/${enc(a.funnel_id)}/pause` }) },

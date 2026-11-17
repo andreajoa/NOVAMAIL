@@ -9,7 +9,8 @@ import { apiKeys, me, suppressions, usage, webhooks } from "./routes/account";
 import { auth } from "./routes/auth";
 import { billing, stripeHooks } from "./routes/billing";
 import { audiences, broadcasts, processBroadcasts, unsubscribe } from "./routes/marketing";
-import { funnels, processFunnels } from "./routes/funnels";
+import { contactTags, funnels, processFunnels } from "./routes/funnels";
+import { track } from "./routes/track";
 import { mcp } from "./routes/mcp";
 import { media, serveMedia, templates } from "./routes/templates";
 import { admin } from "./routes/admin";
@@ -68,6 +69,8 @@ app.route("/u", unsubscribe);
 // Public media used inside emails (immutable, edge-cached).
 app.get("/m/:id", (c) => serveMedia(c.env, c.req.raw, c.req.param("id"), c.executionCtx));
 app.route("/hooks/fbl", fbl);
+// Open/click tracking (public, signed tokens).
+app.route("/t", track);
 // MCP for Claude Code / Codex (auth + scope enforced per tool through the REST routes).
 app.route("/mcp", mcp);
 
@@ -82,7 +85,7 @@ app.route("/emails", emails);
 
 app.route("/auth", auth);
 
-for (const path of ["/domains", "/api-keys", "/webhooks", "/suppressions", "/usage", "/me", "/billing", "/audiences", "/broadcasts", "/templates", "/media", "/funnels"]) {
+for (const path of ["/domains", "/api-keys", "/webhooks", "/suppressions", "/usage", "/me", "/billing", "/audiences", "/broadcasts", "/templates", "/media", "/funnels", "/contacts"]) {
   app.use(path, requireApiKey, requireFullAccess);
   app.use(`${path}/*`, requireApiKey, requireFullAccess);
 }
@@ -98,6 +101,7 @@ app.route("/broadcasts", broadcasts);
 app.route("/templates", templates);
 app.route("/media", media);
 app.route("/funnels", funnels);
+app.route("/contacts/tags", contactTags);
 
 // Platform owner.
 app.use("/admin/*", requireOwner);
