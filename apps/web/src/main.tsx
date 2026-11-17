@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, Ban, Bot, Contact as ContactIcon, Filter, ClipboardList, CreditCard, GitBranch, Globe, KeyRound, LayoutDashboard, LayoutTemplate, LogOut, Mail, Megaphone, Users, Webhook } from "lucide-react";
+import { Activity, Ban, Bot, Contact as ContactIcon, Filter, ClipboardList, BarChart3, CreditCard, GitBranch, Globe, KeyRound, LayoutDashboard, LayoutTemplate, LogOut, Mail, Megaphone, Users, Webhook } from "lucide-react";
 import { StrictMode, useEffect, useState, type ComponentType } from "react";
 import { createRoot } from "react-dom/client";
 import { api, ApiError } from "./api";
@@ -9,6 +9,7 @@ import { Agents } from "./pages/Agents";
 import { Contacts } from "./pages/Contacts";
 import { Segments } from "./pages/Segments";
 import { Forms } from "./pages/Forms";
+import { Reports } from "./pages/Reports";
 import { Audiences } from "./pages/Audiences";
 import { Editor } from "./pages/Editor";
 import { FunnelCanvas } from "./pages/FunnelCanvas";
@@ -35,6 +36,7 @@ const ROUTES: { path: string; label: string; icon: ComponentType<{ size?: number
   { path: "/", label: t.overview, icon: LayoutDashboard, page: Overview },
   { path: "/contacts", label: t.lang === "pt" ? "Contatos (CRM)" : "Contacts (CRM)", icon: ContactIcon, page: Contacts },
   { path: "/segments", label: t.lang === "pt" ? "Segmentos" : "Segments", icon: Filter, page: Segments },
+  { path: "/reports", label: t.lang === "pt" ? "Relatórios" : "Reports", icon: BarChart3, page: Reports },
   { path: "/forms", label: t.lang === "pt" ? "Formulários" : "Forms", icon: ClipboardList, page: Forms },
   { path: "/emails", label: t.emails, icon: Mail, page: Emails },
   { path: "/domains", label: t.domains, icon: Globe, page: Domains },

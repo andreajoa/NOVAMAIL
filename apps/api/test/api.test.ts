@@ -661,8 +661,10 @@ describe("node funnels, tracking and tags", () => {
     expect(clickerMail.html_body).toMatch(/\/t\/o\/[\w-]+\.[\w-]+/);
     const { app } = await import("../src/index");
     const { createExecutionContext, waitOnExecutionContext } = await import("cloudflare:test");
+    // A person clicks a minute after the send, from a real mail client (scanners are ignored).
+    await testEnv.DB.prepare("UPDATE emails SET created_at = created_at - 60000 WHERE to_addrs LIKE '%clicker@x.com%'").run();
     const ctx = createExecutionContext();
-    const red = await app.request(new URL(link).pathname, {}, testEnv, ctx);
+    const red = await app.request(new URL(link).pathname, { headers: { "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148" } }, testEnv, ctx);
     await waitOnExecutionContext(ctx);
     expect(red.status).toBe(302);
     expect(red.headers.get("location")).toBe("https://shop.example.com/x");
@@ -1026,5 +1028,53 @@ describe("smart send time", () => {
     await processBroadcasts(testEnv as any, day0 + 22 * 3600_000);
     expect(to().sort()).toEqual(["morning@x.com", "new@x.com", "night@x.com"]);
     expect((await t(`/broadcasts/${bc.body.id}`)).body.status).toBe("sent");
+  });
+});
+
+describe("bot clicks and privacy-proxy opens", () => {
+  it("classifies scanners, instant clicks and Apple MPP correctly", async () => {
+    const { classify } = await import("../src/routes/track");
+    const human = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15";
+    expect(classify(human, 120_000, "click")).toBe(0);
+    expect(classify(human, 2_000, "click")).toBe(1); // too fast for a human
+    expect(classify("Mozilla/5.0 (compatible; Proofpoint URL Defense)", 120_000, "click")).toBe(1);
+    expect(classify("python-requests/2.32", 120_000, "click")).toBe(1);
+    expect(classify("", 120_000, "open")).toBe(1);
+    expect(classify("Mozilla/5.0", 1_000, "open")).toBe(2); // Apple Mail Privacy Protection
+    expect(classify("Mozilla/5.0 (Windows NT 5.1; rv:11.0) Gecko Firefox/11.0 (via ggpht.com GoogleImageProxy)", 1_000, "open")).toBe(0); // Gmail fetches when the person opens
+  });
+});
+
+describe("reports", () => {
+  it("campaign report separates people from machines and breaks down links, providers and devices", async () => {
+    const { processBroadcasts } = await import("../src/routes/marketing");
+    const acc = await verifiedAccount(postal, "pro");
+    const t = (path: string, init: any = {}) => call(path, { token: acc.api_key, ...init });
+    const aud = await t("/audiences", { method: "POST", json: { name: "R" } });
+    await t(`/audiences/${aud.body.id}/contacts`, { method: "POST", json: [{ email: "a@gmail.com" }, { email: "b@outlook.com" }, { email: "c@acme.io" }, { email: "d@icloud.com" }] });
+    const bc = await t("/broadcasts", { method: "POST", json: { audience_id: aud.body.id, from: "news@example.com", subject: "Report me", html: '<p><a href="https://shop.example.com/sale">Sale</a></p>' } });
+    await t(`/broadcasts/${bc.body.id}/send`, { method: "POST" });
+    await processBroadcasts(testEnv as any);
+    const recips = await testEnv.DB.prepare("SELECT email, email_id FROM broadcast_recipients WHERE broadcast_id = ?").bind(bc.body.id).all<any>();
+    const idOf = (e: string) => recips.results.find((r: any) => r.email === e).email_id;
+    const ev = (email: string, type: string, machine: number, data: object) =>
+      testEnv.DB.prepare("INSERT INTO email_events (id, email_id, account_id, type, recipient, data, created_at, machine) VALUES (?,?,?,?,?,?,?,?)").bind(crypto.randomUUID(), idOf(email), acc.id, type, email, JSON.stringify(data), Date.now(), machine).run();
+    await ev("a@gmail.com", "email.opened", 0, { userAgent: "GoogleImageProxy" });
+    await ev("a@gmail.com", "email.clicked", 0, { click: { link: "https://shop.example.com/sale" } });
+    await ev("b@outlook.com", "email.clicked", 1, { click: { link: "https://shop.example.com/sale" } }); // Safe Links scanner
+    await ev("d@icloud.com", "email.opened", 2, { userAgent: "Mozilla/5.0" }); // Apple MPP
+    await ev("c@acme.io", "email.bounced", 0, {});
+    await testEnv.DB.prepare("INSERT INTO orders (store_id, external_id, account_id, email, amount_cents, currency, email_id, broadcast_id, created_at) VALUES ('st','o1',?, 'a@gmail.com', 12900, 'USD', ?, ?, ?)").bind(acc.id, idOf("a@gmail.com"), bc.body.id, Date.now()).run();
+
+    const r = await t(`/reports/broadcasts/${bc.body.id}`);
+    expect(r.body.totals).toMatchObject({ sent: 4, delivered: 3, bounced: 1, opened: 2, privacy_opens: 1, opened_human_estimate: 1, clicked: 1, bot_clicks_filtered: 1, orders: 1, revenue_cents: 12900 });
+    expect(r.body.links[0]).toMatchObject({ url: "https://shop.example.com/sale", unique_clicks: 1 });
+    const names = r.body.providers.map((p: any) => p.name);
+    expect(names).toEqual(expect.arrayContaining(["Gmail", "Outlook", "iCloud", "Business & other"]));
+    expect(r.body.devices.webmail).toBe(1);
+    const ov = await t("/reports/overview?days=30");
+    expect(ov.body.series.sent.reduce((a: number, b: number) => a + b, 0)).toBeGreaterThanOrEqual(4);
+    expect(ov.body.campaigns[0]).toMatchObject({ id: bc.body.id, sent: 4 });
+    expect(ov.body.revenue.attributed_cents).toBe(12900);
   });
 });

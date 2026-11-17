@@ -229,7 +229,7 @@ export async function abResults(env: Env, broadcastId: string, n: number) {
     `SELECT r.variant, COUNT(*) AS sent,
             COUNT(DISTINCT CASE WHEN e.type = 'email.opened' THEN r.email END) AS opens,
             COUNT(DISTINCT CASE WHEN e.type = 'email.clicked' THEN r.email END) AS clicks
-       FROM broadcast_recipients r LEFT JOIN email_events e ON e.email_id = r.email_id AND e.type IN ('email.opened','email.clicked')
+       FROM broadcast_recipients r LEFT JOIN email_events e ON e.email_id = r.email_id AND e.type IN ('email.opened','email.clicked') AND e.machine != 1
       WHERE r.broadcast_id = ? GROUP BY r.variant`,
   ).bind(broadcastId).all<{ variant: number; sent: number; opens: number; clicks: number }>();
   return Array.from({ length: n }, (_, i) => {
@@ -245,7 +245,7 @@ const eligibleSql = `FROM contacts c WHERE c.audience_id = ?1 AND c.id > ?6 AND 
    AND NOT EXISTS (SELECT 1 FROM suppressions s WHERE s.account_id = ?2 AND s.address = c.email)
    AND NOT EXISTS (SELECT 1 FROM broadcast_recipients x WHERE x.broadcast_id = ?3 AND x.email = c.email)
    AND (?4 IS NULL OR EXISTS (SELECT 1 FROM broadcast_recipients r WHERE r.broadcast_id = ?4 AND r.email = c.email
-        AND NOT EXISTS (SELECT 1 FROM email_events e WHERE e.email_id = r.email_id AND e.type IN ('email.opened','email.clicked'))))`;
+        AND NOT EXISTS (SELECT 1 FROM email_events e WHERE e.email_id = r.email_id AND e.machine != 1 AND e.type IN ('email.opened','email.clicked'))))`;
 
 const HOUR = 3_600_000;
 
@@ -253,7 +253,7 @@ const HOUR = 3_600_000;
 export async function openHours(env: Env, accountId: string) {
   const r = await env.DB.prepare(
     `SELECT recipient AS email, CAST(strftime('%H', created_at / 1000, 'unixepoch') AS INTEGER) AS h, COUNT(*) AS n
-       FROM email_events WHERE account_id = ? AND type IN ('email.opened','email.clicked') AND recipient IS NOT NULL AND created_at > ?
+       FROM email_events WHERE account_id = ? AND type IN ('email.opened','email.clicked') AND machine = 0 AND recipient IS NOT NULL AND created_at > ?
       GROUP BY recipient, h`,
   ).bind(accountId, Date.now() - 180 * 86_400_000).all<{ email: string; h: number; n: number }>();
   const per = new Map<string, { h: number; n: number }>();

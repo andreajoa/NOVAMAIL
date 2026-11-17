@@ -256,7 +256,7 @@ async function evaluate(env: Env, e: Record<string, any>, n: Extract<FunnelNode,
     case "clicked": {
       if (!e.last_email_id) return false;
       const types = n.data.kind === "opened" ? ["email.opened", "email.clicked"] : ["email.clicked"];
-      const r = await env.DB.prepare(`SELECT 1 AS x FROM email_events WHERE email_id = ? AND type IN (${types.map(() => "?").join(",")}) LIMIT 1`).bind(e.last_email_id, ...types).first();
+      const r = await env.DB.prepare(`SELECT 1 AS x FROM email_events WHERE email_id = ? AND machine != 1 AND type IN (${types.map(() => "?").join(",")}) LIMIT 1`).bind(e.last_email_id, ...types).first();
       return !!r;
     }
     case "has_tag": {

@@ -14,6 +14,7 @@ import { track } from "./routes/track";
 import { crmFields, people, segments } from "./routes/crm";
 import { processWarmups } from "./lib/ip-pools";
 import { cleanupPending, forms, publicForms } from "./routes/forms";
+import { reports } from "./routes/reports";
 import { mcp } from "./routes/mcp";
 import { media, serveMedia, templates } from "./routes/templates";
 import { admin } from "./routes/admin";
@@ -100,7 +101,7 @@ app.route("/emails", emails);
 
 app.route("/auth", auth);
 
-for (const path of ["/domains", "/api-keys", "/webhooks", "/suppressions", "/usage", "/me", "/billing", "/audiences", "/broadcasts", "/templates", "/media", "/funnels", "/contacts", "/people", "/segments", "/crm", "/forms"]) {
+for (const path of ["/domains", "/api-keys", "/webhooks", "/suppressions", "/usage", "/me", "/billing", "/audiences", "/broadcasts", "/templates", "/media", "/funnels", "/contacts", "/people", "/segments", "/crm", "/forms", "/reports"]) {
   app.use(path, requireApiKey, requireFullAccess);
   app.use(`${path}/*`, requireApiKey, requireFullAccess);
 }
@@ -121,6 +122,7 @@ app.route("/people", people);
 app.route("/segments", segments);
 app.route("/crm/fields", crmFields);
 app.route("/forms", forms);
+app.route("/reports", reports);
 
 // Platform owner.
 app.use("/admin/*", requireOwner);

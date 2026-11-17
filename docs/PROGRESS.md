@@ -103,11 +103,11 @@ Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta impla
 - ✅ IP dedicado US$29/mês · US$290/ano: oferecido no checkout do Scale e no painel; aviso por e-mail ao dono; aquecimento automático (~3 semanas, limite por hora dobrando); cancelou → volta ao grupo do plano
 - 🔒 Ligar o IP do Free (`bash scripts/ip-pool.sh shared`) quando a porta 25 abrir e entrar o 1º pagante (~US$3,60/mês)
 
-## F12 — Melhor que os concorrentes (4/12)
+## F12 — Melhor que os concorrentes (5/12)
 - ✅ 1. Formulários: no site, pop-up (tempo/rolagem/saída; centro/canto/barra) e página própria; Shadow DOM; confirmação dupla; anti-robô (campo isca, tempo mínimo, limite por IP e por formulário); prova de consentimento (IP, navegador, página, hora); 5 modelos; editor com prévia desktop/celular; conversão
 - ✅ 2. Central de preferências: escolher listas, voltar a assinar, descadastro total; inglês/português pelo navegador; botão do Gmail continua 1 clique
 - ✅ 3. Teste A/B (até 4 assuntos, % do teste, vencedor por abertura ou clique, espera; vencedor vai sozinho ao resto) + reenvio para quem não abriu + agendamento
-- ⏳ 4. Relatórios: mapa de cliques, provedores, comparação, receita
+- ✅ 4. Relatórios: mapa de cliques sobre o próprio e-mail, provedores, dispositivos, 48 h, comparação com a média, receita; filtra cliques de robôs de segurança e separa aberturas automáticas da Apple (também fora dos funis, CRM, A/B e melhor horário)
 - ⏳ 5. Equipe com permissões
 - ⏳ 6. Shopify/WooCommerce: carrinho abandonado, produtos, receita por campanha
 - ⏳ 7. IA no editor (Workers AI, cota grátis)

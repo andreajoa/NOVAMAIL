@@ -49,7 +49,7 @@ export async function loadPeople(env: Env, accountId: string, now = Date.now()):
               MAX(CASE WHEN type = 'email.opened' THEN created_at END) AS last_open,
               MAX(CASE WHEN type = 'email.clicked' THEN created_at END) AS last_click,
               MAX(created_at) AS last_at
-         FROM email_events WHERE account_id = ?1 AND recipient IS NOT NULL GROUP BY recipient`,
+         FROM email_events WHERE account_id = ?1 AND recipient IS NOT NULL AND machine != 1 GROUP BY recipient`,
     ).bind(accountId, now - 30 * DAY),
     env.DB.prepare("SELECT email, MAX(created_at) AS last_at FROM activities WHERE account_id = ? GROUP BY email").bind(accountId),
   ]);
@@ -284,7 +284,7 @@ people.get("/:email", async (c) => {
   const [lists, sent, events, acts, notes, funnels] = await c.env.DB.batch([
     c.env.DB.prepare("SELECT id, name FROM audiences WHERE account_id = ?").bind(p.accountId),
     c.env.DB.prepare("SELECT id, subject, last_event, created_at FROM emails WHERE account_id = ? AND to_addrs LIKE ? ORDER BY created_at DESC LIMIT 50").bind(p.accountId, `%"${email}"%`),
-    c.env.DB.prepare("SELECT e.type, e.email_id, e.data, e.created_at, m.subject FROM email_events e LEFT JOIN emails m ON m.id = e.email_id WHERE e.account_id = ? AND e.recipient = ? ORDER BY e.created_at DESC LIMIT 100").bind(p.accountId, email),
+    c.env.DB.prepare("SELECT e.type, e.email_id, e.data, e.created_at, m.subject FROM email_events e LEFT JOIN emails m ON m.id = e.email_id WHERE e.account_id = ? AND e.recipient = ? AND e.machine != 1 ORDER BY e.created_at DESC LIMIT 100").bind(p.accountId, email),
     c.env.DB.prepare("SELECT type, data, created_at FROM activities WHERE account_id = ? AND email = ? ORDER BY created_at DESC LIMIT 100").bind(p.accountId, email),
     c.env.DB.prepare("SELECT id, body, author, created_at FROM notes WHERE account_id = ? AND email = ? ORDER BY created_at DESC LIMIT 100").bind(p.accountId, email),
     c.env.DB.prepare("SELECT f.name, e.status, e.created_at FROM enrollments e JOIN funnels f ON f.id = e.funnel_id WHERE e.account_id = ? AND e.email = ? ORDER BY e.created_at DESC").bind(p.accountId, email),
