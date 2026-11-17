@@ -6,7 +6,11 @@
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
   // Until NovaMail has its own domain it lives under NexaCloud's zone.
-  "routes": [{ "pattern": "api.novamail.nexaclouds.online", "custom_domain": true }],
+  "routes": [
+    { "pattern": "api.novamail.nexaclouds.online", "custom_domain": true },
+    // NexaCloud's wildcard route (*.nexaclouds.online/*) would win otherwise; a more specific route takes precedence.
+    { "pattern": "api.novamail.nexaclouds.online/*", "zone_name": "nexaclouds.online" }
+  ],
   "vars": {
     "PUBLIC_URL": "https://api.novamail.nexaclouds.online",
     "POSTAL_URL": "https://postal.novamail.nexaclouds.online",

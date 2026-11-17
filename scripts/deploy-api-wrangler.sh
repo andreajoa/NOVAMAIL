@@ -29,7 +29,7 @@ rm -f "$CONF/.worker-secrets.json"
 echo "▶ saúde"
 for _ in $(seq 1 30); do
   code=$(curl -s -o /tmp/nm-health -w '%{http_code}' https://api.novamail.nexaclouds.online/health || true)
-  [ "$code" = 200 ] && { cat /tmp/nm-health; echo; echo "✓ API no ar"; exit 0; }
+  [ "$code" = 200 ] && grep -q "\"version\"" /tmp/nm-health && { cat /tmp/nm-health; echo; echo "✓ API no ar"; exit 0; }
   sleep 5
 done
 echo "✗ /health não respondeu 200"; exit 1

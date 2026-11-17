@@ -2,12 +2,12 @@
 
 Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta implantar/provar · ⏳ a fazer · 🔒 depende do André
 
-**Progresso geral: 18 / 44 itens (41%)** — atualizado 17/11/2026 00h40 (BRT)
+**Progresso geral: 21 / 44 itens (48%)** — atualizado 17/11/2026 01h30 (BRT)
 
 ## F0 — Auditoria (100%)
 - ✅ 5 repositórios auditados (Postal, listmonk, Plunk, BillionMail, Mautic) → Postal MIT escolhido
 
-## F1 — API / control plane (9/11)
+## F1 — API / control plane (10/11)
 - ✅ Esquema D1 (contas, chaves, domínios, e-mails, eventos, uso, supressão, webhooks, auditoria)
 - ✅ `POST /emails` e `/emails/batch` compatíveis com Resend + `Idempotency-Key`
 - ✅ Domínios: criar, registros DNS (verificação, SPF, DKIM, return-path, DMARC), verificar, remover
@@ -17,7 +17,7 @@ Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta impla
 - ✅ Supressão automática de bounce + guarda de reputação (suspende conta)
 - ✅ Webhooks do cliente no padrão Standard Webhooks + fila com 8 tentativas
 - ✅ 16 testes no runtime real da Cloudflare (workerd) passando, local e no GitHub Actions
-- 🔒 Deploy em `api.novamail.nexaclouds.online` — conta Cloudflare no limite de 10 bancos D1 (Workers Paid US$5 ou apagar flownexa-migration-staging)
+- ✅ NO AR em `https://api.novamail.nexaclouds.online` — banco em SQLite Durable Object (plano grátis; a conta já tinha 10/10 D1), custo zero
 - ⏳ Documentação OpenAPI + página /docs
 
 ## F2 — Nó de envio (8/9)
@@ -31,6 +31,11 @@ Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta impla
 - ✅ PTR pedido à AWS (postal.novamail.nexaclouds.online)
 - 🔒 Porta 25 de SAÍDA liberada pela AWS (testado: bloqueada) — formulário no console root
 - ⏳ Primeiro e-mail real entregue em caixa de entrada do Gmail (prova)
+
+## F2.5 — Prova em produção (2/3)
+- ✅ Conta interna criada pela API → organização/servidor/credenciais/webhook criados no Postal
+- ✅ Domínio `envio.novamail.nexaclouds.online`: DNS publicado sozinho na Cloudflare e verificado (SPF/DKIM/return-path OK)
+- 🔒 1º e-mail (para o Gmail do André) aceito e na fila do Postal; sai quando a AWS liberar a porta 25
 
 ## F3 — Marcas do André no NovaMail (0/6)
 - ⏳ Gilberto · ⏳ AMB · ⏳ Atenza · ⏳ Trilha Aprova · ⏳ FlowNexa · ⏳ NexaCloud (troca do Resend/Brevo, seguindo a rampa de aquecimento)
