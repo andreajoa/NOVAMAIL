@@ -4,7 +4,7 @@ import { api } from "../api";
 import { t } from "../i18n";
 import { Button, ErrorText, Input, Modal, Secret } from "../ui";
 
-export function Login({ onDone }: { onDone: () => void }) {
+export function Login({ onDone, embedded = false }: { onDone: () => void; embedded?: boolean }) {
   const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -25,9 +25,9 @@ export function Login({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <div className="grid min-h-full place-items-center px-4 py-16">
+    <div className={embedded ? "" : "grid min-h-full place-items-center px-4 py-16"}>
       <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
+        <div className={embedded ? "hidden" : "mb-8 text-center"}>
           <div className="mx-auto mb-4 grid size-11 place-items-center rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"><Mail size={20} /></div>
           <h1 className="text-2xl font-semibold tracking-tight">NovaMail</h1>
           <p className="mt-2 text-sm text-zinc-500">{t.tagline}</p>

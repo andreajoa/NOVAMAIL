@@ -16,6 +16,7 @@ import { postalHooks } from "./routes/postal-hooks";
 import { fbl } from "./routes/fbl";
 import { UpstreamError } from "./lib/postal";
 import { openDb } from "./lib/dodb";
+import { PLANS } from "./lib/plans";
 import { docsHtml, openapi } from "./openapi";
 
 export { NovaDB } from "./lib/dodb";
@@ -31,6 +32,12 @@ app.get("/", (c) => c.json({ name: "NovaMail API", version: VERSION, docs: `${c.
 app.get("/health", async (c) => {
   const db = await c.env.DB.prepare("SELECT 1 AS ok").first<{ ok: number }>().catch(() => null);
   return c.json({ ok: db?.ok === 1, version: VERSION }, db?.ok === 1 ? 200 : 503);
+});
+
+// Public price list (landing page).
+app.get("/plans", (c) => {
+  c.header("cache-control", "public, max-age=300");
+  return c.json({ data: (["free", "pro", "scale"] as const).map((id) => ({ id, label: PLANS[id].label, price_usd: PLANS[id].priceUsd, monthly: PLANS[id].monthly, daily: PLANS[id].daily, domains: PLANS[id].domains })) });
 });
 
 // Public status: API + database + sending node, cached 30 s at the edge.

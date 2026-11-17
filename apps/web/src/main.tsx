@@ -10,7 +10,8 @@ import { Broadcasts } from "./pages/Broadcasts";
 import { Domains } from "./pages/Domains";
 import { Emails } from "./pages/Emails";
 import { Keys } from "./pages/Keys";
-import { Login } from "./pages/Login";
+import { Landing } from "./pages/Landing";
+import { Legal } from "./pages/Legal";
 import { Overview } from "./pages/Overview";
 import { Plan } from "./pages/Plan";
 import { Suppressions } from "./pages/Suppressions";
@@ -47,10 +48,13 @@ function usePath() {
 function Shell() {
   const path = usePath();
   const qc = useQueryClient();
-  const me = useQuery({ queryKey: ["me"], queryFn: () => api("/me") });
+  const legal = ({ "/terms": "terms", "/aup": "aup", "/privacy": "privacy" } as const)[path as "/terms"];
+  const me = useQuery({ queryKey: ["me"], queryFn: () => api("/me"), enabled: !legal });
+
+  if (legal) return <Legal doc={legal} />;
 
   if (me.isLoading) return <div className="grid h-full place-items-center text-sm text-zinc-500">{t.loading}</div>;
-  if (me.error instanceof ApiError && me.error.status === 401) return <Login onDone={() => qc.invalidateQueries()} />;
+  if (me.error instanceof ApiError && me.error.status === 401) return <Landing onDone={() => qc.invalidateQueries()} />;
 
   const route = ROUTES.find((r) => r.path === path) ?? ROUTES[0]!;
   const Page = route.page;
