@@ -1,15 +1,16 @@
-import { Hono } from "hono";
+import { Hono, type MiddlewareHandler } from "hono";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
 import type { AppEnv, Env, WebhookJob } from "./env";
 import { requireApiKey, requireFullAccess, requireOwner } from "./lib/auth";
-import { ApiError, sendError } from "./lib/http";
+import { ApiError, errors, sendError } from "./lib/http";
 import { handleQueue } from "./lib/webhooks";
 import { apiKeys, me, suppressions, usage, webhooks } from "./routes/account";
 import { auth } from "./routes/auth";
 import { billing, stripeHooks } from "./routes/billing";
 import { audiences, broadcasts, processBroadcasts, unsubscribe } from "./routes/marketing";
 import { funnels, processFunnels } from "./routes/funnels";
+import { mcp } from "./routes/mcp";
 import { media, serveMedia, templates } from "./routes/templates";
 import { admin } from "./routes/admin";
 import { domains } from "./routes/domains";
@@ -67,10 +68,16 @@ app.route("/u", unsubscribe);
 // Public media used inside emails (immutable, edge-cached).
 app.get("/m/:id", (c) => serveMedia(c.env, c.req.raw, c.req.param("id"), c.executionCtx));
 app.route("/hooks/fbl", fbl);
+// MCP for Claude Code / Codex (auth + scope enforced per tool through the REST routes).
+app.route("/mcp", mcp);
 
 // Customer API (Resend-compatible paths).
-app.use("/emails/*", requireApiKey);
-app.use("/emails", requireApiKey);
+const noAgents: MiddlewareHandler<AppEnv> = async (c, next) => {
+  if (c.get("principal").permission === "agent") throw errors.forbidden("Agent keys cannot send email directly; build templates/funnels and let the owner send.");
+  await next();
+};
+app.use("/emails/*", requireApiKey, noAgents);
+app.use("/emails", requireApiKey, noAgents);
 app.route("/emails", emails);
 
 app.route("/auth", auth);

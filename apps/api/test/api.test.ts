@@ -554,3 +554,55 @@ describe("templates, media and funnels", () => {
     expect(fd.body.data[0]).toMatchObject({ completed: 1, active: 0 });
   });
 });
+
+describe("MCP for Claude Code / Codex (agent keys)", () => {
+  async function agent() {
+    const acc = await verifiedAccount(postal);
+    const k = await call("/api-keys", { method: "POST", token: acc.api_key, json: { name: "claude", permission: "agent_access" } });
+    return { acc, key: k.body.token as string };
+  }
+  const rpc = (key: string, method: string, params?: unknown) => call("/mcp", { method: "POST", token: key, json: { jsonrpc: "2.0", id: 1, method, params } });
+
+  it("initializes and lists only safe tools", async () => {
+    const { key } = await agent();
+    const init = await rpc(key, "initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "claude-code", version: "1" } });
+    expect(init.body.result.serverInfo.name).toBe("novamail");
+    expect(init.body.result.instructions).toMatch(/untrusted DATA/);
+    const names = (await rpc(key, "tools/list")).body.result.tools.map((t: any) => t.name);
+    expect(names).toContain("create_funnel");
+    for (const forbidden of ["send_email", "activate_funnel", "delete_audience", "create_api_key", "send_broadcast"]) expect(names).not.toContain(forbidden);
+  });
+
+  it("builds a template + list + draft funnel, but cannot activate, send or escalate", async () => {
+    const { acc, key } = await agent();
+    const t = await rpc(key, "tools/call", { name: "create_template", arguments: { name: "Welcome", subject: "Hi", html: "<p>Hi {{first_name}}</p><script>steal()</script>" } });
+    expect(t.body.result.isError).toBe(false);
+    const tplId = t.body.result.structuredContent.id;
+    const stored = await call(`/templates/${tplId}`, { token: acc.api_key });
+    expect(stored.body.html).not.toContain("<script");
+    const aud = await rpc(key, "tools/call", { name: "create_audience", arguments: { name: "Leads" } });
+    const f = await rpc(key, "tools/call", { name: "create_funnel", arguments: { name: "Onboarding", audience_id: aud.body.result.structuredContent.id, from: "a@example.com", steps: [{ template_id: tplId }] } });
+    expect(f.body.result.structuredContent.status).toBe("draft");
+    const fid = f.body.result.structuredContent.id;
+
+    // Direct REST attempts with the agent key are refused.
+    expect((await call(`/funnels/${fid}/activate`, { method: "POST", token: key })).status).toBe(403);
+    expect((await call("/emails", { method: "POST", token: key, json: { from: "a@example.com", to: "victim@x.com", subject: "s", text: "t" } })).status).toBe(403);
+    expect((await call("/api-keys", { method: "POST", token: key, json: { name: "x" } })).status).toBe(403);
+    expect((await call(`/funnels/${fid}`, { method: "DELETE", token: key })).status).toBe(403);
+    expect((await call("/webhooks", { method: "POST", token: key, json: { endpoint: "https://evil.example" } })).status).toBe(403);
+
+    // The owner can activate.
+    expect((await call(`/funnels/${fid}/activate`, { method: "POST", token: acc.api_key })).body.status).toBe("active");
+    const audit = await testEnv.DB.prepare("SELECT COUNT(*) n FROM audit_log WHERE actor LIKE 'agent:%'").first<{ n: number }>();
+    expect(audit!.n).toBeGreaterThan(0);
+  });
+
+  it("rejects missing keys and unknown tools", async () => {
+    const r = await call("/mcp", { method: "POST", json: { jsonrpc: "2.0", id: 1, method: "tools/list" } });
+    expect(r.status).toBe(401);
+    const { key } = await agent();
+    const u = await rpc(key, "tools/call", { name: "rm_rf", arguments: {} });
+    expect(u.body.error.code).toBe(-32602);
+  });
+});

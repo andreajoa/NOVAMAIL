@@ -6,7 +6,7 @@ import { errors } from "./http";
 
 export const KEY_PREFIX = "nm_";
 
-export async function createApiKey(db: D1Database, accountId: string, name: string, permission: "full" | "sending" = "full", domainId: string | null = null) {
+export async function createApiKey(db: D1Database, accountId: string, name: string, permission: "full" | "sending" | "agent" = "full", domainId: string | null = null) {
   const token = `${KEY_PREFIX}${randomToken(24)}`;
   const id = prefixedId("key");
   await db
@@ -39,7 +39,7 @@ export const requireApiKey: MiddlewareHandler<AppEnv> = async (c, next) => {
       WHERE k.hash = ? AND k.revoked_at IS NULL`,
   )
     .bind(await sha256Hex(token))
-    .first<{ id: string; account_id: string; permission: "full" | "sending"; domain_id: string | null; last_used_at: number | null; status: string; suspended_reason: string | null }>();
+    .first<{ id: string; account_id: string; permission: "full" | "sending" | "agent"; domain_id: string | null; last_used_at: number | null; status: string; suspended_reason: string | null }>();
   if (!row) throw errors.unauthorized();
   if (row.status !== "active") throw errors.suspended(row.suspended_reason);
   c.set("principal", { accountId: row.account_id, apiKeyId: row.id, permission: row.permission, domainId: row.domain_id });
@@ -50,8 +50,43 @@ export const requireApiKey: MiddlewareHandler<AppEnv> = async (c, next) => {
   await next();
 };
 
+// What an AI-agent key (Claude Code, Codex… through MCP) may do: build and inspect, never send
+// to arbitrary people, never delete, never touch keys/webhooks/domains/billing.
+export const AGENT_ALLOW: [string, RegExp][] = [
+  ["GET", /^\/(me|usage)$/],
+  ["GET", /^\/domains(\/[\w-]+)?$/],
+  ["GET", /^\/audiences(\/[\w-]+\/contacts)?$/],
+  ["POST", /^\/audiences(\/[\w-]+\/contacts)?$/],
+  ["GET", /^\/templates(\/presets|\/[\w-]+)?$/],
+  ["POST", /^\/templates(\/[\w-]+\/test)?$/],
+  ["PATCH", /^\/templates\/[\w-]+$/],
+  ["GET", /^\/funnels(\/[\w-]+)?$/],
+  ["POST", /^\/funnels(\/[\w-]+\/pause)?$/],
+  ["PATCH", /^\/funnels\/[\w-]+$/],
+  ["GET", /^\/broadcasts(\/[\w-]+)?$/],
+  ["POST", /^\/broadcasts$/],
+  ["GET", /^\/media$/],
+];
+export const AGENT_RATE_PER_MIN = 120;
+
 export const requireFullAccess: MiddlewareHandler<AppEnv> = async (c, next) => {
-  if (c.get("principal").permission !== "full") throw errors.forbidden();
+  const p = c.get("principal");
+  if (p.permission === "agent") {
+    const path = new URL(c.req.url).pathname;
+    if (!AGENT_ALLOW.some(([m, re]) => m === c.req.method && re.test(path))) throw errors.forbidden("This agent key cannot do that. Ask the account owner to do it in the dashboard.");
+    const win = Math.floor(Date.now() / 60_000);
+    const r = await c.env.DB.prepare("INSERT INTO rate_limits (key_id, window, count) VALUES (?1, ?2, 1) ON CONFLICT(key_id, window) DO UPDATE SET count = count + 1 RETURNING count").bind(p.apiKeyId, win).first<{ count: number }>();
+    if ((r?.count ?? 0) > AGENT_RATE_PER_MIN) throw errors.quota(`Agent rate limit: ${AGENT_RATE_PER_MIN} requests per minute.`);
+    if (c.req.method !== "GET") {
+      c.executionCtx.waitUntil(c.env.DB.prepare("INSERT INTO audit_log (account_id, actor, action, detail, created_at) VALUES (?, ?, ?, ?, ?)").bind(p.accountId, `agent:${p.apiKeyId}`, `${c.req.method} ${path}`, null, Date.now()).run());
+    }
+    if (c.req.method === "POST" && /^\/audiences\/[\w-]+\/contacts$/.test(path)) {
+      const len = Number(c.req.header("content-length") ?? 0);
+      if (len > 64_000) throw errors.validation("Agents can import at most ~200 contacts per call.");
+    }
+    return next();
+  }
+  if (p.permission !== "full") throw errors.forbidden();
   await next();
 };
 

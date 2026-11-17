@@ -12,7 +12,7 @@ export const apiKeys = new Hono<AppEnv>();
 
 apiKeys.post("/", async (c) => {
   const parsed = z
-    .object({ name: z.string().min(1).max(50), permission: z.enum(["full_access", "sending_access"]).default("full_access"), domain_id: z.string().optional() })
+    .object({ name: z.string().min(1).max(50), permission: z.enum(["full_access", "sending_access", "agent_access"]).default("full_access"), domain_id: z.string().optional() })
     .safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) throw errors.validation(zodMessage(parsed.error));
   const p = c.get("principal");
@@ -20,7 +20,7 @@ apiKeys.post("/", async (c) => {
     const d = await c.env.DB.prepare("SELECT id FROM domains WHERE id = ? AND account_id = ?").bind(parsed.data.domain_id, p.accountId).first();
     if (!d) throw errors.notFound("Domain");
   }
-  const k = await createApiKey(c.env.DB, p.accountId, parsed.data.name, parsed.data.permission === "full_access" ? "full" : "sending", parsed.data.domain_id ?? null);
+  const k = await createApiKey(c.env.DB, p.accountId, parsed.data.name, parsed.data.permission === "full_access" ? "full" : parsed.data.permission === "agent_access" ? "agent" : "sending", parsed.data.domain_id ?? null);
   return c.json({ id: k.id, token: k.token }, 201);
 });
 
