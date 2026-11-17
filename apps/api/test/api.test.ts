@@ -1148,3 +1148,86 @@ describe("teams and roles", () => {
     expect((await req("/team/switch", { method: "POST", cookie: multi.cookie, json: { account_id: sys.id } })).status).toBe(404);
   });
 });
+
+describe("e-commerce: Shopify, WooCommerce and custom stores", () => {
+  async function hmac(secret: string, body: string) {
+    const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    return btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(body)))));
+  }
+  async function hook(storeId: string, secret: string, topic: string, payload: unknown, header = "x-shopify") {
+    const body = JSON.stringify(payload);
+    const h: Record<string, string> = { "content-type": "application/json" };
+    if (header === "x-shopify") Object.assign(h, { "x-shopify-hmac-sha256": await hmac(secret, body), "x-shopify-topic": topic });
+    else Object.assign(h, { "x-wc-webhook-signature": await hmac(secret, body), "x-wc-webhook-topic": topic });
+    return rawReq(`/hooks/store/${storeId}`, { method: "POST", headers: h, body });
+  }
+
+  it("syncs products, recovers abandoned carts with consent, attributes revenue and feeds funnels", async () => {
+    const { processCarts } = await import("../src/routes/commerce");
+    const { processFunnels } = await import("../src/routes/funnels");
+    const { processBroadcasts } = await import("../src/routes/marketing");
+    const acc = await verifiedAccount(postal, "pro");
+    const t = (path: string, init: any = {}) => call(path, { token: acc.api_key, ...init });
+    const SECRET = "shpss_test_signing_secret_123";
+    const st = await t("/stores", { method: "POST", json: { platform: "shopify", name: "Shop", url: "https://shop.example.com", signing_secret: SECRET } });
+    expect(st.status).toBe(201);
+    expect(st.body.secret).toBeUndefined(); // Shopify key is never echoed
+    const sid = st.body.id;
+
+    expect((await hook(sid, "wrong-secret-xxxxxxxx", "products/create", { id: 1 })).status).toBe(401);
+    await hook(sid, SECRET, "products/create", { id: 77, title: "Linen Shirt", handle: "linen-shirt", image: { src: "https://cdn.example.com/shirt.jpg" }, variants: [{ price: "49.00" }] });
+
+    // Recovery funnel: tag cart-abandoned → email with the cart.
+    const tpl = await t("/templates", { method: "POST", json: { name: "Cart", subject: "You left something", html: '<p>Hi {{first_name}}</p>{{cart_items_html}}<a href="{{cart_url}}">Finish checkout — {{cart_total}}</a>' } });
+    const fn = await t("/funnels", { method: "POST", json: { name: "Cart", from: "shop@example.com", graph: { version: 1, nodes: [{ id: "t", type: "trigger", x: 0, y: 0, data: { kind: "tag", tag: "cart-abandoned" } }, { id: "m", type: "email", x: 0, y: 1, data: { template_id: tpl.body.id } }], edges: [{ id: "1", from: "t", handle: "next", to: "m" }] } } });
+    await t(`/funnels/${fn.body.id}/activate`, { method: "POST" });
+
+    const checkout = { token: "ck1", email: "Buyer@Example.org", customer: { first_name: "<b>Bo</b>" }, abandoned_checkout_url: "https://shop.example.com/checkouts/ck1", total_price: "98.00", currency: "USD", line_items: [{ title: "Linen Shirt", quantity: 2, price: "49.00", product_id: 77 }] };
+    await hook(sid, SECRET, "checkouts/create", { ...checkout, token: "nc", email: "noconsent@example.org", buyer_accepts_marketing: false });
+    await hook(sid, SECRET, "checkouts/create", { ...checkout, buyer_accepts_marketing: true });
+    const carts = await testEnv.DB.prepare("SELECT email, status FROM carts WHERE store_id = ?").bind(sid).all<any>();
+    expect(carts.results).toEqual([{ email: "buyer@example.org", status: "open" }]); // no consent → no cart emails
+
+    expect(await processCarts(testEnv as any, Date.now() + 10 * 60_000)).toBe(0); // not idle long enough
+    expect(await processCarts(testEnv as any, Date.now() + 2 * 3600_000)).toBe(1);
+    const n0 = postal.sent.length;
+    await processFunnels(testEnv as any, Date.now() + 2 * 3600_000);
+    const mail = postal.sent.slice(n0).find((m: any) => m.to[0] === "buyer@example.org");
+    expect(mail.subject).toBe("You left something");
+    expect(mail.html_body).toContain("Linen Shirt");
+    expect(mail.html_body).toContain("https://cdn.example.com/shirt.jpg");
+    expect(mail.html_body).toContain("$98.00");
+    expect(mail.html_body).toContain("&lt;b&gt;Bo&lt;/b&gt;"); // contact data is escaped
+
+    // The person clicks the recovery email (a minute later, from a phone) and buys.
+    await testEnv.DB.prepare("INSERT INTO email_events (id, email_id, account_id, type, recipient, data, created_at, machine) SELECT 'clk1', id, account_id, 'email.clicked', 'buyer@example.org', '{}', ?, 0 FROM emails WHERE account_id = ? AND subject = 'You left something'").bind(Date.now(), acc.id).run();
+    await hook(sid, SECRET, "orders/create", { id: 5001, email: "buyer@example.org", total_price: "98.00", currency: "USD", buyer_accepts_marketing: true, line_items: [{ title: "Linen Shirt", quantity: 2, price: "49.00" }] });
+    const order = await testEnv.DB.prepare("SELECT * FROM orders WHERE store_id = ?").bind(sid).first<any>();
+    expect(order).toMatchObject({ amount_cents: 9800, funnel_id: fn.body.id });
+    expect((await testEnv.DB.prepare("SELECT status FROM carts WHERE external_id = 'ck1'").first<any>()).status).toBe("recovered");
+    const person = await t("/people/buyer@example.org");
+    expect(person.body.tags).toEqual(expect.arrayContaining(["purchased", "customer"]));
+    expect(person.body.tags).not.toContain("cart-abandoned");
+    expect(person.body.timeline.map((x: any) => x.kind)).toContain("order");
+    const list = (await t("/stores")).body.data[0];
+    expect(list).toMatchObject({ orders: 1, attributed_cents: 9800, products: 1, recovered: 1 });
+
+    // WooCommerce: ping accepted, signed order ingested (no consent flag → added as customer by default).
+    const w = await t("/stores", { method: "POST", json: { platform: "woocommerce", name: "Woo", url: "https://woo.example.com" } });
+    expect(w.body.secret).toMatch(/^whsec_/);
+    expect((await rawReq(`/hooks/store/${w.body.id}`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: "webhook_id=12" })).status).toBe(200);
+    await hook(w.body.id, w.body.secret, "order.created", { id: 9, status: "processing", total: "20.00", currency: "EUR", billing: { email: "woo@example.org", first_name: "Wu" }, line_items: [{ name: "Mug", quantity: 1, price: 20 }] }, "x-wc");
+    expect((await t("/people/woo@example.org")).body.tags).toContain("customer");
+
+    // Custom store via API + campaign attribution in the report.
+    const cst = await t("/stores", { method: "POST", json: { platform: "custom", name: "App" } });
+    const aud = await t("/audiences", { method: "POST", json: { name: "News" } });
+    await t(`/audiences/${aud.body.id}/contacts`, { method: "POST", json: [{ email: "fan@example.org" }] });
+    const bc = await t("/broadcasts", { method: "POST", json: { audience_id: aud.body.id, from: "shop@example.com", subject: "Sale", html: "<p>x</p>" } });
+    await t(`/broadcasts/${bc.body.id}/send`, { method: "POST" });
+    await processBroadcasts(testEnv as any);
+    await testEnv.DB.prepare("INSERT INTO email_events (id, email_id, account_id, type, recipient, data, created_at, machine) SELECT 'clk2', email_id, ?, 'email.clicked', 'fan@example.org', '{}', ?, 0 FROM broadcast_recipients WHERE broadcast_id = ?").bind(acc.id, Date.now(), bc.body.id).run();
+    expect((await t("/commerce/orders", { method: "POST", json: { store_id: cst.body.id, id: "A-1", email: "fan@example.org", total_cents: 4500, items: [{ title: "Plan", price_cents: 4500 }] } })).status).toBe(201);
+    expect((await t(`/reports/broadcasts/${bc.body.id}`)).body.totals.revenue_cents).toBe(4500);
+  });
+});

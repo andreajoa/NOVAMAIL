@@ -8,7 +8,8 @@ import type { AppEnv, Env, Principal } from "../env";
 import { prefixedId } from "../lib/crypto";
 import { ApiError, errors, zodMessage } from "../lib/http";
 import { sendOne } from "./emails";
-import { personalize, unsubscribeToken } from "./marketing";
+import { commerceVars } from "./commerce";
+import { personalize, personalizeHtml, unsubscribeToken } from "./marketing";
 
 export const FUNNEL_BATCH = 30;
 const MAX_HOPS = 25; // nodes processed per enrollment per tick (graphs are acyclic, so this is a safety net)
@@ -325,7 +326,7 @@ export async function processFunnels(env: Env, now = Date.now(), fetcher: typeof
         break;
       }
       const unsub = e.contact_id ? `${env.PUBLIC_URL}/u/${await unsubscribeToken(env, e.contact_id)}` : `mailto:unsubscribe@${String(e.from_addr).replace(/.*@/, "").replace(/>.*/, "")}`;
-      const vars = { first_name: e.first_name ?? "", last_name: e.last_name ?? "", email: e.email, unsubscribe_url: unsub };
+      const vars = { first_name: e.first_name ?? "", last_name: e.last_name ?? "", email: e.email, unsubscribe_url: unsub, preferences_url: unsub, ...(await commerceVars(env, e.account_id, e.email, `${t.html}${t.text ?? ""}`)) };
       try {
         const r = await sendOne(
           env,
@@ -335,10 +336,10 @@ export async function processFunnels(env: Env, now = Date.now(), fetcher: typeof
             to: [e.email],
             reply_to: e.reply_to ? [e.reply_to] : undefined,
             subject: personalize(node.data.subject || t.subject || "(no subject)", vars)!,
-            html: personalize(t.html, vars),
+            html: personalizeHtml(t.html, vars),
             text: personalize(t.text, vars),
             headers: { "List-Unsubscribe": `<${unsub}>`, ...(unsub.startsWith("http") ? { "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } : {}) },
-            tags: [{ name: "category", value: "funnel" }],
+            tags: [{ name: "category", value: "funnel" }, { name: "funnel", value: String(e.funnel_id).replace(/[^A-Za-z0-9_-]/g, "") }],
           },
           `${e.id}:${node.id}`,
           fetcher,

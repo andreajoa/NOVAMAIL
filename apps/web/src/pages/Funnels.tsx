@@ -32,6 +32,12 @@ const RECIPES: { id: string; name: [string, string]; desc: [string, string]; gra
     desc: ["Quem clicou vira 'engaged'; quem não, recebe uma 2ª chance", "Clickers get tagged; others get a second chance"],
     graph: { version: 1, nodes: [n("t", "trigger", 0, 0, { kind: "audience" }), n("e1", "email", 0, 140), n("w", "wait", 0, 280, { minutes: 4320 }), n("c", "condition", 0, 420, { kind: "clicked" }), n("tg", "tag", -160, 580, { action: "add", tag: "engaged" }), n("e2", "email", 160, 580), n("end", "end", -160, 720), n("end2", "end", 160, 720)] as any, edges: [e("t", "e1"), e("e1", "w"), e("w", "c"), e("c", "tg", "yes"), e("c", "e2", "no"), e("tg", "end"), e("e2", "end2")] as any },
   },
+  {
+    id: "post-purchase",
+    name: ["Pós-compra", "Post-purchase"],
+    desc: ["Quem compra recebe obrigado em 3 dias e, 30 dias depois, sugestões de produtos ({{products_html}}).", "Buyers get a thank-you after 3 days and, 30 days later, product picks ({{products_html}})."],
+    graph: { version: 1, nodes: [n("t", "trigger", 0, 0, { kind: "tag", tag: "purchased" }), n("w1", "wait", 0, 140, { minutes: 4320 }), n("e1", "email", 0, 280), n("w2", "wait", 0, 420, { minutes: 43200 }), n("e2", "email", 0, 560), n("end", "end", 0, 700)] as any, edges: [e("t", "w1"), e("w1", "e1"), e("e1", "w2"), e("w2", "e2"), e("e2", "end")] as any },
+  },
 ];
 
 export function Funnels() {

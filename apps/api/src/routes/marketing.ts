@@ -43,6 +43,13 @@ export async function readUnsubscribeToken(env: Env, token: string) {
   return safeEqual(sig, await hmac(env, id)) ? id : null;
 }
 
+const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+
+/** HTML-safe personalization: contact-supplied values are escaped; keys ending in `_html` are trusted markup. */
+export function personalizeHtml(tpl: string | null | undefined, vars: Record<string, string>) {
+  return personalize(tpl, Object.fromEntries(Object.entries(vars).map(([k, v]) => [k, k.endsWith("_html") ? v : escapeHtml(v)])));
+}
+
 export function personalize(tpl: string | null | undefined, vars: Record<string, string>) {
   if (!tpl) return undefined;
   return tpl.replace(/\{\{\s*(\w+)\s*\}\}/g, (m, k: string) => (k in vars ? vars[k]! : m));
@@ -352,7 +359,7 @@ async function sendToContact(env: Env, b: Record<string, any>, ct: { id: string;
       to: [ct.email],
       reply_to: b.reply_to ? [b.reply_to] : undefined,
       subject: personalize(subject, vars)!,
-      html: personalize(b.html, vars),
+      html: personalizeHtml(b.html, vars),
       text: personalize(b.text, vars),
       headers: { "List-Unsubscribe": `<${unsub}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click", Precedence: "bulk" },
       tags: [{ name: "category", value: "broadcast" }, { name: "broadcast", value: b.id.replace(/[^A-Za-z0-9_-]/g, "") }, ...extraTags],

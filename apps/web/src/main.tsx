@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, Ban, Bot, Contact as ContactIcon, Filter, ClipboardList, BarChart3, UsersRound, CreditCard, GitBranch, Globe, KeyRound, LayoutDashboard, LayoutTemplate, LogOut, Mail, Megaphone, Users, Webhook } from "lucide-react";
+import { Activity, Ban, Bot, Contact as ContactIcon, Filter, ClipboardList, BarChart3, UsersRound, ShoppingBag, CreditCard, GitBranch, Globe, KeyRound, LayoutDashboard, LayoutTemplate, LogOut, Mail, Megaphone, Users, Webhook } from "lucide-react";
 import { StrictMode, useEffect, useState, type ComponentType } from "react";
 import { createRoot } from "react-dom/client";
 import { api, ApiError } from "./api";
@@ -11,6 +11,7 @@ import { Segments } from "./pages/Segments";
 import { Forms } from "./pages/Forms";
 import { Reports } from "./pages/Reports";
 import { Team } from "./pages/Team";
+import { Stores } from "./pages/Stores";
 import { Audiences } from "./pages/Audiences";
 import { Editor } from "./pages/Editor";
 import { FunnelCanvas } from "./pages/FunnelCanvas";
@@ -42,6 +43,7 @@ const ROUTES: R[] = [
   { path: "/funnels", label: P ? "Funis" : "Funnels", icon: GitBranch, page: Funnels, group: "Marketing" },
   { path: "/templates", label: P ? "Modelos" : "Templates", icon: LayoutTemplate, page: Templates, group: "Marketing" },
   { path: "/forms", label: P ? "Formulários" : "Forms", icon: ClipboardList, page: Forms, group: "Marketing" },
+  { path: "/stores", label: P ? "Lojas" : "Stores", icon: ShoppingBag, page: Stores, group: "Marketing" },
   { path: "/contacts", label: P ? "Contatos (CRM)" : "Contacts (CRM)", icon: ContactIcon, page: Contacts, group: P ? "Público" : "Audience" },
   { path: "/segments", label: P ? "Segmentos" : "Segments", icon: Filter, page: Segments, group: P ? "Público" : "Audience" },
   { path: "/audiences", label: P ? "Listas" : "Lists", icon: Users, page: Audiences, group: P ? "Público" : "Audience" },

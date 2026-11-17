@@ -16,6 +16,7 @@ import { processWarmups } from "./lib/ip-pools";
 import { cleanupPending, forms, publicForms } from "./routes/forms";
 import { reports } from "./routes/reports";
 import { team } from "./routes/team";
+import { commerceApi, processCarts, storeHooks, stores } from "./routes/commerce";
 import { mcp } from "./routes/mcp";
 import { media, serveMedia, templates } from "./routes/templates";
 import { admin } from "./routes/admin";
@@ -83,6 +84,7 @@ app.route("/hooks/postal", postalHooks);
 app.route("/hooks/stripe", stripeHooks);
 app.route("/u", unsubscribe);
 app.route("/f", publicForms);
+app.route("/hooks/store", storeHooks);
 // Public media used inside emails (immutable, edge-cached).
 app.get("/m/:id", (c) => serveMedia(c.env, c.req.raw, c.req.param("id"), c.executionCtx));
 app.route("/hooks/fbl", fbl);
@@ -102,7 +104,7 @@ app.route("/emails", emails);
 
 app.route("/auth", auth);
 
-for (const path of ["/domains", "/api-keys", "/webhooks", "/suppressions", "/usage", "/me", "/billing", "/audiences", "/broadcasts", "/templates", "/media", "/funnels", "/contacts", "/people", "/segments", "/crm", "/forms", "/reports", "/team"]) {
+for (const path of ["/domains", "/api-keys", "/webhooks", "/suppressions", "/usage", "/me", "/billing", "/audiences", "/broadcasts", "/templates", "/media", "/funnels", "/contacts", "/people", "/segments", "/crm", "/forms", "/reports", "/team", "/stores", "/commerce"]) {
   app.use(path, requireApiKey, requireFullAccess);
   app.use(`${path}/*`, requireApiKey, requireFullAccess);
 }
@@ -125,6 +127,8 @@ app.route("/crm/fields", crmFields);
 app.route("/forms", forms);
 app.route("/reports", reports);
 app.route("/team", team);
+app.route("/stores", stores);
+app.route("/commerce", commerceApi);
 
 // Platform owner.
 app.use("/admin/*", requireOwner);
@@ -182,6 +186,7 @@ export default {
     ctx.waitUntil(processBroadcasts(e).then((r) => r.length && console.log(JSON.stringify({ level: "info", broadcasts: r }))));
     ctx.waitUntil(processFunnels(e).then((r) => r.due && console.log(JSON.stringify({ level: "info", funnels: r }))));
     if (new Date(_ctrl.scheduledTime).getUTCMinutes() === 13) ctx.waitUntil(cleanupPending(e));
+    if (new Date(_ctrl.scheduledTime).getUTCMinutes() % 5 === 0) ctx.waitUntil(processCarts(e).then((n) => n && console.log(JSON.stringify({ level: "info", abandoned_carts: n }))));
     if (new Date(_ctrl.scheduledTime).getUTCMinutes() === 7) ctx.waitUntil(processWarmups(e).then((n) => n && console.log(JSON.stringify({ level: "info", warmups: n }))));
   },
 } satisfies ExportedHandler<Env, WebhookJob>;
