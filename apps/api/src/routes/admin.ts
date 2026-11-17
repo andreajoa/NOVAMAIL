@@ -62,6 +62,7 @@ admin.post("/fbl", async (c) => {
   const id = c.env.SYSTEM_ACCOUNT_ID;
   const a = id ? await c.env.DB.prepare("SELECT postal_org, postal_server FROM accounts WHERE id = ?").bind(id).first<{ postal_org: string; postal_server: string }>() : null;
   if (!a) throw errors.notFound("System account");
-  const r = await postalAdmin.fbl(c.env, { org: a.postal_org, server: a.postal_server, url: `${c.env.PUBLIC_URL}/hooks/fbl` });
+  const domain = (c.env.SYSTEM_FROM ?? "").match(/@([^>\s]+)/)?.[1] ?? "";
+  const r = await postalAdmin.fbl(c.env, { org: a.postal_org, server: a.postal_server, domain, url: `${c.env.PUBLIC_URL}/hooks/fbl` });
   return c.json({ address: r.address });
 });

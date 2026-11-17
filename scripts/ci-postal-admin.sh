@@ -82,9 +82,9 @@ check "$r" '.status != "success"'
 check "$(post /v1/unsuspend '{"org":"acc-ci123"}')" '.ok'
 
 echo "== feedback-loop route"
-r=$(post /v1/fbl '{"org":"acc-ci123","server":"main","url":"https://api.example.com/hooks/fbl"}')
-check "$r" '.ok and (.address | endswith("@routes.ci.test"))'
-r2=$(post /v1/fbl '{"org":"acc-ci123","server":"main","url":"https://api.example.com/hooks/fbl"}')
+r=$(post /v1/fbl '{"org":"acc-ci123","server":"main","domain":"example.com","url":"https://api.example.com/hooks/fbl"}')
+check "$r" '.ok and .address == "fbl@example.com" and (.forward_address | endswith("@routes.ci.test"))'
+r2=$(post /v1/fbl '{"org":"acc-ci123","server":"main","domain":"example.com","url":"https://api.example.com/hooks/fbl"}')
 check "$r2" ".address == $(echo "$r" | jq .address)"
 
 echo "== domain remove / 404s"

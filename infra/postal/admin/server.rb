@@ -145,9 +145,10 @@ module NovaMailAdmin
     server = server!(org!(b.fetch("org")), b.fetch("server"))
     ep = server.http_endpoints.find_by(name: "novamail-fbl") || server.http_endpoints.build(name: "novamail-fbl")
     ep.update!(url: b.fetch("url"), encoding: "BodyAsJSON", format: "RawMessage", include_attachments: true, timeout: 10)
-    route = server.routes.find_by(name: "fbl") || server.routes.build(name: "fbl")
+    domain = server.domains.find_by(name: b.fetch("domain").to_s.downcase) || raise(HttpError.new(404, "domain not found"))
+    route = server.routes.find_by(name: "fbl", domain: domain) || server.routes.build(name: "fbl", domain: domain)
     route.update!(mode: "Endpoint", endpoint: ep, spam_mode: "Mark")
-    { address: route.forward_address }
+    { address: "fbl@#{domain.name}", forward_address: route.forward_address }
   end
 
   ROUTES = {
