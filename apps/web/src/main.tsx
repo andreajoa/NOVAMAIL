@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, Ban, Bot, Contact as ContactIcon, Filter, ClipboardList, BarChart3, UsersRound, ShoppingBag, CreditCard, GitBranch, Globe, KeyRound, LayoutDashboard, LayoutTemplate, LogOut, Mail, Megaphone, Users, Webhook } from "lucide-react";
+import { Activity, Ban, Bot, Contact as ContactIcon, Filter, ClipboardList, BarChart3, UsersRound, ShoppingBag, KanbanSquare, CreditCard, GitBranch, Globe, KeyRound, LayoutDashboard, LayoutTemplate, LogOut, Mail, Megaphone, Users, Webhook } from "lucide-react";
 import { StrictMode, useEffect, useState, type ComponentType } from "react";
 import { createRoot } from "react-dom/client";
 import { api, ApiError } from "./api";
@@ -12,6 +12,7 @@ import { Forms } from "./pages/Forms";
 import { Reports } from "./pages/Reports";
 import { Team } from "./pages/Team";
 import { Stores } from "./pages/Stores";
+import { Pipeline } from "./pages/Pipeline";
 import { Audiences } from "./pages/Audiences";
 import { Editor } from "./pages/Editor";
 import { FunnelCanvas } from "./pages/FunnelCanvas";
@@ -45,6 +46,7 @@ const ROUTES: R[] = [
   { path: "/forms", label: P ? "Formulários" : "Forms", icon: ClipboardList, page: Forms, group: "Marketing" },
   { path: "/stores", label: P ? "Lojas" : "Stores", icon: ShoppingBag, page: Stores, group: "Marketing" },
   { path: "/contacts", label: P ? "Contatos (CRM)" : "Contacts (CRM)", icon: ContactIcon, page: Contacts, group: P ? "Público" : "Audience" },
+  { path: "/pipeline", label: P ? "Vendas" : "Sales pipeline", icon: KanbanSquare, page: Pipeline, group: P ? "Público" : "Audience" },
   { path: "/segments", label: P ? "Segmentos" : "Segments", icon: Filter, page: Segments, group: P ? "Público" : "Audience" },
   { path: "/audiences", label: P ? "Listas" : "Lists", icon: Users, page: Audiences, group: P ? "Público" : "Audience" },
   { path: "/suppressions", label: t.suppressions, icon: Ban, page: Suppressions, group: P ? "Público" : "Audience" },

@@ -293,7 +293,7 @@ people.get("/:email", async (c) => {
   const timeline = [
     ...(sent!.results as any[]).map((m) => ({ at: m.created_at, kind: "sent", title: m.subject, detail: m.last_event })),
     ...(events!.results as any[]).filter((e) => e.type !== "email.delivered").map((e) => ({ at: e.created_at, kind: e.type.replace("email.", ""), title: e.subject ?? "", detail: e.type === "email.clicked" ? (() => { try { return JSON.parse(e.data).click?.link ?? ""; } catch { return ""; } })() : "" })),
-    ...(acts!.results as any[]).map((a) => ({ at: a.created_at, kind: a.type, title: a.data ? (() => { try { const d = JSON.parse(a.data); return d.tag ?? (d.list ? listNames.get(d.list) ?? "" : ""); } catch { return ""; } })() : "", detail: "" })),
+    ...(acts!.results as any[]).map((a) => ({ at: a.created_at, kind: a.type, title: a.data ? (() => { try { const d = JSON.parse(a.data); return d.tag ?? d.title ?? (d.list ? listNames.get(d.list) ?? "" : d.amount_cents != null ? `${(d.amount_cents / 100).toFixed(2)} ${d.currency ?? ""}`.trim() : ""); } catch { return ""; } })() : "", detail: "" })),
     ...(notes!.results as any[]).map((n) => ({ at: n.created_at, kind: "note", title: n.body, detail: n.author ?? "", id: n.id })),
     ...(funnels!.results as any[]).map((f) => ({ at: f.created_at, kind: "funnel", title: f.name, detail: f.status })),
   ].sort((a, b) => b.at - a.at);

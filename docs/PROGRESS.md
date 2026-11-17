@@ -103,7 +103,7 @@ Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta impla
 - ✅ IP dedicado US$29/mês · US$290/ano: oferecido no checkout do Scale e no painel; aviso por e-mail ao dono; aquecimento automático (~3 semanas, limite por hora dobrando); cancelou → volta ao grupo do plano
 - 🔒 Ligar o IP do Free (`bash scripts/ip-pool.sh shared`) quando a porta 25 abrir e entrar o 1º pagante (~US$3,60/mês)
 
-## F12 — Melhor que os concorrentes (9/12)
+## F12 — Melhor que os concorrentes (10/12)
 - ✅ 1. Formulários: no site, pop-up (tempo/rolagem/saída; centro/canto/barra) e página própria; Shadow DOM; confirmação dupla; anti-robô (campo isca, tempo mínimo, limite por IP e por formulário); prova de consentimento (IP, navegador, página, hora); 5 modelos; editor com prévia desktop/celular; conversão
 - ✅ 2. Central de preferências: escolher listas, voltar a assinar, descadastro total; inglês/português pelo navegador; botão do Gmail continua 1 clique
 - ✅ 3. Teste A/B (até 4 assuntos, % do teste, vencedor por abertura ou clique, espera; vencedor vai sozinho ao resto) + reenvio para quem não abriu + agendamento
@@ -113,7 +113,7 @@ Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta impla
 - ✅ 7. IA (Workers AI, Llama 3.3 70B, cota grátis): e-mail inteiro a partir de uma ideia (vira blocos editáveis + assunto + pré-cabeçalho), reescrever bloco (curto, amigável, profissional, urgente, corrigir, traduzir), 5 assuntos com ângulos diferentes → 1 clique vira teste A/B; proibido inventar preço/prazo/garantia; limite diário por plano; testado em produção
 - ✅ 8. Melhor horário: cada contato recebe na hora em que costuma abrir (histórico de 180 dias), dentro de 24 h; sem histórico → melhor hora da lista
 - ✅ 9. Checagem antes do envio (nota 0–100 + como corrigir): assunto, CAIXA ALTA, RE: falso, frases de spam, proporção texto/imagem, alt, http, encurtadores, link disfarçado (phishing), corte do Gmail >102 KB, remetente grátis, domínio verificado e DMARC; prévia da caixa de entrada celular/computador e do modo escuro; API /tools/preflight
-- ⏳ 10. Funil de vendas no CRM (negócios, etapas, tarefas)
+- ✅ 10. Vendas no CRM: quadro de negócios com arrastar e soltar, etapas personalizáveis com probabilidade, previsão ponderada, taxa de ganho, responsável da equipe, tarefas com prazo/atrasadas; ganhou/perdeu → etiqueta deal-won/deal-lost dispara funis; tudo na linha do tempo do contato
 - ⏳ 11. Zapier/Make
 - ⏳ 12. SMS e WhatsApp (conta Twilio/Meta do próprio cliente)
 

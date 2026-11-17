@@ -1286,3 +1286,40 @@ describe("pre-send check", () => {
     expect(r.body.findings[0].id).toBe("domain_unverified");
   });
 });
+
+describe("sales pipeline and tasks", () => {
+  it("moves deals across stages with a weighted forecast, tags won deals and tracks tasks", async () => {
+    const acc = await verifiedAccount(postal, "pro");
+    const t = (path: string, init: any = {}) => call(path, { token: acc.api_key, ...init });
+    await t("/people", { method: "POST", json: { email: "lead@corp.com", first_name: "Lee" } });
+    const b0 = await t("/deals");
+    expect(b0.body.pipeline.stages.map((s: any) => s.id)).toEqual(["lead", "qualified", "proposal", "negotiation", "won", "lost"]);
+    const d1 = await t("/deals", { method: "POST", json: { title: "Annual plan — Corp", email: "lead@corp.com", value_cents: 100_000 } });
+    const d2 = await t("/deals", { method: "POST", json: { title: "Small shop", value_cents: 20_000, stage_id: "proposal" } });
+    expect(d1.status).toBe(201);
+    let board = await t("/deals");
+    expect(board.body.stats.open_value_cents).toBe(120_000);
+    expect(board.body.stats.weighted_forecast_cents).toBe(10_000 + 12_000); // 10% + 60%
+    await t(`/deals/${d1.body.id}`, { method: "PATCH", json: { stage_id: "negotiation" } });
+    const won = await t(`/deals/${d1.body.id}`, { method: "PATCH", json: { stage_id: "won" } });
+    expect(won.body.status).toBe("won");
+    await t(`/deals/${d2.body.id}`, { method: "PATCH", json: { stage_id: "lost" } });
+    board = await t("/deals");
+    expect(board.body.stats.win_rate).toBe(0.5);
+    const person = await t("/people/lead@corp.com");
+    expect(person.body.tags).toContain("deal-won");
+    expect(person.body.timeline.map((x: any) => x.kind)).toEqual(expect.arrayContaining(["deal_created", "deal_stage"]));
+    expect((await t(`/deals/${d1.body.id}`, { method: "PATCH", json: { stage_id: "nope" } })).status).toBe(422);
+
+    const task = await t("/tasks", { method: "POST", json: { title: "Send contract", deal_id: d1.body.id, due_at: Date.now() - 1000 } });
+    let list = await t("/tasks");
+    expect(list.body.data[0]).toMatchObject({ id: task.body.id, email: "lead@corp.com", overdue: true, deal_title: "Annual plan — Corp" });
+    await t(`/tasks/${task.body.id}`, { method: "PATCH", json: { done: true } });
+    list = await t("/tasks");
+    expect(list.body.data).toHaveLength(0);
+    expect((await t("/tasks?status=done")).body.data).toHaveLength(1);
+
+    const pl = board.body.pipeline.id;
+    expect((await t(`/pipelines/${pl}`, { method: "PATCH", json: { stages: [{ id: "a", name: "A", kind: "open", probability: 10 }, { id: "won", name: "Won", kind: "won", probability: 100 }] } })).status).toBe(409); // lost stage still has a deal
+  });
+});
