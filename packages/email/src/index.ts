@@ -217,3 +217,4 @@ export function renderBlockDocument(block: Block, theme: Theme): string {
 }
 
 export { TEMPLATES, type TemplatePreset } from "./templates";
+export * from "./funnel";

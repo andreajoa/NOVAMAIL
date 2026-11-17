@@ -6,13 +6,13 @@ import { API_DOCS, esc } from "./layout";
 
 export const HOME_CSS = `
 .h-grid>*,.two>*,.steps>*,.big>*{min-width:0}pre{max-width:100%}main{overflow-x:clip}
-:root{--accent:#2563eb;--accent-soft:#dbeafe;--ok:#059669}
-@media(prefers-color-scheme:dark){:root{--accent:#60a5fa;--accent-soft:#172554;--ok:#34d399}}
+:root{--accent:var(--fg);--accent-soft:#f4f4f5;--ok:var(--fg)}
+@media(prefers-color-scheme:dark){:root{--accent-soft:#27272a}}
 .h-grid{display:grid;gap:48px;align-items:center;padding:48px 0 24px}@media(min-width:960px){.h-grid{grid-template-columns:1.05fr .95fr;padding:72px 0 40px}}
 .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--accent);background:var(--accent-soft);padding:6px 12px;border-radius:999px;margin-bottom:22px}
 .eyebrow i{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:pulse 2s ease-in-out infinite}
 .h-title{font-size:clamp(38px,6.4vw,68px);line-height:1.02;letter-spacing:-.035em;margin:0 0 22px;font-weight:720}
-.h-title em{font-style:normal;background:linear-gradient(90deg,var(--accent),#7c3aed 60%,var(--accent));background-size:200% auto;-webkit-background-clip:text;background-clip:text;color:transparent;animation:shine 6s linear infinite}
+.h-title em{font-style:normal;background:linear-gradient(var(--fg),var(--fg)) no-repeat left 92%/0% 6px;padding-bottom:4px;animation:underline 1s .9s cubic-bezier(.2,.7,.2,1) forwards}
 .h-lead{font-size:clamp(17px,2.1vw,20px);color:var(--mut);max-width:560px;margin:0 0 30px}
 .h-proof{display:flex;flex-wrap:wrap;gap:18px;margin-top:26px;font-size:14px;color:var(--mut)}.h-proof span::before{content:"✓";color:var(--ok);font-weight:700;margin-right:6px}
 .in{opacity:0;animation:rise .8s cubic-bezier(.2,.7,.2,1) forwards}.d1{animation-delay:.08s}.d2{animation-delay:.18s}.d3{animation-delay:.3s}.d4{animation-delay:.42s}
@@ -20,10 +20,10 @@ export const HOME_CSS = `
 .inbox-top{display:flex;align-items:center;gap:6px;padding:2px 4px 14px;border-bottom:1px solid var(--line);margin-bottom:10px}.inbox-top b{margin-left:8px;font-size:14px}.dot{width:10px;height:10px;border-radius:50%;background:var(--line)}
 .mail{display:grid;grid-template-columns:38px 1fr auto;gap:12px;align-items:center;padding:12px 10px;border-radius:12px;opacity:0;transform:translateY(14px);animation:mailin .7s cubic-bezier(.2,.7,.2,1) forwards}
 .mail+.mail{border-top:1px solid var(--line)}.mail:nth-child(2){animation-delay:.6s}.mail:nth-child(3){animation-delay:1.3s}.mail:nth-child(4){animation-delay:2s}.mail:nth-child(5){animation-delay:2.7s}
-.av{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;color:#fff;font-weight:700;font-size:15px}
+.av{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;color:var(--bg);font-weight:700;font-size:15px}
 .mail p{margin:0;font-size:14px;color:var(--fg);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mail small{display:block;color:var(--mut);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.badge{font-size:11.5px;font-weight:650;color:var(--ok);background:color-mix(in srgb,var(--ok) 12%,transparent);padding:4px 8px;border-radius:999px;white-space:nowrap}
-.float{position:absolute;left:-22px;bottom:-22px;background:var(--fg);color:var(--bg);border-radius:14px;padding:12px 16px;font-size:13px;box-shadow:0 16px 40px -12px rgba(0,0,0,.4);opacity:0;animation:pop .6s 3.4s cubic-bezier(.2,.9,.3,1.3) forwards}
+.badge{font-size:11.5px;font-weight:650;color:var(--fg);background:var(--accent-soft);padding:4px 8px;border-radius:999px;white-space:nowrap}
+.float{position:absolute;left:-26px;bottom:-40px;background:var(--fg);color:var(--bg);border-radius:14px;padding:12px 16px;font-size:13px;box-shadow:0 16px 40px -12px rgba(0,0,0,.4);opacity:0;animation:pop .6s 3.4s cubic-bezier(.2,.9,.3,1.3) forwards}
 .float b{display:block;font-size:22px;letter-spacing:-.02em}
 .band{border:1px solid var(--line);border-radius:24px;background:var(--card);margin:40px 0;padding:0 clamp(20px,4vw,48px)}
 .story{padding:72px 0}.story .k{font-size:13px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin:0 0 10px}
@@ -36,14 +36,14 @@ export const HOME_CSS = `
 .ed-pal{border-right:1px solid var(--line);padding:12px;display:grid;gap:8px;align-content:start}.ed-pal span{font-size:12px;border:1px solid var(--line);border-radius:8px;padding:7px 8px;color:var(--mut)}
 .ed-pal span.drag{color:var(--fg);border-color:var(--accent);animation:dragit 4s ease-in-out infinite}
 .ed-can{padding:16px;background:var(--bg);display:grid;gap:10px}.ed-can .blk{border-radius:10px;background:var(--card);border:1px solid var(--line);padding:12px}
-.ed-can .hero-img{height:92px;border-radius:10px;background:linear-gradient(120deg,#c7d2fe,#fbcfe8,#fde68a);background-size:200% 200%;animation:grad 6s ease infinite}
+.ed-can .hero-img{height:92px;border-radius:10px;background:linear-gradient(120deg,#e4e4e7,#a1a1aa,#e4e4e7);background-size:200% 200%;animation:grad 6s ease infinite}
 .ed-can .l{height:10px;border-radius:6px;background:var(--line);margin:6px 0}.ed-can .l.s{width:60%}.ed-can .btnm{display:inline-block;background:var(--fg);color:var(--bg);font-size:12px;font-weight:600;padding:7px 12px;border-radius:8px}
 .ed-can .drop{border:2px dashed var(--accent);border-radius:10px;height:0;opacity:0;animation:dropz 4s ease-in-out infinite}
 ul.ticks{list-style:none;padding:0;margin:0;display:grid;gap:12px}ul.ticks li{padding-left:30px;position:relative;color:var(--mut)}ul.ticks li strong{color:var(--fg)}ul.ticks li::before{content:"✓";position:absolute;left:0;top:0;width:20px;height:20px;border-radius:6px;display:grid;place-items:center;font-size:12px;background:var(--accent-soft);color:var(--accent);font-weight:700}
 .funnel svg{width:100%;height:auto;max-width:880px;display:block;margin:0 auto}.flow{stroke:var(--accent);stroke-width:3;fill:none;stroke-dasharray:8 10;animation:flow 1.2s linear infinite}
 .node rect{fill:var(--card);stroke:var(--line)}.node text{fill:var(--fg);font:600 15px ui-sans-serif,system-ui,-apple-system,sans-serif}.node .t2{fill:var(--mut);font-weight:400;font-size:13px}.node.acc rect{stroke:var(--accent);stroke-width:2}
 .pkt{fill:var(--accent);animation:travel 4s linear infinite}
-.seals{display:flex;flex-wrap:wrap;gap:12px}.seal{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--card);border-radius:14px;padding:14px 16px;font-weight:600}.seal i{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok);font-style:normal}
+.seals{display:flex;flex-wrap:wrap;gap:12px}.seal{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--card);border-radius:14px;padding:14px 16px;font-weight:600}.seal i{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--fg);color:var(--bg);font-style:normal;font-size:13px}
 .final{text-align:center;padding:88px 0 40px}.final h2{margin-left:auto;margin-right:auto}.final .sub{margin-left:auto;margin-right:auto}.final .cta{justify-content:center}
 .reveal{opacity:1}
 @supports (animation-timeline: view()){.reveal{animation:rise linear both;animation-timeline:view();animation-range:entry 5% cover 28%}}
@@ -51,7 +51,7 @@ ul.ticks{list-style:none;padding:0;margin:0;display:grid;gap:12px}ul.ticks li{pa
 @keyframes mailin{to{opacity:1;transform:none}}
 @keyframes pop{from{opacity:0;transform:scale(.85) translateY(10px)}to{opacity:1;transform:none}}
 @keyframes pulse{50%{opacity:.35}}
-@keyframes shine{to{background-position:200% center}}
+@keyframes underline{to{background-size:100% 6px}}
 @keyframes grad{50%{background-position:100% 50%}}
 @keyframes flow{to{stroke-dashoffset:-36}}
 @keyframes dragit{0%,15%{transform:none}45%,60%{transform:translate(140px,64px) rotate(-2deg);box-shadow:0 10px 24px -8px rgba(0,0,0,.3)}80%,100%{transform:none}}
@@ -82,10 +82,10 @@ const EN: Copy = {
   proof: ["3,000 emails/month free", "Drag-and-drop editor", "One-click unsubscribe built in"],
   inbox: "Inbox",
   mails: [
-    ["Y", "Your Store", "20% off ends tonight, Ana", "#dc2626"],
-    ["Y", "Your Store", "Welcome aboard — here's your gift", "#2563eb"],
-    ["Y", "Your Store", "You left something in your cart", "#059669"],
-    ["Y", "Your Store", "New collection just dropped", "#7c3aed"],
+    ["Y", "Your Store", "20% off ends tonight, Ana", "#18181b"],
+    ["Y", "Your Store", "Welcome aboard — here's your gift", "#18181b"],
+    ["Y", "Your Store", "You left something in your cart", "#18181b"],
+    ["Y", "Your Store", "New collection just dropped", "#18181b"],
   ],
   float: ["Delivered", "4 / 4 in the inbox"],
   p_k: "The opportunity",
@@ -130,10 +130,10 @@ const PT: Copy = {
   proof: ["3.000 e-mails/mês grátis", "Editor de arrastar e soltar", "Descadastro em 1 clique incluso"],
   inbox: "Caixa de entrada",
   mails: [
-    ["S", "Sua Loja", "20% OFF termina hoje, Ana", "#dc2626"],
-    ["S", "Sua Loja", "Boas-vindas — tem um presente aqui", "#2563eb"],
-    ["S", "Sua Loja", "Você esqueceu algo no carrinho", "#059669"],
-    ["S", "Sua Loja", "A nova coleção chegou", "#7c3aed"],
+    ["S", "Sua Loja", "20% OFF termina hoje, Ana", "#18181b"],
+    ["S", "Sua Loja", "Boas-vindas — tem um presente aqui", "#18181b"],
+    ["S", "Sua Loja", "Você esqueceu algo no carrinho", "#18181b"],
+    ["S", "Sua Loja", "A nova coleção chegou", "#18181b"],
   ],
   float: ["Entregues", "4 / 4 na caixa de entrada"],
   p_k: "A oportunidade",
@@ -195,7 +195,7 @@ export function home(lang: "en" | "pt-BR") {
 </div>
 <div class="inbox in d2" aria-hidden="true">
   <div class="inbox-top"><span class="dot"></span><span class="dot"></span><span class="dot"></span><b>${esc(c.inbox)}</b></div>
-  ${c.mails.map(([i, from, sub, col]) => `<div class="mail"><div class="av" style="background:${col}">${esc(i)}</div><div><p>${esc(sub)}</p><small>${esc(from)}</small></div><span class="badge">✓ ${lang === "en" ? "Delivered" : "Entregue"}</span></div>`).join("")}
+  ${c.mails.map(([i, from, sub, col]) => `<div class="mail"><div class="av" style="background:var(--fg)">${esc(i)}</div><div><p>${esc(sub)}</p><small>${esc(from)}</small></div><span class="badge">✓ ${lang === "en" ? "Delivered" : "Entregue"}</span></div>`).join("")}
   <div class="float"><b>${esc(c.float[0])}</b>${esc(c.float[1])}</div>
 </div>
 </section>`;
@@ -227,7 +227,7 @@ export function home(lang: "en" | "pt-BR") {
        "html":"<p>Thanks!</p>"}'`)}</code></pre></div></section>
 
 <section class="story reveal"><p class="k">${esc(c.pr_k)}</p><h2>${esc(c.pr_h)}</h2>
-<div class="steps" style="counter-reset:none">${c.plans.map(([n, p, d, y]) => `<div style="padding-top:22px"><h3>${esc(n)}</h3><p class="price">${esc(p)}</p><p>${esc(d)}</p>${y ? `<p style="color:var(--ok);font-size:14px">${esc(y)}</p>` : ""}</div>`).join("")}</div>
+<div class="steps" style="counter-reset:none">${c.plans.map(([n, p, d, y]) => `<div style="padding-top:22px"><h3>${esc(n)}</h3><p class="price">${esc(p)}</p><p>${esc(d)}</p>${y ? `<p style="color:var(--fg);font-size:14px;font-weight:600">${esc(y)}</p>` : ""}</div>`).join("")}</div>
 <p style="margin-top:16px">${esc(c.pr_note)}</p></section>`;
 
   const finale = `<section class="final reveal"><h2 style="font-size:clamp(30px,4.6vw,48px);letter-spacing:-.03em;line-height:1.05;max-width:720px">${esc(c.fin_h)}</h2><p class="sub" style="font-size:18px;color:var(--mut);max-width:560px">${esc(c.fin_sub)}</p><div class="cta"><a class="btn" href="/login">${esc(c.cta)} →</a></div></section>`;
