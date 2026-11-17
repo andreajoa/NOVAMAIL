@@ -2,7 +2,7 @@
 
 Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta implantar/provar · ⏳ a fazer · 🔒 depende do André
 
-**Progresso geral: 36 / 46 itens (78%)** — atualizado 17/11/2026 02h30 (BRT)
+**Progresso geral: 39 / 47 itens (83%)** — atualizado 17/11/2026 03h (BRT)
 
 ## F0 — Auditoria (100%)
 - ✅ 5 repositórios auditados (Postal, listmonk, Plunk, BillionMail, Mautic) → Postal MIT escolhido
@@ -37,8 +37,11 @@ Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta impla
 - ✅ Domínio `envio.novamail.nexaclouds.online`: DNS publicado sozinho na Cloudflare e verificado (SPF/DKIM/return-path OK)
 - 🔒 1º e-mail (para o Gmail do André) aceito e na fila do Postal; sai quando a AWS liberar a porta 25
 
-## F3 — Marcas do André no NovaMail (0/6)
-- ⏳ Gilberto · ⏳ AMB · ⏳ Atenza · ⏳ Trilha Aprova · ⏳ FlowNexa · ⏳ NexaCloud (troca do Resend/Brevo, seguindo a rampa de aquecimento)
+## F3 — Marcas do André no NovaMail (2/4)
+- ✅ 6 contas internas criadas (Gilberto, AMB, Atenza, Trilha, FlowNexa, NexaCloud) com subdomínio `mail.<marca>` — chaves em ~/.config/novamail/marcas (600)
+- ✅ mail.nexaclouds.online publicado e VERIFICADO
+- 🔒 DNS das outras 5: `bash scripts/publicar-dns-marcas.sh flownexa atenza` (+ `CF_TOKEN=… … gilberto amb trilha` nas outras contas Cloudflare) — bloqueado para mim
+- ⏳ Trocar Resend/Brevo pelo NovaMail em cada projeto, seguindo a rampa de aquecimento (depois da porta 25)
 
 ## F4 — Painel do cliente (5/5) — https://app.novamail.nexaclouds.online
 - ✅ Login sem senha (código de 6 dígitos enviado pelo próprio NovaMail; ponte temporária só para e-mails do sistema até a porta 25 abrir), cadastro automático no Free, sessão HttpOnly + proteção CSRF, limite de tentativas, bloqueio de e-mail descartável
@@ -66,5 +69,6 @@ Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta impla
 - ✅ Página de status pública https://api.novamail.nexaclouds.online/status
 - 🔒 Cadastrar o endereço FBL no Yahoo CFL e Microsoft JMRP/SNDS + domínio no Google Postmaster Tools
 
-## Lançamento (0/1)
-- 🔒 Domínio próprio da marca + Termos, Política de Uso Aceitável e LGPD
+## Lançamento (1/2)
+- ✅ Landing com preços + cadastro, Termos, Política de Uso Aceitável e Privacidade (LGPD) em app.novamail.nexaclouds.online (revisar com advogado antes de escala)
+- 🔒 Domínio próprio da marca (hoje *.novamail.nexaclouds.online)
