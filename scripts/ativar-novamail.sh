@@ -75,13 +75,13 @@ if [ ! -s "$CONF/cloudflare-token" ]; then
      Permissões (Zone):     DNS: Edit · Workers Routes: Edit · Zone: Read
      Account Resources: Andrealmeidashop@proton.me's Account · Zone Resources: nexaclouds.online
 EOF
-  if [ ! -t 0 ]; then
-    echo "   Copie o token criado e rode:  pbpaste | tr -d '[:space:]' > $CONF/cloudflare-token && chmod 600 $CONF/cloudflare-token"
-    echo "   Depois rode este script de novo (a VM já criada é reaproveitada)."
-    exit 1
+  if [ -t 0 ]; then
+    read -r -s -p "   Cole o token aqui e Enter: " CFT; echo
+    printf '%s' "$CFT" > "$CONF/cloudflare-token"; chmod 600 "$CONF/cloudflare-token"
+  else
+    # Non-interactive (Claude Code `!`): wait for the token to be copied to the clipboard.
+    bash "$(dirname "$0")/pegar-token-cloudflare.sh"
   fi
-  read -r -s -p "   Cole o token aqui e Enter: " CFT; echo
-  printf '%s' "$CFT" > "$CONF/cloudflare-token"; chmod 600 "$CONF/cloudflare-token"
 fi
 CFT=$(cat "$CONF/cloudflare-token")
 ok=$(curl -s "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/d1/database?per_page=1" -H "Authorization: Bearer $CFT" | python3 -c 'import sys,json;print(json.load(sys.stdin).get("success"))')
