@@ -1,0 +1,195 @@
+import type { Block, Design, Theme } from "./index";
+import type { TemplatePreset } from "./templates";
+
+const IMG = "https://app.novamail.nexaclouds.online/tpl";
+const T = (p: Partial<Theme>): Theme => ({ background: "#f4f4f5", content: "#ffffff", text: "#18181b", muted: "#71717a", accent: "#18181b", font: "System", width: 600, radius: 12, ...p });
+const foot = (dark = false): Block => ({ id: "foot", type: "footer", html: `Your Store · 123 Main Street, Anytown, USA<br>${dark ? "You're receiving this because you subscribed." : "You're receiving this because you're on our list."}`, unsubscribe: true });
+const d = (preheader: string, theme: Theme, blocks: Block[]): Design => ({ version: 1, preheader, theme, blocks });
+const P = (id: string, en: string, pt: string, den: string, dpt: string, subject: string, design: Design, date?: string): TemplatePreset => ({ id, name: { en, pt }, description: { en: den, pt: dpt }, subject, design, category: "seasonal", date });
+
+/** US commercial calendar: each template has its own layout, palette and artwork. */
+export const SEASONAL: TemplatePreset[] = [
+  P("black-friday", "Black Friday", "Black Friday", "Bold dark sale with a giant code and countdown feel.", "Promoção escura com cupom gigante.", "{{first_name}}, Black Friday starts NOW — up to 50% off",
+    d("Our biggest sale of the year. Doors open now.", T({ background: "#000000", content: "#0a0a0a", text: "#fafafa", muted: "#a3a3a3", accent: "#facc15", font: "Helvetica", radius: 0 }), [
+      { id: "hero", type: "image", src: `${IMG}/black-friday.jpg`, alt: "Black Friday — up to 50% off", width: 100, radius: 0, href: "https://example.com/black-friday" },
+      { id: "h", type: "heading", text: "The sale you've been waiting for", size: 32, align: "center", color: "#fafafa" },
+      { id: "t", type: "text", html: "Everything on the site is up to <strong>50% off</strong> — this weekend only. Use the code below at checkout for an extra 10%.", align: "center", color: "#d4d4d4" },
+      { id: "code", type: "heading", text: "EXTRA10", size: 44, align: "center", color: "#facc15" },
+      { id: "b", type: "button", text: "SHOP BLACK FRIDAY", href: "https://example.com/black-friday", bg: "#facc15", color: "#0a0a0a", align: "center", full: true, radius: 0 },
+      { id: "s", type: "spacer", height: 12 },
+      { id: "p1", type: "image_text", src: `${IMG}/product-bottle.jpg`, alt: "Best seller", html: "<strong>Best seller — 40% off</strong><br>Was $60, now $36.", imageSide: "left", href: "https://example.com/p1" },
+      { id: "p2", type: "image_text", src: `${IMG}/product-bag.jpg`, alt: "Fan favorite", html: "<strong>Fan favorite — 50% off</strong><br>Was $120, now $60.", imageSide: "right", href: "https://example.com/p2" },
+      { id: "dv", type: "divider", color: "#262626" },
+      foot(true),
+    ]), "Nov 27, 2026"),
+  P("cyber-monday", "Cyber Monday", "Cyber Monday", "Neon tech look, online-only urgency.", "Visual neon tecnológico, urgência online.", "⚡ Cyber Monday: 24 hours only",
+    d("Online only. Ends at midnight.", T({ background: "#0b0420", content: "#140a33", text: "#ede9fe", muted: "#a78bfa", accent: "#22d3ee", font: "Verdana", radius: 16 }), [
+      { id: "hero", type: "image", src: `${IMG}/cyber-monday.jpg`, alt: "Cyber Monday", width: 100, radius: 0 },
+      { id: "h", type: "heading", text: "24 hours. Online only.", size: 30, align: "center", color: "#a5f3fc" },
+      { id: "t", type: "text", html: "Free shipping on every order and our lowest prices of the year. When the clock hits midnight, it's over.", align: "center", color: "#ddd6fe" },
+      { id: "b", type: "button", text: "Shop Cyber Monday →", href: "https://example.com/cyber", bg: "#22d3ee", color: "#0b0420", align: "center", radius: 999 },
+      { id: "s", type: "spacer", height: 16 },
+      foot(true),
+    ]), "Nov 30, 2026"),
+  P("christmas", "Christmas", "Natal", "Warm cream & gold gift guide with a shipping deadline.", "Guia de presentes creme e dourado com prazo de entrega.", "{{first_name}}, our holiday gift guide 🎁",
+    d("Gifts they'll love — order by Dec 18 for Christmas delivery.", T({ background: "#7f1d1d", content: "#fffbeb", text: "#3f1d0b", muted: "#92400e", accent: "#b91c1c", font: "Georgia", radius: 14 }), [
+      { id: "hero", type: "image", src: `${IMG}/christmas.jpg`, alt: "Merry Christmas", width: 100, radius: 0 },
+      { id: "h", type: "heading", text: "The holiday gift guide", size: 32, align: "center", color: "#7f1d1d" },
+      { id: "t", type: "text", html: "Hand-picked gifts for everyone on your list. <strong>Order by December 18</strong> for delivery before Christmas.", align: "center" },
+      { id: "p1", type: "image_text", src: `${IMG}/product-bag.jpg`, alt: "For her", html: "<strong>For her</strong><br>Thoughtful gifts from $25.", imageSide: "left", href: "https://example.com/her" },
+      { id: "p2", type: "image_text", src: `${IMG}/product-box.jpg`, alt: "For him", html: "<strong>For him</strong><br>Gifts he'll actually use, from $30.", imageSide: "right", href: "https://example.com/him" },
+      { id: "b", type: "button", text: "Shop all gifts", href: "https://example.com/gifts", bg: "#b91c1c", align: "center", radius: 999 },
+      { id: "dv", type: "divider", color: "#fde68a" },
+      { id: "x", type: "text", html: "Free gift wrapping on every order · Easy returns until Jan 31", align: "center", size: 14, color: "#92400e" },
+      foot(),
+    ]), "Dec 25, 2026"),
+  P("new-year", "New Year", "Ano Novo", "Midnight-and-gold thank-you with a fresh-start offer.", "Agradecimento azul-noite e dourado com oferta de recomeço.", "Thank you for 2026, {{first_name}} ✨",
+    d("A small thank-you to start the new year.", T({ background: "#020617", content: "#0f172a", text: "#f1f5f9", muted: "#94a3b8", accent: "#d4a017", font: "Georgia", radius: 18 }), [
+      { id: "hero", type: "image", src: `${IMG}/new-year.jpg`, alt: "Happy New Year 2027", width: 100, radius: 0 },
+      { id: "h", type: "heading", text: "Thank you for an amazing year", size: 30, align: "center", color: "#fde68a" },
+      { id: "t", type: "text", html: "Because of customers like you, 2026 was our best year yet. Here's 20% off your first order of 2027 — our way of saying thanks.", align: "center", color: "#cbd5e1" },
+      { id: "code", type: "heading", text: "HELLO2027", size: 36, align: "center", color: "#facc15" },
+      { id: "b", type: "button", text: "Start the year in style", href: "https://example.com", bg: "#d4a017", color: "#020617", align: "center" },
+      { id: "s", type: "spacer", height: 12 },
+      foot(true),
+    ]), "Jan 1, 2027"),
+  P("valentines", "Valentine's Day", "Dia dos Namorados (EUA)", "Romantic pink with gift picks and a sweet note.", "Rosa romântico com sugestões de presente.", "Something sweet for your Valentine 💌",
+    d("Gifts for the one you love — delivered by Feb 13.", T({ background: "#ffe4e6", content: "#ffffff", text: "#881337", muted: "#be123c", accent: "#e11d48", font: "Georgia", radius: 24 }), [
+      { id: "hero", type: "image", src: `${IMG}/valentines.jpg`, alt: "Be Mine", width: 100, radius: 16 },
+      { id: "h", type: "heading", text: "Love is in the details", size: 30, align: "center", color: "#9f1239" },
+      { id: "t", type: "text", html: "Make it unforgettable with a gift that says exactly what you mean. Order by Feb 10 for delivery in time.", align: "center" },
+      { id: "p1", type: "image_text", src: `${IMG}/product-bag.jpg`, alt: "Gift", html: "<strong>The perfect gift</strong><br>Wrapped and ready, with a handwritten note.", imageSide: "right", href: "https://example.com/valentine" },
+      { id: "b", type: "button", text: "Find their gift", href: "https://example.com/valentine", bg: "#e11d48", align: "center", radius: 999 },
+      foot(),
+    ]), "Feb 14, 2027"),
+  P("st-patricks", "St. Patrick's Day", "St. Patrick's Day", "Lucky green 17%-off promo.", "Promoção verde da sorte, 17% OFF.", "Feeling lucky, {{first_name}}? 🍀 17% off today",
+    d("Our luckiest deal of the year — today only.", T({ background: "#022c22", content: "#064e3b", text: "#ecfccb", muted: "#a7f3d0", accent: "#fde047", font: "Trebuchet", radius: 12 }), [
+      { id: "hero", type: "image", src: `${IMG}/st-patricks.jpg`, alt: "Lucky deals", width: 100, radius: 0 },
+      { id: "t", type: "text", html: "Find the pot of gold at the end of our site: <strong>17% off everything</strong> for St. Patrick's Day.", align: "center", size: 18 },
+      { id: "b", type: "button", text: "Get lucky", href: "https://example.com", bg: "#fde047", color: "#022c22", align: "center", full: true },
+      foot(true),
+    ]), "Mar 17, 2027"),
+  P("easter", "Easter", "Páscoa", "Pastel spring basket of offers.", "Cesta de ofertas em tons pastel.", "Hop into spring, {{first_name}} 🐣",
+    d("Fresh arrivals and a basket full of offers.", T({ background: "#fef9c3", content: "#ffffff", text: "#4c1d95", muted: "#7c3aed", accent: "#8b5cf6", font: "Trebuchet", radius: 20 }), [
+      { id: "h", type: "heading", text: "Spring has sprung", size: 34, align: "center", color: "#6d28d9" },
+      { id: "hero", type: "image", src: `${IMG}/easter.jpg`, alt: "Happy Easter", width: 100, radius: 16 },
+      { id: "t", type: "text", html: "New colors, new arrivals and an Easter surprise: <strong>buy 2, get 1 free</strong> through Sunday.", align: "center" },
+      { id: "b", type: "button", text: "Fill your basket", href: "https://example.com", bg: "#8b5cf6", align: "center", radius: 999 },
+      foot(),
+    ]), "Mar 28, 2027"),
+  P("mothers-day", "Mother's Day", "Dia das Mães (EUA)", "Elegant floral with a heartfelt message and gift ideas.", "Floral elegante com mensagem e ideias de presente.", "For the woman who does it all 💐",
+    d("Gifts as wonderful as she is — order by May 6.", T({ background: "#fdf2f8", content: "#ffffff", text: "#500724", muted: "#9d174d", accent: "#db2777", font: "Georgia", radius: 0 }), [
+      { id: "hero", type: "image", src: `${IMG}/mothers-day.jpg`, alt: "For Mom, with love", width: 100, radius: 0 },
+      { id: "t", type: "text", html: "<em>“She gave us everything. This year, let's give a little back.”</em>", align: "center", size: 20, color: "#9d174d" },
+      { id: "p1", type: "image_text", src: `${IMG}/product-bag.jpg`, alt: "Gift for Mom", html: "<strong>Gifts under $50</strong><br>Beautiful, useful, and wrapped for free.", imageSide: "left", href: "https://example.com/mom" },
+      { id: "b", type: "button", text: "Shop Mother's Day", href: "https://example.com/mom", bg: "#db2777", align: "center" },
+      foot(),
+    ]), "May 9, 2027"),
+  P("memorial-day", "Memorial Day", "Memorial Day", "Respectful red-white-blue with a weekend sale.", "Respeitoso, vermelho-branco-azul, com venda de fim de semana.", "Memorial Day weekend: 30% off sitewide",
+    d("Honoring those who served — and kicking off summer.", T({ background: "#e2e8f0", content: "#ffffff", text: "#0b1f44", muted: "#475569", accent: "#b91c1c", font: "Helvetica", radius: 6 }), [
+      { id: "hero", type: "image", src: `${IMG}/memorial-day.jpg`, alt: "Honor & Remember", width: 100, radius: 0 },
+      { id: "t", type: "text", html: "This weekend we honor the men and women who gave everything for our country. We're also kicking off summer with <strong>30% off sitewide</strong>.", align: "left" },
+      { id: "b", type: "button", text: "Shop the weekend sale", href: "https://example.com", bg: "#0b1f44", align: "left" },
+      { id: "dv", type: "divider" },
+      foot(),
+    ]), "May 31, 2027"),
+  P("fathers-day", "Father's Day", "Dia dos Pais (EUA)", "Navy & bold gift guide for dads.", "Guia de presentes azul-marinho para pais.", "Dad deserves better than another tie 👔",
+    d("Gifts dads actually want. Ships by June 17.", T({ background: "#0f172a", content: "#ffffff", text: "#0f172a", muted: "#64748b", accent: "#2563eb", font: "Helvetica", radius: 10 }), [
+      { id: "hero", type: "image", src: `${IMG}/fathers-day.jpg`, alt: "Gifts for Dad", width: 100, radius: 0 },
+      { id: "h", type: "heading", text: "Gifts he'll actually use", size: 30 },
+      { id: "p1", type: "image_text", src: `${IMG}/product-box.jpg`, alt: "For the grill master", html: "<strong>For the grill master</strong><br>Tools and sauces from $29.", imageSide: "left", href: "https://example.com/dad1" },
+      { id: "p2", type: "image_text", src: `${IMG}/product-bottle.jpg`, alt: "For the coffee lover", html: "<strong>For the coffee lover</strong><br>Small-batch roasts from $18.", imageSide: "left", href: "https://example.com/dad2" },
+      { id: "b", type: "button", text: "See all gifts for Dad", href: "https://example.com/dad", bg: "#2563eb", full: true },
+      foot(),
+    ]), "Jun 20, 2027"),
+  P("fourth-of-july", "4th of July", "4 de Julho", "Fireworks hero with a star-spangled sale.", "Fogos de artifício com promoção patriótica.", "🎆 Happy 4th, {{first_name}}! Celebrate with 25% off",
+    d("Stars, stripes and savings all weekend.", T({ background: "#020617", content: "#ffffff", text: "#0f172a", muted: "#64748b", accent: "#dc2626", font: "Helvetica", radius: 14 }), [
+      { id: "hero", type: "image", src: `${IMG}/fourth-of-july.jpg`, alt: "Happy 4th of July", width: 100, radius: 0 },
+      { id: "h", type: "heading", text: "25% off for Independence Day", size: 30, align: "center" },
+      { id: "t", type: "text", html: "Fire up the grill, grab the sparklers and treat yourself. Sale ends Monday at midnight.", align: "center" },
+      { id: "b", type: "button", text: "Shop the 4th of July sale", href: "https://example.com", bg: "#dc2626", align: "center" },
+      { id: "b2", type: "button", text: "Free shipping over $50", href: "https://example.com/shipping", bg: "#1e3a8a", align: "center" },
+      foot(),
+    ]), "Jul 4, 2027"),
+  P("labor-day", "Labor Day", "Labor Day", "Sunset 'last call for summer' sale.", "Promoção 'última chamada do verão'.", "Last call for summer ☀️ Labor Day sale",
+    d("The last long weekend of summer deserves a sale.", T({ background: "#fff7ed", content: "#ffffff", text: "#431407", muted: "#9a3412", accent: "#ea580c", font: "Trebuchet", radius: 16 }), [
+      { id: "hero", type: "image", src: `${IMG}/labor-day.jpg`, alt: "Labor Day Sale", width: 100, radius: 12 },
+      { id: "t", type: "text", html: "Summer's not over yet. Enjoy <strong>up to 40% off</strong> warm-weather favorites before they're gone.", align: "center" },
+      { id: "b", type: "button", text: "Shop before it's gone", href: "https://example.com", bg: "#ea580c", align: "center", radius: 999 },
+      foot(),
+    ]), "Sep 6, 2027"),
+  P("halloween", "Halloween", "Halloween", "Spooky dark-orange with a treat code.", "Laranja e preto assustador com cupom.", "🎃 Trick or treat, {{first_name}}?",
+    d("No tricks — just treats. 31% off ends tonight.", T({ background: "#0c0a09", content: "#1c1917", text: "#fafaf9", muted: "#a8a29e", accent: "#f97316", font: "Trebuchet", radius: 12 }), [
+      { id: "hero", type: "image", src: `${IMG}/halloween.jpg`, alt: "Spooky Savings", width: 100, radius: 0 },
+      { id: "h", type: "heading", text: "Treats, not tricks", size: 32, align: "center", color: "#fb923c" },
+      { id: "t", type: "text", html: "Our spookiest sale is here: <strong>31% off</strong> with code below. It vanishes at midnight.", align: "center", color: "#e7e5e4" },
+      { id: "code", type: "heading", text: "BOO31", size: 42, align: "center", color: "#f97316" },
+      { id: "b", type: "button", text: "Grab your treat", href: "https://example.com", bg: "#f97316", color: "#0c0a09", align: "center" },
+      foot(true),
+    ]), "Oct 31, 2026"),
+  P("thanksgiving", "Thanksgiving", "Ação de Graças", "Warm autumn thank-you, no hard sell.", "Agradecimento de outono, sem venda agressiva.", "We're thankful for you, {{first_name}}",
+    d("A note of gratitude from our team.", T({ background: "#fed7aa", content: "#fffbeb", text: "#431407", muted: "#9a3412", accent: "#c2410c", font: "Georgia", radius: 16 }), [
+      { id: "hero", type: "image", src: `${IMG}/thanksgiving.jpg`, alt: "Give Thanks", width: 100, radius: 12 },
+      { id: "t", type: "text", html: "Dear {{first_name}},<br><br>This Thanksgiving we want to say something simple: <strong>thank you</strong>. Every order, review and message means the world to our small team.<br><br>Wishing you a warm table and good company,<br>— The Your Store team", align: "left", size: 17 },
+      { id: "b", type: "button", text: "A little gift from us", href: "https://example.com", bg: "#c2410c" },
+      foot(),
+    ]), "Nov 26, 2026"),
+];
+
+/** Everyday templates (new layouts in addition to the originals). */
+export const EVERYDAY: TemplatePreset[] = [
+  { id: "restaurant", name: { en: "Restaurant menu", pt: "Cardápio de restaurante" }, description: { en: "Tonight's specials with a reservation button.", pt: "Pratos do dia com botão de reserva." }, subject: "Tonight's specials are ready, {{first_name}}", category: "standard",
+    design: d("Chef's specials and a table waiting for you.", T({ background: "#14281d", content: "#fafaf9", text: "#1c1917", muted: "#57534e", accent: "#14532d", font: "Georgia", radius: 0 }), [
+      { id: "hero", type: "image", src: `${IMG}/restaurant.jpg`, alt: "Tonight's menu", width: 100, radius: 0 },
+      { id: "t", type: "text", html: "<strong>Starter</strong> — Burrata, heirloom tomatoes, basil oil · $14<br><strong>Main</strong> — Pan-seared salmon, lemon butter · $28<br><strong>Dessert</strong> — Chocolate torte, sea salt · $10", size: 17 },
+      { id: "b", type: "button", text: "Reserve a table", href: "https://example.com/reserve", bg: "#14532d", full: true },
+      foot() ]) },
+  { id: "real-estate", name: { en: "Real estate listing", pt: "Imóvel à venda" }, description: { en: "Just-listed home with key facts and a tour CTA.", pt: "Imóvel novo com dados e botão de visita." }, subject: "Just listed: a home you'll want to see", category: "standard",
+    design: d("3 bd · 2 ba · open house Saturday.", T({ background: "#e0f2fe", content: "#ffffff", text: "#0f172a", muted: "#475569", accent: "#0f172a", font: "Helvetica", radius: 10 }), [
+      { id: "hero", type: "image", src: `${IMG}/real-estate.jpg`, alt: "Just listed", width: 100, radius: 0 },
+      { id: "h", type: "heading", text: "123 Maple Avenue", size: 28 },
+      { id: "t", type: "text", html: "3 bedrooms · 2 bathrooms · 1,850 sq ft · large backyard<br><strong>$649,000</strong><br><br>Open house this Saturday, 11 AM – 2 PM." },
+      { id: "b", type: "button", text: "Book a private tour", href: "https://example.com/tour" },
+      foot() ]) },
+  { id: "fitness", name: { en: "Fitness class schedule", pt: "Academia / aulas" }, description: { en: "High-energy black & lime class announcement.", pt: "Anúncio de aulas preto e limão." }, subject: "New classes just dropped 💪", category: "standard",
+    design: d("HIIT, yoga and strength — first class free.", T({ background: "#0a0a0a", content: "#111111", text: "#fafafa", muted: "#a3a3a3", accent: "#bef264", font: "Helvetica", radius: 0 }), [
+      { id: "hero", type: "image", src: `${IMG}/fitness.jpg`, alt: "New classes", width: 100, radius: 0 },
+      { id: "t", type: "text", html: "<strong>Mon & Wed</strong> — HIIT 6:30 AM<br><strong>Tue & Thu</strong> — Yoga 7:00 PM<br><strong>Sat</strong> — Strength 9:00 AM", color: "#e5e5e5", size: 17 },
+      { id: "b", type: "button", text: "BOOK YOUR FREE CLASS", href: "https://example.com/book", bg: "#bef264", color: "#0a0a0a", full: true, radius: 0 },
+      foot(true) ]) },
+  { id: "saas-update", name: { en: "Product update", pt: "Novidades do produto" }, description: { en: "Clean changelog-style update for software.", pt: "Novidades do mês estilo changelog." }, subject: "What's new this month", category: "standard",
+    design: d("Three improvements you asked for.", T({ background: "#fafafa", content: "#ffffff", text: "#18181b", muted: "#71717a", accent: "#18181b", font: "System", radius: 12 }), [
+      { id: "hero", type: "image", src: `${IMG}/saas-update.jpg`, alt: "What's new", width: 100, radius: 10 },
+      { id: "t", type: "text", html: "<strong>1. Faster dashboard</strong> — pages load 2× faster.<br><strong>2. Team roles</strong> — invite teammates with the right access.<br><strong>3. Dark mode</strong> — easier on the eyes at night." },
+      { id: "b", type: "button", text: "Try it now", href: "https://example.com/app" },
+      foot() ]) },
+  { id: "webinar", name: { en: "Webinar invitation", pt: "Convite para webinar" }, description: { en: "Purple live-event invite with agenda.", pt: "Convite roxo para evento ao vivo." }, subject: "You're invited: free live webinar Thursday", category: "standard",
+    design: d("Save your seat — it's free.", T({ background: "#1e1b4b", content: "#ffffff", text: "#1e1b4b", muted: "#6366f1", accent: "#6d28d9", font: "System", radius: 16 }), [
+      { id: "hero", type: "image", src: `${IMG}/webinar.jpg`, alt: "Free live webinar", width: 100, radius: 0 },
+      { id: "h", type: "heading", text: "Grow your list in 30 days", size: 28 },
+      { id: "t", type: "text", html: "<strong>Thursday, 2 PM ET · 45 minutes</strong><ul><li>The 3 sign-up forms that convert best</li><li>Welcome emails that sell</li><li>Live Q&amp;A</li></ul>" },
+      { id: "b", type: "button", text: "Save my seat", href: "https://example.com/webinar", bg: "#6d28d9" },
+      foot() ]) },
+  { id: "review", name: { en: "Review request", pt: "Pedido de avaliação" }, description: { en: "Friendly 5-star review ask after purchase.", pt: "Pedido simpático de avaliação 5 estrelas." }, subject: "Quick favor, {{first_name}}? ⭐", category: "standard",
+    design: d("30 seconds to help a small business.", T({ background: "#fffbeb", content: "#ffffff", text: "#18181b", muted: "#78716c", accent: "#f59e0b", font: "System", radius: 20 }), [
+      { id: "hero", type: "image", src: `${IMG}/review.jpg`, alt: "How did we do?", width: 100, radius: 14 },
+      { id: "t", type: "text", html: "Hi {{first_name}}, how are you liking your order? A quick review helps other customers — and means a lot to our team.", align: "center" },
+      { id: "b", type: "button", text: "Leave a review", href: "https://example.com/review", bg: "#f59e0b", color: "#18181b", align: "center", radius: 999 },
+      foot() ]) },
+  { id: "birthday", name: { en: "Birthday gift", pt: "Aniversário com cupom" }, description: { en: "Playful birthday wish with a gift code.", pt: "Parabéns divertido com cupom de presente." }, subject: "Happy birthday, {{first_name}}! 🎂 A gift inside",
+    category: "standard",
+    design: d("Your birthday gift is waiting.", T({ background: "#eef2ff", content: "#ffffff", text: "#312e81", muted: "#6366f1", accent: "#db2777", font: "Trebuchet", radius: 24 }), [
+      { id: "hero", type: "image", src: `${IMG}/birthday.jpg`, alt: "Happy birthday", width: 100, radius: 18 },
+      { id: "t", type: "text", html: "To celebrate, here's <strong>20% off</strong> anything you like — valid for the next 7 days.", align: "center", size: 18 },
+      { id: "code", type: "heading", text: "BDAY20", size: 38, align: "center", color: "#db2777" },
+      { id: "b", type: "button", text: "Open my gift", href: "https://example.com", bg: "#db2777", align: "center", radius: 999 },
+      foot() ]) },
+  { id: "shipped", name: { en: "Order shipped", pt: "Pedido a caminho" }, description: { en: "Transactional shipping update with tracking.", pt: "Aviso de envio com rastreio." }, subject: "Your order is on its way 📦", category: "standard",
+    design: d("Track your package — arriving in 2–4 days.", T({ background: "#f4f4f5", content: "#ffffff", text: "#18181b", muted: "#71717a", accent: "#18181b", font: "System", radius: 12 }), [
+      { id: "hero", type: "image", src: `${IMG}/shipped.jpg`, alt: "It's on its way", width: 100, radius: 10 },
+      { id: "t", type: "text", html: "Good news, {{first_name}} — order <strong>#1042</strong> has shipped and should arrive in 2–4 business days." },
+      { id: "b", type: "button", text: "Track my package", href: "https://example.com/track" },
+      { id: "dv", type: "divider" },
+      { id: "x", type: "text", html: "Questions? Just reply to this email.", size: 14, color: "#71717a" },
+      { id: "foot", type: "footer", html: "Your Store · 123 Main Street, Anytown, USA", unsubscribe: false } ]) },
+];

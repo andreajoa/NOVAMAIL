@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { DEFAULT_THEME, FONTS, renderBlockDocument, renderDesign, type Block, type Design, type Theme } from "@novamail/email";
+import { DEFAULT_THEME, FONTS, renderBlockDocument, renderDesign, sanitizeInline, type Block, type Design, type Theme } from "@novamail/email";
 import {
   ArrowDown, ArrowLeft, ArrowUp, Code2, Copy, Film, GripVertical, Heading, Image as ImageIcon, LayoutPanelLeft, Minus, Monitor,
-  MousePointerClick, MoveVertical, Send, Smartphone, Text, Trash2, Upload, Wand2,
+  Bold, Italic, Link2, MousePointerClick, MoveVertical, Send, Smartphone, Text, Trash2, Upload, Wand2,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api } from "../api";
@@ -13,8 +13,8 @@ import { Button, ErrorText, Input } from "../ui";
 
 const pt = lang === "pt";
 const L = pt
-  ? { back: "Modelos", save: "Salvar", saved: "Salvo", subject: "Assunto", name: "Nome do modelo", preview: "Prévia", edit: "Editar", desktop: "Computador", mobile: "Celular", test: "Enviar teste", testFrom: "Remetente (domínio verificado)", testSent: "Teste enviado para", blocks: "Blocos", dragHint: "Arraste para o e-mail ou clique para adicionar", theme: "Aparência", select: "Clique em um bloco para editar", drop: "Solte aqui", upload: "Enviar arquivo", replace: "Trocar", dropFile: "ou arraste um arquivo aqui", converting: "Convertendo vídeo em GIF…", uploading: "Enviando…", bg: "Fundo", content: "Conteúdo", text: "Texto", muted: "Rodapé", accent: "Destaque", font: "Fonte", width: "Largura", radius: "Cantos", preheader: "Pré-cabeçalho (texto de prévia na caixa de entrada)", link: "Link", alt: "Texto alternativo", size: "Tamanho", align: "Alinhamento", color: "Cor", btnText: "Texto do botão", full: "Largura total", height: "Altura", html: "HTML", unsubscribe: "Mostrar link de descadastro", side: "Imagem à", left: "esquerda", right: "direita", videoHint: "Envie um vídeo (MP4/MOV): ele vira um GIF que roda sozinho, em loop e sem som, em todos os e-mails. O GIF leva para o link do vídeo.", gifHint: "GIFs animados rodam em loop em todos os leitores de e-mail.", tokens: "Personalize com {{first_name}}, {{last_name}}, {{email}}", rawHint: "Cole o HTML completo do seu e-mail. Scripts e formulários são removidos automaticamente." }
-  : { back: "Templates", save: "Save", saved: "Saved", subject: "Subject", name: "Template name", preview: "Preview", edit: "Edit", desktop: "Desktop", mobile: "Mobile", test: "Send test", testFrom: "From (verified domain)", testSent: "Test sent to", blocks: "Blocks", dragHint: "Drag into the email or click to add", theme: "Style", select: "Click a block to edit it", drop: "Drop here", upload: "Upload file", replace: "Replace", dropFile: "or drag a file here", converting: "Converting video to GIF…", uploading: "Uploading…", bg: "Background", content: "Content", text: "Text", muted: "Footer", accent: "Accent", font: "Font", width: "Width", radius: "Corners", preheader: "Preheader (inbox preview text)", link: "Link", alt: "Alt text", size: "Size", align: "Alignment", color: "Color", btnText: "Button text", full: "Full width", height: "Height", html: "HTML", unsubscribe: "Show unsubscribe link", side: "Image on the", left: "left", right: "right", videoHint: "Upload a video (MP4/MOV): it becomes a GIF that plays by itself, looped and silent, in every inbox. The GIF links to the video.", gifHint: "Animated GIFs loop in every email client.", tokens: "Personalise with {{first_name}}, {{last_name}}, {{email}}", rawHint: "Paste your email's full HTML. Scripts and forms are removed automatically." };
+  ? { back: "Modelos", save: "Salvar", saved: "Salvo", subject: "Assunto", name: "Nome do modelo", preview: "Prévia", edit: "Editar", desktop: "Computador", mobile: "Celular", test: "Enviar teste", testFrom: "Remetente (domínio verificado)", testSent: "Teste enviado para", blocks: "Blocos", dragHint: "Arraste para o e-mail ou clique para adicionar", theme: "Aparência", select: "Clique no texto do e-mail para escrever direto nele. Arraste uma imagem por cima de outra para trocar.", drop: "Solte aqui", upload: "Enviar arquivo", replace: "Trocar", dropFile: "ou arraste um arquivo aqui", converting: "Convertendo vídeo em GIF…", uploading: "Enviando…", bg: "Fundo", content: "Conteúdo", text: "Texto", muted: "Rodapé", accent: "Destaque", font: "Fonte", width: "Largura", radius: "Cantos", preheader: "Pré-cabeçalho (texto de prévia na caixa de entrada)", link: "Link", alt: "Texto alternativo", size: "Tamanho", align: "Alinhamento", color: "Cor", btnText: "Texto do botão", full: "Largura total", height: "Altura", html: "HTML", unsubscribe: "Mostrar link de descadastro", side: "Imagem à", left: "esquerda", right: "direita", videoHint: "Envie um vídeo (MP4/MOV): ele vira um GIF que roda sozinho, em loop e sem som, em todos os e-mails. O GIF leva para o link do vídeo.", gifHint: "GIFs animados rodam em loop em todos os leitores de e-mail.", tokens: "Personalize com {{first_name}}, {{last_name}}, {{email}}", rawHint: "Cole o HTML completo do seu e-mail. Scripts e formulários são removidos automaticamente." }
+  : { back: "Templates", save: "Save", saved: "Saved", subject: "Subject", name: "Template name", preview: "Preview", edit: "Edit", desktop: "Desktop", mobile: "Mobile", test: "Send test", testFrom: "From (verified domain)", testSent: "Test sent to", blocks: "Blocks", dragHint: "Drag into the email or click to add", theme: "Style", select: "Click any text in the email to type directly. Drag an image onto another to replace it.", drop: "Drop here", upload: "Upload file", replace: "Replace", dropFile: "or drag a file here", converting: "Converting video to GIF…", uploading: "Uploading…", bg: "Background", content: "Content", text: "Text", muted: "Footer", accent: "Accent", font: "Font", width: "Width", radius: "Corners", preheader: "Preheader (inbox preview text)", link: "Link", alt: "Alt text", size: "Size", align: "Alignment", color: "Color", btnText: "Button text", full: "Full width", height: "Height", html: "HTML", unsubscribe: "Show unsubscribe link", side: "Image on the", left: "left", right: "right", videoHint: "Upload a video (MP4/MOV): it becomes a GIF that plays by itself, looped and silent, in every inbox. The GIF links to the video.", gifHint: "Animated GIFs loop in every email client.", tokens: "Personalise with {{first_name}}, {{last_name}}, {{email}}", rawHint: "Paste your email's full HTML. Scripts and forms are removed automatically." };
 
 const PALETTE: { type: Block["type"]; label: string; icon: ReactNode }[] = [
   { type: "heading", label: pt ? "Título" : "Heading", icon: <Heading size={16} /> },
@@ -57,6 +57,85 @@ function BlockFrame({ block, theme }: { block: Block; theme: Theme }) {
     if (d?.body) setH(Math.max(8, d.documentElement.scrollHeight));
   };
   return <iframe ref={ref} title="block" sandbox="allow-same-origin" srcDoc={doc} onLoad={measure} style={{ height: h }} className="pointer-events-none block w-full border-0" />;
+}
+
+/** WYSIWYG in-place editing for text-like blocks: click, delete, type. */
+function InlineEdit({ block, theme, onChange }: { block: Block; theme: Theme; onChange: (b: Block) => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const font = FONTS[theme.font];
+  // Only seed the DOM once per block so the caret never jumps while typing.
+  useEffect(() => {
+    if (!ref.current) return;
+    if (block.type === "heading" || block.type === "button") ref.current.textContent = block.text;
+    else if (block.type === "text" || block.type === "footer") ref.current.innerHTML = block.html;
+    ref.current.focus();
+    const r = document.createRange();
+    r.selectNodeContents(ref.current);
+    r.collapse(false);
+    const sel = getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(r);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [block.id]);
+  const commit = () => {
+    const el = ref.current;
+    if (!el) return;
+    if (block.type === "heading" || block.type === "button") onChange({ ...block, text: (el.textContent ?? "").replace(/\s+/g, " ").trim() } as Block);
+    else onChange({ ...block, html: sanitizeInline(el.innerHTML) } as Block);
+  };
+  const cmd = (c: string) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (c === "link") {
+      const url = prompt("https://");
+      if (url && /^https?:\/\//.test(url)) document.execCommand("createLink", false, url);
+    } else document.execCommand(c);
+    commit();
+  };
+  const rich = block.type === "text" || block.type === "footer";
+  const style: React.CSSProperties =
+    block.type === "heading"
+      ? { fontFamily: font, fontSize: block.size ?? 28, fontWeight: 700, lineHeight: 1.2, color: block.color ?? theme.text, textAlign: block.align ?? "left", padding: "20px 32px 8px" }
+      : block.type === "button"
+        ? { fontFamily: font, fontSize: 16, fontWeight: 600, color: block.color ?? "#fff", background: block.bg ?? theme.accent, borderRadius: block.radius ?? 8, padding: "13px 24px", display: block.full ? "block" : "inline-block", textAlign: "center" }
+        : block.type === "footer"
+          ? { fontFamily: font, fontSize: 12, lineHeight: 1.6, color: theme.muted, textAlign: "center", padding: "24px 32px 32px" }
+          : { fontFamily: font, fontSize: (block as { size?: number }).size ?? 16, lineHeight: 1.6, color: (block as { color?: string }).color ?? theme.text, textAlign: (block as { align?: "left" }).align ?? "left", padding: "12px 32px" };
+  const editable = (
+    <div
+      ref={ref}
+      contentEditable
+      suppressContentEditableWarning
+      spellCheck
+      onInput={commit}
+      onBlur={commit}
+      onKeyDown={(e) => !rich && e.key === "Enter" && e.preventDefault()}
+      onClick={(e) => e.stopPropagation()}
+      style={style}
+      className="cursor-text outline-none"
+    />
+  );
+  return (
+    <div className="relative">
+      {rich && (
+        <div className="absolute -top-9 left-2 z-10 flex gap-0.5 rounded-lg border border-zinc-200 bg-white p-0.5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+          <button onMouseDown={cmd("bold")} className="rounded p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800" title="Bold"><Bold size={14} /></button>
+          <button onMouseDown={cmd("italic")} className="rounded p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800" title="Italic"><Italic size={14} /></button>
+          <button onMouseDown={cmd("link")} className="rounded p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800" title="Link"><Link2 size={14} /></button>
+        </div>
+      )}
+      {block.type === "button" ? <div style={{ padding: "16px 32px", textAlign: block.align ?? "left" }}>{editable}</div> : editable}
+    </div>
+  );
+}
+
+/** Click-to-replace overlay for image blocks (same as dropping a file on them). */
+function ReplaceImage({ onFile }: { onFile: (f: File) => void }) {
+  return (
+    <label onClick={(e) => e.stopPropagation()} className="absolute left-1/2 top-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center gap-2 rounded-full bg-zinc-900/85 px-4 py-2 text-sm font-medium text-white shadow-lg">
+      <Upload size={15} /> {pt ? "Trocar imagem" : "Replace image"}
+      <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
+    </label>
+  );
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -286,8 +365,8 @@ export function Editor({ id }: { id: string }) {
     else if (mv) move(Number(mv), i);
   };
   const Zone = ({ i }: { i: number }) => (
-    <div onDragOver={(e) => (e.preventDefault(), setDragOver(i))} onDragLeave={() => setDragOver(null)} onDrop={(e) => onDrop(i, e)} className={`transition-all ${dragOver === i ? "h-10 rounded-md border-2 border-dashed border-sky-500 bg-sky-50 dark:bg-sky-950/30" : "h-2"}`}>
-      {dragOver === i && <p className="py-2 text-center text-xs text-sky-600">{L.drop}</p>}
+    <div onDragOver={(e) => (e.preventDefault(), setDragOver(i))} onDragLeave={() => setDragOver(null)} onDrop={(e) => onDrop(i, e)} className={`transition-all ${dragOver === i ? "h-10 rounded-md border-2 border-dashed border-zinc-900 bg-zinc-50 dark:border-white dark:bg-zinc-900" : "h-2"}`}>
+      {dragOver === i && <p className="py-2 text-center text-xs text-zinc-700 dark:text-zinc-300">{L.drop}</p>}
     </div>
   );
   const fullHtml = design ? renderDesign(design) : rawHtml ?? "";
@@ -373,9 +452,16 @@ export function Editor({ id }: { id: string }) {
                         update({ ...design!, blocks: blocks.map((x) => (x.id === b.id ? ({ ...x, [b.type === "video" ? "gif" : "src"]: u.url } as Block) : x)) });
                       }
                     }}
-                    className={`group relative cursor-pointer outline-offset-[-2px] ${sel === b.id ? "outline outline-2 outline-sky-500" : "hover:outline hover:outline-1 hover:outline-sky-300"}`}
+                    className={`group relative cursor-pointer outline-offset-[-2px] ${sel === b.id ? "outline outline-2 outline-zinc-900 dark:outline-white" : "hover:outline hover:outline-1 hover:outline-zinc-400"}`}
                   >
-                    <BlockFrame block={b} theme={design!.theme} />
+                    {sel === b.id && ["heading", "text", "footer", "button"].includes(b.type) ? (
+                      <InlineEdit block={b} theme={design!.theme} onChange={(nb) => update({ ...design!, blocks: blocks.map((x) => (x.id === nb.id ? nb : x)) })} />
+                    ) : (
+                      <BlockFrame block={b} theme={design!.theme} />
+                    )}
+                    {sel === b.id && (b.type === "image" || b.type === "image_text") && (
+                      <ReplaceImage onFile={async (f) => { const u = await upload(f, f.name); update({ ...design!, blocks: blocks.map((x) => (x.id === b.id ? ({ ...x, src: u.url } as Block) : x)) }); }} />
+                    )}
                     <div className={`absolute right-1 top-1 flex gap-0.5 rounded-md bg-zinc-900/85 p-0.5 text-white ${sel === b.id ? "flex" : "hidden group-hover:flex"}`}>
                       <span className="cursor-grab p-1" title="Drag"><GripVertical size={14} /></span>
                       <button className="p-1" title="Up" onClick={(e) => (e.stopPropagation(), move(i, Math.max(0, i - 1)))}><ArrowUp size={14} /></button>

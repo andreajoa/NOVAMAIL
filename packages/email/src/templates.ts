@@ -1,4 +1,5 @@
 import type { Design } from "./index";
+import { EVERYDAY, SEASONAL } from "./seasonal";
 
 export interface TemplatePreset {
   id: string;
@@ -6,12 +7,16 @@ export interface TemplatePreset {
   description: { en: string; pt: string };
   subject: string;
   design: Design;
+  /** Gallery grouping: everyday templates vs. US commercial calendar. */
+  category?: "standard" | "seasonal";
+  /** Next occurrence, shown on seasonal cards. */
+  date?: string;
 }
 
 const IMG = "https://app.novamail.nexaclouds.online/tpl";
 const FOOT = { id: "f", type: "footer" as const, html: "Your Company · 123 Main Street, City · You received this email because you subscribed.", unsubscribe: true };
 
-export const TEMPLATES: TemplatePreset[] = [
+const BASE: TemplatePreset[] = [
   {
     id: "newsletter",
     name: { en: "Newsletter", pt: "Newsletter" },
@@ -159,3 +164,5 @@ export const TEMPLATES: TemplatePreset[] = [
     },
   },
 ];
+
+export const TEMPLATES: TemplatePreset[] = [...SEASONAL, ...BASE.map((t) => ({ ...t, category: "standard" as const })), ...EVERYDAY];
