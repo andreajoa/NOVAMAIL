@@ -13,7 +13,7 @@ export async function provisionAccount(env: Env, accountId: string, fetcher?: ty
   if (!a) throw errors.notFound("Account");
   const r = await postalAdmin.provision(
     env,
-    { account_id: a.id, name: a.name, hourly_limit: planOf(a.plan).hourly, ip_pool: a.ip_pool, webhook_url: `${env.PUBLIC_URL}/hooks/postal/${a.id}` },
+    { account_id: a.id, name: a.name, hourly_limit: planOf(a.plan).hourly || null, ip_pool: a.ip_pool, webhook_url: `${env.PUBLIC_URL}/hooks/postal/${a.id}` },
     fetcher,
   );
   await env.DB.prepare("UPDATE accounts SET postal_org = ?, postal_server = ?, postal_server_key = ?, updated_at = ? WHERE id = ?")

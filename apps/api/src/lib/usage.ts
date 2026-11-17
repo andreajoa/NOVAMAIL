@@ -1,4 +1,4 @@
-import { planOf } from "./plans";
+import { isUnlimited, planOf } from "./plans";
 import { errors } from "./http";
 
 export const utcDay = (t = Date.now()) => new Date(t).toISOString().slice(0, 10);
@@ -20,6 +20,7 @@ export async function usageSnapshot(db: D1Database, accountId: string, now = Dat
 export async function assertQuota(db: D1Database, accountId: string, plan: string, n: number, now = Date.now()) {
   const p = planOf(plan);
   const u = await usageSnapshot(db, accountId, now);
+  if (isUnlimited(p)) return { ...u, plan: p };
   if (u.today + n > p.daily) throw errors.quota(`Daily limit of ${p.daily} emails reached on the ${p.label} plan. Upgrade at ${"/billing"} or wait until 00:00 UTC.`);
   if (u.month + n > p.monthly) throw errors.quota(`Monthly limit of ${p.monthly} emails reached on the ${p.label} plan. Upgrade to keep sending.`);
   return { ...u, plan: p };

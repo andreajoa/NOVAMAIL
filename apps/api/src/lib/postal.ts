@@ -77,9 +77,9 @@ export interface ProvisionResult {
 }
 
 export const postalAdmin = {
-  provision: (env: Env, b: { account_id: string; name: string; hourly_limit: number; ip_pool: string; webhook_url: string }, f?: typeof fetch) =>
+  provision: (env: Env, b: { account_id: string; name: string; hourly_limit: number | null; ip_pool: string; webhook_url: string }, f?: typeof fetch) =>
     admin<ProvisionResult>(env, "/v1/provision", b, f),
-  setLimits: (env: Env, b: { org: string; server: string; hourly_limit: number; ip_pool: string }, f?: typeof fetch) =>
+  setLimits: (env: Env, b: { org: string; server: string; hourly_limit: number | null; ip_pool: string }, f?: typeof fetch) =>
     admin<{}>(env, "/v1/limits", b, f),
   suspend: (env: Env, b: { org: string; reason: string }, f?: typeof fetch) => admin<{}>(env, "/v1/suspend", b, f),
   unsuspend: (env: Env, b: { org: string }, f?: typeof fetch) => admin<{}>(env, "/v1/unsuspend", b, f),

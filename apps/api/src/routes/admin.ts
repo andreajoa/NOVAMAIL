@@ -35,7 +35,7 @@ admin.patch("/accounts/:id", async (c) => {
   if (!a) throw errors.notFound("Account");
   const plan = parsed.data.plan ?? a.plan;
   const pool = parsed.data.ip_pool ?? (parsed.data.plan ? poolFor(plan) : a.ip_pool);
-  await postalAdmin.setLimits(c.env, { org: a.postal_org, server: a.postal_server, hourly_limit: planOf(plan).hourly, ip_pool: pool });
+  await postalAdmin.setLimits(c.env, { org: a.postal_org, server: a.postal_server, hourly_limit: planOf(plan).hourly || null, ip_pool: pool });
   await c.env.DB.prepare("UPDATE accounts SET plan = ?, ip_pool = ?, updated_at = ? WHERE id = ?").bind(plan, pool, Date.now(), c.req.param("id")).run();
   return c.json({ id: c.req.param("id"), plan, ip_pool: pool });
 });

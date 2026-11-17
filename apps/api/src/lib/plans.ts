@@ -18,9 +18,12 @@ export const PLANS: Record<PlanId, Plan> = {
   free: { id: "free", label: "Free", monthly: 3_000, daily: 100, hourly: 100, domains: 1, ipPool: "shared", priceUsd: 0 },
   pro: { id: "pro", label: "Pro", monthly: 50_000, daily: 10_000, hourly: 2_000, domains: 10, ipPool: "trusted", priceUsd: 15 },
   scale: { id: "scale", label: "Scale", monthly: 250_000, daily: 50_000, hourly: 10_000, domains: 100, ipPool: "trusted", priceUsd: 60 },
-  // André's own brands (Gilberto, AMB, Atenza, Trilha, FlowNexa, NexaCloud).
-  internal: { id: "internal", label: "Internal", monthly: 10_000_000, daily: 1_000_000, hourly: 50_000, domains: 1_000, ipPool: "trusted", priceUsd: 0 },
+  // André's own brands (Gilberto, AMB, Atenza, Trilha, FlowNexa, NexaCloud): no plan limits at all
+  // (0 = unlimited). The only real ceiling is IP warm-up with the mailbox providers.
+  internal: { id: "internal", label: "Internal", monthly: 0, daily: 0, hourly: 0, domains: 100_000, ipPool: "trusted", priceUsd: 0 },
 };
+
+export const isUnlimited = (p: Plan) => p.monthly === 0;
 
 export function planOf(id: string): Plan {
   return PLANS[(id in PLANS ? id : "free") as PlanId];

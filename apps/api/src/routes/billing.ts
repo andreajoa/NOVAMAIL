@@ -38,7 +38,7 @@ export async function applyPlan(env: Env, accountId: string, plan: PlanId, sub: 
   const a = await env.DB.prepare("SELECT plan, postal_org, postal_server FROM accounts WHERE id = ?").bind(accountId).first<{ plan: PlanId; postal_org: string | null; postal_server: string | null }>();
   if (!a || a.plan === "internal") return;
   const pool = poolFor(plan);
-  if (a.postal_org && a.postal_server) await postalAdmin.setLimits(env, { org: a.postal_org, server: a.postal_server, hourly_limit: planOf(plan).hourly, ip_pool: pool });
+  if (a.postal_org && a.postal_server) await postalAdmin.setLimits(env, { org: a.postal_org, server: a.postal_server, hourly_limit: planOf(plan).hourly || null, ip_pool: pool });
   await env.DB.batch([
     env.DB.prepare("UPDATE accounts SET plan = ?, ip_pool = ?, stripe_customer = COALESCE(?, stripe_customer), stripe_subscription = ?, updated_at = ? WHERE id = ?")
       .bind(plan, pool, sub.customer ?? null, sub.subscription ?? null, Date.now(), accountId),

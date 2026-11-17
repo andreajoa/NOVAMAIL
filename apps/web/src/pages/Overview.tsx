@@ -5,14 +5,15 @@ import { Card, CopyButton, PageTitle } from "../ui";
 
 function Meter({ label, used, limit }: { label: string; used: number; limit: number }) {
   const pct = Math.min(100, limit ? (used / limit) * 100 : 0);
+  const unlimited = limit === 0;
   return (
     <Card>
       <div className="text-xs font-medium text-zinc-500">{label}</div>
       <div className="mt-2 flex items-baseline gap-1.5">
         <span className="text-2xl font-semibold tabular-nums tracking-tight">{num(used)}</span>
-        <span className="text-sm text-zinc-500">{t.of} {num(limit)}</span>
+        <span className="text-sm text-zinc-500">{unlimited ? `· ${t.unlimited}` : `${t.of} ${num(limit)}`}</span>
       </div>
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+      <div className={`mt-3 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800 ${unlimited ? "hidden" : ""}`}>
         <div className={`h-full rounded-full ${pct > 90 ? "bg-red-500" : "bg-zinc-900 dark:bg-white"}`} style={{ width: `${pct}%` }} />
       </div>
     </Card>

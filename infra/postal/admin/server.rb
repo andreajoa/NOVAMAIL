@@ -80,7 +80,7 @@ module NovaMailAdmin
     end
     server = org.servers.present.find_by(permalink: "main") ||
              org.servers.create!(name: "main", permalink: "main", mode: "Live")
-    server.update!(send_limit: b["hourly_limit"]) if b["hourly_limit"]
+    server.update!(send_limit: b["hourly_limit"]) if b.key?("hourly_limit") # nil = unlimited
     apply_pool(org, server, b["ip_pool"]) if b["ip_pool"]
 
     api = server.credentials.where(type: "API", name: "novamail-api").first ||
