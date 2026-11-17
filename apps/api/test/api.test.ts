@@ -455,19 +455,24 @@ describe("public site (SEO/GEO)", () => {
     const { createExecutionContext } = await import("cloudflare:test");
     const env = { ...testEnv, ASSETS: { fetch: async () => new Response("<div id=root></div>", { headers: { "content-type": "text/html" } }) } } as any;
     const r = await route(new Request(`https://app.novamail.nexaclouds.online${path}`, { headers }), env, createExecutionContext());
-    return { status: r.status, type: r.headers.get("content-type") ?? "", text: await r.text() };
+    return { status: r.status, type: r.headers.get("content-type") ?? "", csp: r.headers.get("content-security-policy") ?? "", text: await r.text() };
   };
 
   it("serves server-rendered, crawlable pages with structured data", async () => {
     const home = await get("/");
     expect(home.type).toContain("text/html");
-    expect(home.text).toContain("Turn your customer list into <em>sales</em>");
+    expect(home.text).toContain('Turn your customer list into <em><span class="tw"');
+    expect(home.text).toContain(">sales</span></em>");
     expect(home.text.match(/<h1/g)?.length).toBe(1);
     expect(home.text).toContain('"@type":"FAQPage"');
     expect(home.text).toContain('"@type":"SoftwareApplication"');
     expect(home.text).toContain('hreflang="pt-BR"');
     expect(home.text).toContain('<link rel="canonical" href="https://app.novamail.nexaclouds.online/">');
     expect(home.text).not.toContain("<script src");
+    const nonce = home.csp.match(/'nonce-([^']+)'/)?.[1];
+    expect(nonce).toBeTruthy();
+    expect(home.text).toContain(`<script nonce="${nonce}">`);
+    expect((await get("/pricing")).csp).toContain("script-src 'none'");
     for (const p of ["/pricing", "/email-marketing", "/mailchimp-alternative", "/resend-alternative", "/guides/spf-dkim-dmarc", "/pt/", "/terms"]) {
       const r = await get(p);
       expect(r.status, p).toBe(200);

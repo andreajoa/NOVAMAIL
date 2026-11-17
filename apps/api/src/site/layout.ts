@@ -93,7 +93,7 @@ export const PRODUCT = {
   ],
 };
 
-export function render(p: Page, all: Page[]): string {
+export function render(p: Page, all: Page[], nonce = ""): string {
   const lang = p.lang ?? "en";
   const url = `${SITE}${p.path}`;
   const crumbs = p.path === "/" || p.path === "/pt/" ? [] : crumbTrail(p, all);
@@ -120,9 +120,9 @@ export function render(p: Page, all: Page[]): string {
 <link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="alternate" type="text/plain" title="LLM summary" href="/llms.txt">
 <script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@graph": ld }).replace(/</g, "\\u003c")}</script>
 <style>${CSS}${p.extraCss ?? ""}</style></head><body>
-<div class="w"><header class="top"><a class="logo" href="${lang === "en" ? "/" : "/pt/"}"><i aria-hidden="true">✉</i>NovaMail</a>${NAV}</header></div>
+<div class="${p.heroHtml ? "topdark" : ""}"><div class="w"><header class="top"><a class="logo" href="${lang === "en" ? "/" : "/pt/"}"><i aria-hidden="true">✉</i>NovaMail</a>${NAV}</header></div></div>
 <main class="w">${p.heroHtml ?? `<div class="hero">${crumbHtml}<h1>${esc(p.h1)}</h1><p class="lead">${esc(p.lead)}</p><div class="cta"><a class="btn" href="/login">${lang === "en" ? "Start free — no card" : "Comece grátis — sem cartão"}</a><a class="btn g" href="${API_DOCS}">${lang === "en" ? "Read the API docs" : "Documentação da API"}</a></div></div>`}
-${p.body}${faqHtml}${p.finale ?? ""}</main>
+${p.body}${faqHtml}${p.finale ?? ""}</main>${p.heroHtml && nonce ? `<script nonce="${nonce}">${TYPEWRITER}</script>` : ""}
 <footer><div class="w"><div class="cols">${FOOTER_LINKS.map(([h, ls]) => `<div><b>${h}</b>${ls.map(([href, t]) => `<a href="${href}">${esc(t)}</a>`).join("")}</div>`).join("")}</div><p>© 2026 NovaMail · Updated ${UPDATED}</p></div></footer>
 </body></html>`;
 }
@@ -132,3 +132,10 @@ function crumbTrail(p: Page, all: Page[]): [string, string][] {
   const short = all.find((x) => x.path === p.path);
   return [[short ? short.h1.split(":")[0]!.split("—")[0]!.trim() : p.title, p.path]];
 }
+
+// Typewriter for the home hero: types, pauses, deletes, next word. Progressive enhancement:
+// without JS (or with reduced motion) the first word stays static and fully readable.
+const TYPEWRITER = `(()=>{const el=document.querySelector("[data-words]");if(!el||matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+const words=JSON.parse(el.dataset.words);let w=0,i=words[0].length,del=true;el.classList.add("typing");
+const tick=()=>{const word=words[w];if(del){i--;if(i<0){del=false;w=(w+1)%words.length;i=0;return setTimeout(tick,250)}}else{i++;if(i>word.length){del=true;i=word.length;return setTimeout(tick,1900)}}
+el.textContent=words[w].slice(0,Math.max(0,i))||"\u200b";setTimeout(tick,del?45:85)};setTimeout(tick,2200)})();`;

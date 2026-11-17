@@ -96,7 +96,11 @@ export function site(req: Request, hasSession: boolean): Response | null {
   if (path === "/" && hasSession) return null;
   const p = BY_PATH.get(path) ?? BY_PATH.get(path.replace(/\/$/, "")) ?? (path === "/pt" ? BY_PATH.get("/pt/") : undefined);
   if (!p) return null;
-  const res = text(render(p, ALL), "text/html", 600);
+  const nonce = p.heroHtml ? btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16)))) : "";
+  const res = text(render(p, ALL, nonce), "text/html", 600);
+  // Per-response nonce: only our own inline script may run on the page.
+  res.headers.set("content-security-policy", `default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; script-src ${nonce ? `'nonce-${nonce}'` : "'none'"}; frame-ancestors 'none'; base-uri 'none'`);
+  if (nonce) res.headers.set("cache-control", "public, max-age=0, s-maxage=0, must-revalidate");
   res.headers.set("x-robots-tag", "index, follow");
   res.headers.set("link", `<${SITE}${p.path}>; rel="canonical"`);
   return res;

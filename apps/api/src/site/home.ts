@@ -5,7 +5,17 @@
 import { API_DOCS, esc } from "./layout";
 
 export const HOME_CSS = `
-.h-grid>*,.two>*,.steps>*,.big>*{min-width:0}pre{max-width:100%}main{overflow-x:clip}
+.topdark{background:#09090b;color:#fafafa}.topdark nav.m{color:#a1a1aa}.topdark .logo i{background:#fafafa;color:#09090b}
+.hero-dark{background:#09090b;color:#fafafa;margin-inline:calc(50% - 50vw);padding-inline:calc(50vw - 50%);padding-bottom:56px}
+.hero-dark .h-lead,.hero-dark .h-proof{color:#a1a1aa}.hero-dark .h-proof span::before{color:#fafafa}
+.hero-dark .eyebrow{background:rgba(255,255,255,.08);color:#fafafa}.hero-dark .eyebrow i{background:#fafafa}
+.hero-dark .btn{background:#fafafa;color:#09090b}.hero-dark .btn.g{background:transparent;color:#fafafa;border-color:#3f3f46}
+.hero-dark .h-title em{background-image:linear-gradient(#fafafa,#fafafa)}
+.hero-dark .inbox{--fg:#18181b;--mut:#71717a;--card:#fff;--line:#e4e4e7;--bg:#fafafa;--accent-soft:#f4f4f5;color:#18181b;box-shadow:0 40px 120px -40px rgba(255,255,255,.18)}
+.hero-dark .float{background:#fafafa;color:#09090b}
+.tw{white-space:nowrap}.tw.typing{border-right:.08em solid currentColor;padding-right:.04em;animation:caret 1s step-end infinite}
+@keyframes caret{50%{border-color:transparent}}
+.h-grid>*,.two>*,.steps>*,.big>*{min-width:0}pre{max-width:100%}html,body{overflow-x:clip}
 :root{--accent:var(--fg);--accent-soft:#f4f4f5;--ok:var(--fg)}
 @media(prefers-color-scheme:dark){:root{--accent-soft:#27272a}}
 .h-grid{display:grid;gap:48px;align-items:center;padding:48px 0 24px}@media(min-width:960px){.h-grid{grid-template-columns:1.05fr .95fr;padding:72px 0 40px}}
@@ -61,7 +71,7 @@ ul.ticks{list-style:none;padding:0;margin:0;display:grid;gap:12px}ul.ticks li{pa
 `;
 
 type Copy = {
-  eyebrow: string; title: [string, string, string]; lead: string; cta: string; cta2: string; proof: string[];
+  eyebrow: string; title: [string, string, string]; words: string[]; lead: string; cta: string; cta2: string; proof: string[];
   inbox: string; mails: [string, string, string, string][]; float: [string, string];
   p_k: string; p_h: string; p_sub: string; stats: [string, string][];
   how_k: string; how_h: string; how_sub: string; steps: [string, string][];
@@ -76,6 +86,7 @@ type Copy = {
 const EN: Copy = {
   eyebrow: "Free plan · no credit card",
   title: ["Turn your customer list into ", "sales", " — with emails that reach the inbox."],
+  words: ["sales", "repeat customers", "loyal fans", "revenue"],
   lead: "NovaMail lets any business send beautiful newsletters, promotions and automatic follow-ups from its own domain. Pick a template, import your customers, press send.",
   cta: "Start free",
   cta2: "See how it works",
@@ -124,6 +135,7 @@ const EN: Copy = {
 const PT: Copy = {
   eyebrow: "Plano grátis · sem cartão",
   title: ["Transforme sua lista de clientes em ", "vendas", " — com e-mails que chegam na caixa de entrada."],
+  words: ["vendas", "clientes fiéis", "recompra", "faturamento"],
   lead: "O NovaMail deixa qualquer empresa enviar newsletters, promoções e acompanhamentos automáticos bonitos, com o próprio domínio. Escolha um modelo, importe seus clientes e envie.",
   cta: "Comece grátis",
   cta2: "Veja como funciona",
@@ -185,10 +197,10 @@ function funnelSvg(nodes: [string, string][]) {
 
 export function home(lang: "en" | "pt-BR") {
   const c = lang === "en" ? EN : PT;
-  const heroHtml = `<section class="h-grid">
+  const heroHtml = `<div class="hero-dark"><section class="h-grid">
 <div>
   <div class="eyebrow in"><i></i>${esc(c.eyebrow)}</div>
-  <h1 class="h-title in d1">${esc(c.title[0])}<em>${esc(c.title[1])}</em>${esc(c.title[2])}</h1>
+  <h1 class="h-title in d1">${esc(c.title[0])}<em><span class="tw" data-words='${esc(JSON.stringify(c.words))}'>${esc(c.title[1])}</span></em>${esc(c.title[2])}</h1>
   <p class="h-lead in d2">${esc(c.lead)}</p>
   <div class="cta in d3"><a class="btn" href="/login">${esc(c.cta)} →</a><a class="btn g" href="#how">${esc(c.cta2)}</a></div>
   <div class="h-proof in d4">${c.proof.map((p) => `<span>${esc(p)}</span>`).join("")}</div>
@@ -198,7 +210,7 @@ export function home(lang: "en" | "pt-BR") {
   ${c.mails.map(([i, from, sub, col]) => `<div class="mail"><div class="av" style="background:var(--fg)">${esc(i)}</div><div><p>${esc(sub)}</p><small>${esc(from)}</small></div><span class="badge">✓ ${lang === "en" ? "Delivered" : "Entregue"}</span></div>`).join("")}
   <div class="float"><b>${esc(c.float[0])}</b>${esc(c.float[1])}</div>
 </div>
-</section>`;
+</section></div>`;
 
   const body = `
 <section class="story reveal"><p class="k">${esc(c.p_k)}</p><h2>${esc(c.p_h)}</h2><p class="sub">${esc(c.p_sub)}</p>

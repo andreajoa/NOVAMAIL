@@ -130,7 +130,7 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
     if (page) {
       page.headers.set("x-content-type-options", "nosniff");
       page.headers.set("referrer-policy", "strict-origin-when-cross-origin");
-      page.headers.set("content-security-policy", "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'");
+      if (!page.headers.has("content-security-policy")) page.headers.set("content-security-policy", "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'");
       return page;
     }
     if (env.ASSETS) {
