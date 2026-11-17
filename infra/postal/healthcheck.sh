@@ -24,10 +24,13 @@ if [ -n "$ip" ]; then
   done
 fi
 
+# Outbound SMTP (AWS blocks 25 until the limit-removal request is approved).
+if timeout 8 bash -c "exec 3<>/dev/tcp/gmail-smtp-in.l.google.com/25" 2>/dev/null; then port25=true; else port25=false; fi
+
 queue=$(docker exec novamail-mariadb-1 mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" -N -e "SELECT COUNT(*) FROM postal.queued_messages" 2>/dev/null || echo -1)
 
-jq -n --arg t "$(date -u +%FT%TZ)" --arg ip "$ip" --argjson q "${queue:-0}" \
+jq -n --argjson p25 "$port25" --arg t "$(date -u +%FT%TZ)" --arg ip "$ip" --argjson q "${queue:-0}" \
   --argjson down "$(printf '%s\n' "${down[@]:-}" | jq -R . | jq -s 'map(select(.!=""))')" \
   --argjson listed "$(printf '%s\n' "${listed[@]:-}" | jq -R . | jq -s 'map(select(.!=""))')" \
-  '{checked_at:$t, ip:$ip, restarted:$down, blocklisted:$listed, queued_messages:$q}' > "$ROOT/health.json"
+  '{checked_at:$t, ip:$ip, outbound_25:$p25, restarted:$down, blocklisted:$listed, queued_messages:$q}' > "$ROOT/health.json"
 cat "$ROOT/health.json"
