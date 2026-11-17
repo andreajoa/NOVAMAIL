@@ -97,10 +97,8 @@ export function Login({ onDone, embedded = false }: { onDone: () => void; embedd
         <Modal title={t.welcome} onClose={onDone}>
           <p className="text-sm text-zinc-500">{t.welcomeHint}</p>
           <Secret label="API key" value={welcome.api_key} />
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div><div className="text-xs text-zinc-500">{t.host}</div><code>{welcome.smtp.host}</code></div>
-            <div><div className="text-xs text-zinc-500">{t.port}</div><code>{welcome.smtp.port} (STARTTLS)</code></div>
-          </div>
+          <Secret label={t.host} value={welcome.smtp.host} />
+          <Secret label={`${t.port} (STARTTLS)`} value={String(welcome.smtp.port)} />
           <Secret label={t.user} value={welcome.smtp.username} />
           <Secret label={t.smtpPassword} value={welcome.smtp.password} />
         </Modal>
