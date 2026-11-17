@@ -2,7 +2,7 @@
 
 Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta implantar/provar · ⏳ a fazer · 🔒 depende do André
 
-**Progresso geral: 52 / 58 itens (90%)** — atualizado 17/11/2026 05h (BRT)
+**Progresso geral: 53 / 58 itens (91%)** — atualizado 17/11/2026 05h (BRT)
 
 ## F0 — Auditoria (100%)
 - ✅ 5 repositórios auditados (Postal, listmonk, Plunk, BillionMail, Mautic) → Postal MIT escolhido
@@ -78,7 +78,7 @@ Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta impla
 - ✅ MCP para Claude Code/Codex com chave de agente restrita (sem enviar/ativar/apagar), 120 req/min, auditoria
 - ✅ Plano interno SEM limite para as marcas do André
 - ✅ Checkout Stripe embutido no painel + plano anual (2 meses grátis) + pacote +50k e-mails dentro do checkout
-- 🔒 Rodar de novo `bash scripts/ativar-stripe.sh` para criar preços anuais e o pacote extra
+- ✅ Preços anuais (Pro US$150, Scale US$600) e pacote +50k (US$10/mês, US$100/ano) criados no Stripe live e testados (17/11)
 - ✅ Site SEO/GEO em inglês (24 páginas server-side, JSON-LD, hreflang, llms.txt, IndexNow 200)
 - ✅ Página /ai-agents e comparativos Mailchimp/Brevo/MailerLite/Resend/SendGrid/Mailgun/Postmark/SES
 - ✅ Acesso de suporte do dono (sessão de 1 h por conta) + capturas reais do painel validadas
