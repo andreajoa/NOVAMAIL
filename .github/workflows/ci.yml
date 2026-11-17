@@ -33,7 +33,7 @@ jobs:
           shellcheck -S warning infra/postal/*.sh
       - name: Compose file
         run: |
-          printf 'MARIADB_ROOT_PASSWORD=x\nNOVAMAIL_ADMIN_TOKEN=x\nPOSTAL_HOST=x\nACME_EMAIL=x\n' > /tmp/env
+          printf 'MARIADB_ROOT_PASSWORD=x\nNOVAMAIL_ADMIN_TOKEN=x\nPOSTAL_HOST=x\n' > /tmp/env
           docker compose --env-file /tmp/env -f infra/postal/docker-compose.yml config -q
       - name: DNS records shape
         run: node -e 'import("./infra/dns/records.mjs").then(m=>{const r=m.platformRecords({mailDomain:"n.example.com",ip:"192.0.2.1",dkimPublicKeyPem:"-----BEGIN PUBLIC KEY-----\nAAA\n-----END PUBLIC KEY-----"});if(r.length<9)process.exit(1);console.table(r)})'

@@ -3,7 +3,7 @@
 # Idempotent: safe to re-run. Used as cloud-init user-data or over SSH by CI.
 #
 #   curl -fsSL https://raw.githubusercontent.com/andreajoa/NOVAMAIL/main/infra/postal/bootstrap.sh \
-#     | sudo MAIL_DOMAIN=novamail.nexaclouds.online ACME_EMAIL=ops@example.com bash
+#     | sudo MAIL_DOMAIN=novamail.nexaclouds.online bash
 #
 # Requirements on the provider side (cannot be done from inside the VM):
 #   * outbound TCP 25 allowed, and a reverse DNS (PTR) of the public IP = postal.$MAIL_DOMAIN
@@ -11,7 +11,6 @@
 set -euo pipefail
 
 : "${MAIL_DOMAIN:?MAIL_DOMAIN is required (e.g. novamail.nexaclouds.online)}"
-: "${ACME_EMAIL:?ACME_EMAIL is required}"
 REPO_URL="${REPO_URL:-https://github.com/andreajoa/NOVAMAIL.git}"
 REPO_REF="${REPO_REF:-main}"
 ROOT=/opt/novamail
@@ -57,7 +56,6 @@ if [ ! -f "$ROOT/.env" ]; then
   cat > "$ROOT/.env" <<EOF
 MAIL_DOMAIN=${MAIL_DOMAIN}
 POSTAL_HOST=${POSTAL_HOST}
-ACME_EMAIL=${ACME_EMAIL}
 POSTAL_VERSION=3.4.0
 MARIADB_ROOT_PASSWORD=$(openssl rand -hex 24)
 RAILS_SECRET_KEY=$(openssl rand -hex 64)

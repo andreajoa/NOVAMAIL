@@ -72,7 +72,6 @@ services:
     network_mode: host
     environment:
       POSTAL_HOST: ${POSTAL_HOST:?set in /opt/novamail/.env}
-      ACME_EMAIL: ${ACME_EMAIL:?set in /opt/novamail/.env}
     volumes:
       - /opt/novamail/repo/infra/postal/Caddyfile:/etc/caddy/Caddyfile:ro
       - /opt/novamail/caddy:/data

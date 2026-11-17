@@ -33,7 +33,7 @@ jobs:
       - name: Bootstrap / update node (idempotent)
         run: |
           ssh "${{ vars.NODE_USER || 'ubuntu' }}@$NODE_HOST" \
-            "curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/infra/postal/bootstrap.sh | sudo REPO_REF=${{ github.ref_name }} MAIL_DOMAIN=$MAIL_DOMAIN ACME_EMAIL=${{ vars.ACME_EMAIL }} bash"
+            "sudo REPO_REF=${{ github.ref_name }} MAIL_DOMAIN=$MAIL_DOMAIN bash -s" < infra/postal/bootstrap.sh
       - name: Read node-owned secrets (never printed)
         id: node
         run: |

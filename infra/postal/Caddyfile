@@ -1,7 +1,3 @@
-{
-	email {$ACME_EMAIL}
-}
-
 {$POSTAL_HOST} {
 	encode zstd gzip
 	header {

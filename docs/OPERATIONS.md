@@ -11,7 +11,6 @@
 | `NOVAMAIL_OWNER_TOKEN` | secret | `openssl rand -hex 32` — acesso a `/admin/*` |
 | `NODE_HOST` / `NODE_SSH_KEY` | secret | IP e chave SSH da VM de envio |
 | `MAIL_DOMAIN` | variable | `novamail.nexaclouds.online` (trocar quando houver domínio próprio) |
-| `ACME_EMAIL` | variable | e-mail para o Let's Encrypt |
 | `CLOUDFLARE_ZONE_ID` | variable | zona `nexaclouds.online` |
 
 `POSTAL_ADMIN_TOKEN` e `POSTAL_WEBHOOK_PUBLIC_KEY` **não** são cadastrados à mão: o workflow *Deploy sending node*
