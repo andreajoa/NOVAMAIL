@@ -28,6 +28,8 @@ export interface Env {
   OWNER_TOKEN: string; // platform-owner token for /admin routes
   STRIPE_SECRET_KEY?: string;
   STRIPE_WEBHOOK_SECRET?: string;
+  STRIPE_PRICE_PRO?: string;
+  STRIPE_PRICE_SCALE?: string;
 }
 
 export interface WebhookJob {

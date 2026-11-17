@@ -1,10 +1,12 @@
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, Ban, CreditCard, Globe, KeyRound, LayoutDashboard, LogOut, Mail, Webhook } from "lucide-react";
+import { Activity, Ban, CreditCard, Globe, KeyRound, LayoutDashboard, LogOut, Mail, Megaphone, Users, Webhook } from "lucide-react";
 import { StrictMode, useEffect, useState, type ComponentType } from "react";
 import { createRoot } from "react-dom/client";
 import { api, ApiError } from "./api";
 import { t } from "./i18n";
 import { navigate } from "./nav";
+import { Audiences } from "./pages/Audiences";
+import { Broadcasts } from "./pages/Broadcasts";
 import { Domains } from "./pages/Domains";
 import { Emails } from "./pages/Emails";
 import { Keys } from "./pages/Keys";
@@ -24,6 +26,8 @@ const ROUTES: { path: string; label: string; icon: ComponentType<{ size?: number
   { path: "/", label: t.overview, icon: LayoutDashboard, page: Overview },
   { path: "/emails", label: t.emails, icon: Mail, page: Emails },
   { path: "/domains", label: t.domains, icon: Globe, page: Domains },
+  { path: "/audiences", label: t.lang === "pt" ? "Públicos" : "Audiences", icon: Users, page: Audiences },
+  { path: "/broadcasts", label: t.lang === "pt" ? "Campanhas" : "Broadcasts", icon: Megaphone, page: Broadcasts },
   { path: "/api-keys", label: t.apiKeys, icon: KeyRound, page: Keys },
   { path: "/webhooks", label: t.webhooks, icon: Webhook, page: Webhooks },
   { path: "/suppressions", label: t.suppressions, icon: Ban, page: Suppressions },

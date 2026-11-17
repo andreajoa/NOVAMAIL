@@ -7,12 +7,15 @@ import { ApiError, sendError } from "./lib/http";
 import { handleQueue } from "./lib/webhooks";
 import { apiKeys, me, suppressions, usage, webhooks } from "./routes/account";
 import { auth } from "./routes/auth";
+import { billing, stripeHooks } from "./routes/billing";
+import { audiences, broadcasts, processBroadcasts, unsubscribe } from "./routes/marketing";
 import { admin } from "./routes/admin";
 import { domains } from "./routes/domains";
 import { emails } from "./routes/emails";
 import { postalHooks } from "./routes/postal-hooks";
 import { UpstreamError } from "./lib/postal";
 import { openDb } from "./lib/dodb";
+import { docsHtml, openapi } from "./openapi";
 
 export { NovaDB } from "./lib/dodb";
 
@@ -29,8 +32,13 @@ app.get("/health", async (c) => {
   return c.json({ ok: db?.ok === 1, version: VERSION }, db?.ok === 1 ? 200 : 503);
 });
 
+app.get("/openapi.json", (c) => c.json(openapi(c.env.PUBLIC_URL)));
+app.get("/docs", (c) => c.html(docsHtml(`${c.env.PUBLIC_URL}/openapi.json`)));
+
 // Postal -> NovaMail (signed with Postal's RSA key, no API key).
 app.route("/hooks/postal", postalHooks);
+app.route("/hooks/stripe", stripeHooks);
+app.route("/u", unsubscribe);
 
 // Customer API (Resend-compatible paths).
 app.use("/emails/*", requireApiKey);
@@ -39,7 +47,7 @@ app.route("/emails", emails);
 
 app.route("/auth", auth);
 
-for (const path of ["/domains", "/api-keys", "/webhooks", "/suppressions", "/usage", "/me"]) {
+for (const path of ["/domains", "/api-keys", "/webhooks", "/suppressions", "/usage", "/me", "/billing", "/audiences", "/broadcasts"]) {
   app.use(path, requireApiKey, requireFullAccess);
   app.use(`${path}/*`, requireApiKey, requireFullAccess);
 }
@@ -49,6 +57,9 @@ app.route("/webhooks", webhooks);
 app.route("/suppressions", suppressions);
 app.route("/usage", usage);
 app.route("/me", me);
+app.route("/billing", billing);
+app.route("/audiences", audiences);
+app.route("/broadcasts", broadcasts);
 
 // Platform owner.
 app.use("/admin/*", requireOwner);
@@ -91,4 +102,8 @@ export async function route(req: Request, env: Env, ctx: ExecutionContext): Prom
 export default {
   fetch: route,
   queue: (batch, env) => handleQueue(batch, withDb(env)),
+  // Every minute: next batch of each broadcast being sent.
+  scheduled: async (_ctrl, env, ctx) => {
+    ctx.waitUntil(processBroadcasts(withDb(env)).then((r) => r.length && console.log(JSON.stringify({ level: "info", broadcasts: r }))));
+  },
 } satisfies ExportedHandler<Env, WebhookJob>;

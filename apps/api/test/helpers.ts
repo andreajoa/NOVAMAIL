@@ -23,14 +23,16 @@ export interface FakePostal {
   domainVerified: boolean;
   nextId: number;
   adminCalls: string[];
+  stripeCalls: string[];
 }
 
 /** Replaces global fetch with an in-memory Postal (send API + admin sidecar). */
 export function fakePostal(): FakePostal {
-  const state: FakePostal = { sent: [], domainVerified: false, nextId: 1000, adminCalls: [] };
+  const state: FakePostal = { sent: [], domainVerified: false, nextId: 1000, adminCalls: [], stripeCalls: [] };
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
-    const body = init?.body ? JSON.parse(String(init.body)) : {};
+    const raw = init?.body ? String(init.body) : "";
+    const body = raw.startsWith("{") || raw.startsWith("[") ? JSON.parse(raw) : {};
     const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { "content-type": "application/json" } });
     if (url.pathname === "/api/v1/send/message") {
       state.sent.push(body);
@@ -59,6 +61,12 @@ export function fakePostal(): FakePostal {
         default:
           return json({ ok: true });
       }
+    }
+    if (url.hostname === "api.stripe.com") {
+      state.stripeCalls.push(url.pathname + " " + String(init?.body ?? ""));
+      if (url.pathname === "/v1/checkout/sessions") return json({ id: "cs_test_1", url: "https://checkout.stripe.com/c/pay/cs_test_1" });
+      if (url.pathname === "/v1/billing_portal/sessions") return json({ url: "https://billing.stripe.com/p/session/test" });
+      if (url.pathname.startsWith("/v1/subscriptions/")) return json({ id: "sub_1", status: "active", items: { data: [{ price: { id: "price_pro" } }] } });
     }
     return json({ error: "unexpected fetch " + url.href }, 599);
   });

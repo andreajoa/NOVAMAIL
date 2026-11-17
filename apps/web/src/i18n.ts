@@ -18,7 +18,7 @@ const pt = {
   welcome: "Conta criada", welcomeHint: "Guarde sua chave de API e a senha SMTP. Elas aparecem só agora.",
   smtpPassword: "Senha SMTP", host: "Servidor", port: "Porta", user: "Usuário",
   limits: "Limites", perDay: "por dia", perMonth: "por mês", domainsAllowed: "domínios", upgradeSoon: "Planos pagos em breve — fale com a gente para aumentar os limites.",
-  suspended: "Conta suspensa", loading: "Carregando…", error: "Algo deu errado",
+  suspended: "Conta suspensa", loading: "Carregando…", error: "Algo deu errado", lang: "pt" as string,
 };
 type Dict = typeof pt;
 const en: Dict = {
@@ -41,7 +41,7 @@ const en: Dict = {
   welcome: "Account created", welcomeHint: "Save your API key and SMTP password. They are shown only once.",
   smtpPassword: "SMTP password", host: "Host", port: "Port", user: "Username",
   limits: "Limits", perDay: "per day", perMonth: "per month", domainsAllowed: "domains", upgradeSoon: "Paid plans coming soon — contact us to raise your limits.",
-  suspended: "Account suspended", loading: "Loading…", error: "Something went wrong",
+  suspended: "Account suspended", loading: "Loading…", error: "Something went wrong", lang: "en",
 };
 export const lang = (navigator.language || "en").toLowerCase().startsWith("pt") ? "pt" : "en";
 export const t: Dict = lang === "pt" ? pt : en;

@@ -274,3 +274,128 @@ describe("dashboard login (passwordless)", () => {
     expect((await rawCall("/me", { headers: { cookie: v.cookie } })).status).toBe(401);
   });
 });
+
+describe("docs", () => {
+  it("serves an OpenAPI 3.1 document covering every public route", async () => {
+    const r = await call("/openapi.json");
+    expect(r.body.openapi).toBe("3.1.0");
+    for (const p of ["/emails", "/emails/batch", "/domains/{id}/verify", "/api-keys", "/webhooks", "/suppressions", "/usage"]) expect(r.body.paths[p]).toBeTruthy();
+  });
+});
+
+describe("billing (Stripe)", () => {
+  const WHSEC = "whsec_test_secret";
+  beforeEach(() => {
+    Object.assign(testEnv, { STRIPE_SECRET_KEY: "sk_test_x", STRIPE_WEBHOOK_SECRET: WHSEC, STRIPE_PRICE_PRO: "price_pro", STRIPE_PRICE_SCALE: "price_scale" });
+  });
+  afterEach(() => {
+    for (const k of ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_PRO", "STRIPE_PRICE_SCALE"]) delete (testEnv as any)[k];
+  });
+  async function stripeEvent(evt: unknown, secret = WHSEC) {
+    const body = JSON.stringify(evt);
+    const t = Math.floor(Date.now() / 1000);
+    const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    const mac = [...new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${t}.${body}`)))].map((b) => b.toString(16).padStart(2, "0")).join("");
+    return call("/hooks/stripe", { method: "POST", body, headers: { "content-type": "application/json", "stripe-signature": `t=${t},v1=${mac}` } });
+  }
+
+  it("creates a Checkout session tied to the account", async () => {
+    const acc = await newAccount();
+    const r = await call("/billing/checkout", { method: "POST", token: acc.api_key, json: { plan: "pro" } });
+    expect(r.body.url).toContain("checkout.stripe.com");
+    const sent = decodeURIComponent(postal.stripeCalls.find((x) => x.startsWith("/v1/checkout/sessions"))!);
+    expect(sent).toContain(`client_reference_id=${acc.id}`);
+    expect(sent).toContain("line_items[0][price]=price_pro");
+  });
+
+  it("upgrades on checkout.session.completed and downgrades on cancellation", async () => {
+    const acc = await newAccount();
+    const bad = await stripeEvent({ type: "checkout.session.completed", data: { object: {} } }, "wrong");
+    expect(bad.status).toBe(400);
+
+    await stripeEvent({ type: "checkout.session.completed", data: { object: { client_reference_id: acc.id, subscription: "sub_1", customer: "cus_1" } } });
+    let u = await call("/usage", { token: acc.api_key });
+    expect(u.body.plan).toBe("pro");
+    expect(u.body.limits.monthly).toBe(50_000);
+    expect(postal.adminCalls).toContain("/v1/limits");
+
+    const portal = await call("/billing/portal", { method: "POST", token: acc.api_key });
+    expect(portal.body.url).toContain("billing.stripe.com");
+
+    await stripeEvent({ type: "customer.subscription.deleted", data: { object: { id: "sub_1", customer: "cus_1", metadata: { account_id: acc.id } } } });
+    u = await call("/usage", { token: acc.api_key });
+    expect(u.body.plan).toBe("free");
+  });
+
+  it("is a no-cost no-op until Stripe is configured", async () => {
+    delete (testEnv as any).STRIPE_SECRET_KEY;
+    delete (testEnv as any).STRIPE_PRICE_PRO;
+    const acc = await newAccount();
+    const plans = await call("/billing/plans", { token: acc.api_key });
+    expect(plans.body.enabled).toBe(false);
+    const r = await call("/billing/checkout", { method: "POST", token: acc.api_key, json: { plan: "pro" } });
+    expect(r.status).toBe(503);
+  });
+});
+
+describe("marketing: audiences, broadcasts, one-click unsubscribe", () => {
+  it("imports contacts, sends a personalised broadcast with RFC 8058 headers, honours unsubscribes", async () => {
+    const { processBroadcasts, BATCH_SIZE } = await import("../src/routes/marketing");
+    const acc = await verifiedAccount(postal, "pro");
+    const aud = await call("/audiences", { method: "POST", token: acc.api_key, json: { name: "Clientes" } });
+    const imp = await call(`/audiences/${aud.body.id}/contacts`, {
+      method: "POST",
+      token: acc.api_key,
+      json: [{ email: "Ana@x.com", first_name: "Ana" }, { email: "bia@x.com", first_name: "Bia" }, { email: "caio@x.com" }],
+    });
+    expect(imp.body.imported).toBe(3);
+
+    const bc = await call("/broadcasts", { method: "POST", token: acc.api_key, json: { audience_id: aud.body.id, from: "Loja <news@example.com>", subject: "Oi {{first_name}}", html: '<p>Oi {{first_name}}</p><a href="{{unsubscribe_url}}">sair</a>' } });
+    expect((await call(`/broadcasts/${bc.body.id}/send`, { method: "POST", token: acc.api_key })).body.status).toBe("sending");
+
+    const before = postal.sent.length;
+    const r = await processBroadcasts(testEnv);
+    expect(r[0]).toMatchObject({ sent: 3, done: true });
+    const batch = postal.sent.slice(before);
+    const ana = batch.find((m) => m.to[0] === "ana@x.com");
+    expect(ana.subject).toBe("Oi Ana");
+    expect(ana.headers["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
+    const unsubUrl = ana.headers["List-Unsubscribe"].slice(1, -1) as string;
+    expect(ana.html_body).toContain(unsubUrl);
+    expect(BATCH_SIZE).toBeGreaterThan(0);
+
+    // GET only shows a confirmation (link scanners must not unsubscribe people).
+    const path = new URL(unsubUrl).pathname;
+    const { app } = await import("../src/index");
+    const get = await app.request(path, {}, testEnv);
+    expect(await get.text()).toContain("<form method=\"post\">");
+    const post = await app.request(path, { method: "POST" }, testEnv);
+    expect(post.status).toBe(200);
+    expect((await call("/suppressions", { token: acc.api_key })).body.data.map((s: any) => s.address)).toContain("ana@x.com");
+    expect((await app.request("/u/forged.token", { method: "POST" }, testEnv)).status).toBe(404);
+
+    const status = await call(`/broadcasts/${bc.body.id}`, { token: acc.api_key });
+    expect(status.body).toMatchObject({ status: "sent", sent_count: 3 });
+
+    // A second broadcast skips the unsubscribed contact.
+    const bc2 = await call("/broadcasts", { method: "POST", token: acc.api_key, json: { audience_id: aud.body.id, from: "news@example.com", subject: "De novo", text: "oi" } });
+    await call(`/broadcasts/${bc2.body.id}/send`, { method: "POST", token: acc.api_key });
+    const r2 = await processBroadcasts(testEnv);
+    expect(r2[0]).toMatchObject({ sent: 2 });
+  });
+
+  it("pauses a broadcast when the plan quota runs out", async () => {
+    const { processBroadcasts } = await import("../src/routes/marketing");
+    const acc = await verifiedAccount(postal);
+    const day = new Date().toISOString().slice(0, 10);
+    await testEnv.DB.prepare("INSERT INTO usage_daily (account_id, day, sent) VALUES (?,?,?)").bind(acc.id, day, 100).run();
+    const aud = await call("/audiences", { method: "POST", token: acc.api_key, json: { name: "A" } });
+    await call(`/audiences/${aud.body.id}/contacts`, { method: "POST", token: acc.api_key, json: { email: "z@x.com" } });
+    const bc = await call("/broadcasts", { method: "POST", token: acc.api_key, json: { audience_id: aud.body.id, from: "a@example.com", subject: "s", text: "t" } });
+    await call(`/broadcasts/${bc.body.id}/send`, { method: "POST", token: acc.api_key });
+    await processBroadcasts(testEnv);
+    const s = await call(`/broadcasts/${bc.body.id}`, { token: acc.api_key });
+    expect(s.body.status).toBe("paused");
+    expect(s.body.status_reason).toMatch(/Daily limit/);
+  });
+});

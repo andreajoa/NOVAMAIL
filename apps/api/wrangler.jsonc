@@ -5,6 +5,7 @@
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
+  "triggers": { "crons": ["* * * * *"] },
   // Until NovaMail has its own domain it lives under NexaCloud's zone.
   "routes": [
     { "pattern": "api.novamail.nexaclouds.online", "custom_domain": true },
