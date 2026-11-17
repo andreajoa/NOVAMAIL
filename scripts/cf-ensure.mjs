@@ -23,11 +23,7 @@ let db = dbs.find((d) => d.name === "novamail");
 if (!db) db = await cf(`/d1/database`, { method: "POST", body: JSON.stringify({ name: "novamail", primary_location_hint: "enam" }) });
 console.log(`D1 novamail: ${db.uuid}`);
 
-const queues = await cf(`/queues`);
-if (!queues.some((q) => q.queue_name === "novamail-webhooks")) {
-  await cf(`/queues`, { method: "POST", body: JSON.stringify({ queue_name: "novamail-webhooks" }) });
-  console.log("queue novamail-webhooks created");
-} else console.log("queue novamail-webhooks ok");
+// Queue is optional (needs Queues:Edit on the token); webhooks are delivered inline without it.
 
 const src = readFileSync(wranglerPath, "utf8");
 writeFileSync(wranglerPath, src.replace(/"database_id":\s*"[^"]*"/, `"database_id": "${db.uuid}"`));
