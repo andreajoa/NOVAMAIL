@@ -26,6 +26,7 @@
     "SYSTEM_RESEND_FROM": "NovaMail <no-reply@nexaclouds.online>"
   },
   // Free-plan friendly: SQLite-backed Durable Object instead of D1 (account is at its D1 cap).
+  "kv_namespaces": [{ "binding": "MEDIA", "id": "a3e5a63792ad43d38b9d93ffdafcd332" }],
   "durable_objects": { "bindings": [{ "name": "NOVADB", "class_name": "NovaDB" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["NovaDB"] }]
 }

@@ -6,6 +6,7 @@ import type { AppEnv, Env, Principal } from "../env";
 import { b64decode, base64url, prefixedId, safeEqual, uuidv7 } from "../lib/crypto";
 import { ApiError, errors, zodMessage } from "../lib/http";
 import { sendOne } from "./emails";
+import { onAudienceJoin } from "./funnels";
 
 export const BATCH_SIZE = 40; // per cron tick per broadcast (subrequest budget on the free plan)
 
@@ -101,6 +102,8 @@ audiences.post("/:id/contacts", async (c) => {
     ).bind(`con_${uuidv7(now + i)}`, p.accountId, c.req.param("id"), ct.email, ct.first_name ?? null, ct.last_name ?? null, ct.unsubscribed ? 1 : 0, now, ct.unsubscribed === undefined ? 0 : 1),
   );
   for (let i = 0; i < stmts.length; i += 100) await c.env.DB.batch(stmts.slice(i, i + 100));
+  // Funnels triggered by this audience start for the new contacts.
+  c.executionCtx.waitUntil(onAudienceJoin(c.env, p.accountId, c.req.param("id"), items.filter((x) => !x.unsubscribed).map((x) => x.email)));
   return c.json({ object: "list", imported: items.length }, 201);
 });
 
@@ -126,19 +129,29 @@ const bcSchema = z
     name: z.string().max(200).optional(),
     from: z.string().min(3).max(320),
     reply_to: z.string().max(320).optional(),
-    subject: z.string().min(1).max(998),
+    subject: z.string().max(998).optional(),
     html: z.string().max(2_000_000).optional(),
     text: z.string().max(2_000_000).optional(),
+    template_id: z.string().optional(),
   })
-  .refine((v) => v.html || v.text, { message: "Provide `html` or `text`.", path: ["html"] });
+  .refine((v) => v.html || v.text || v.template_id, { message: "Provide `template_id`, `html` or `text`.", path: ["html"] });
 
 broadcasts.post("/", async (c) => {
   const p = c.get("principal");
   const b = await parse(bcSchema, c.req.raw);
   await own(c.env, "audiences", b.audience_id, p.accountId);
+  let { subject, html, text } = b;
+  if (b.template_id) {
+    const t = await c.env.DB.prepare("SELECT subject, html, text FROM templates WHERE id = ? AND account_id = ?").bind(b.template_id, p.accountId).first<{ subject: string; html: string; text: string | null }>();
+    if (!t) throw errors.notFound("Template");
+    subject ||= t.subject;
+    html ??= t.html;
+    text ??= t.text ?? undefined;
+  }
+  if (!subject) throw errors.validation("subject is required (or use a template with a subject).");
   const id = prefixedId("bc");
-  await c.env.DB.prepare("INSERT INTO broadcasts (id, account_id, audience_id, name, from_addr, reply_to, subject, html, text, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)")
-    .bind(id, p.accountId, b.audience_id, b.name ?? null, b.from, b.reply_to ?? null, b.subject, b.html ?? null, b.text ?? null, Date.now())
+  await c.env.DB.prepare("INSERT INTO broadcasts (id, account_id, audience_id, name, from_addr, reply_to, subject, html, text, template_id, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
+    .bind(id, p.accountId, b.audience_id, b.name ?? null, b.from, b.reply_to ?? null, subject, html ?? null, text ?? null, b.template_id ?? null, Date.now())
     .run();
   return c.json({ object: "broadcast", id, status: "draft" }, 201);
 });

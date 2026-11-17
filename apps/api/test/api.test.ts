@@ -491,3 +491,66 @@ describe("public site (SEO/GEO)", () => {
     expect((await get(`/${INDEXNOW_KEY}.txt`)).text).toBe(INDEXNOW_KEY);
   });
 });
+
+describe("templates, media and funnels", () => {
+  it("renders presets and strips active content from any HTML", async () => {
+    const { renderDesign, sanitizeHtml, TEMPLATES } = await import("@novamail/email");
+    expect(TEMPLATES.length).toBeGreaterThanOrEqual(8);
+    for (const t of TEMPLATES) {
+      const html = renderDesign(t.design);
+      expect(html).toContain("<!doctype html>");
+      expect(html).not.toMatch(/<script/i);
+    }
+    const dirty = `<p onclick="x()">hi</p><script>alert(1)</script><a href="javascript:alert(1)">x</a><iframe src="https://evil"></iframe><img src=x onerror=alert(1)>`;
+    const clean = sanitizeHtml(dirty);
+    expect(clean).not.toMatch(/script|onclick|onerror|javascript:|iframe/i);
+    expect(clean).toContain("<p>hi</p>");
+  });
+
+  it("creates a template from a design and sends a test only to the owner", async () => {
+    const acc = await verifiedAccount(postal);
+    const { TEMPLATES } = await import("@novamail/email");
+    const t = await call("/templates", { method: "POST", token: acc.api_key, json: { name: "Welcome", subject: "Hi {{first_name}}", design: TEMPLATES.find((x) => x.id === "welcome")!.design } });
+    expect(t.status).toBe(201);
+    const got = await call(`/templates/${t.body.id}`, { token: acc.api_key });
+    expect(got.body.html).toContain("Welcome aboard");
+    expect(got.body.text).toContain("WELCOME ABOARD");
+    const test = await call(`/templates/${t.body.id}/test`, { method: "POST", token: acc.api_key, json: { from: "a@example.com" } });
+    expect(test.body.to).toMatch(/@example\.com$/);
+    expect(postal.sent.at(-1).subject).toBe("[TEST] Hi Test");
+  });
+
+  it("detects real file types and refuses SVG", async () => {
+    const { sniff } = await import("../src/routes/templates");
+    expect(sniff(new Uint8Array([0x89, 0x50, 0x4e, 0x47]))).toBe("image/png");
+    expect(sniff(new TextEncoder().encode("GIF89a...."))).toBe("image/gif");
+    expect(sniff(new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'))).toBeNull();
+  });
+
+  it("runs a funnel: enrolls on audience join, waits between steps, exits on unsubscribe", async () => {
+    const { processFunnels } = await import("../src/routes/funnels");
+    const acc = await verifiedAccount(postal, "pro");
+    const t1 = await call("/templates", { method: "POST", token: acc.api_key, json: { name: "E1", subject: "Day 0 {{first_name}}", html: "<p>Hello {{first_name}}</p>" } });
+    const t2 = await call("/templates", { method: "POST", token: acc.api_key, json: { name: "E2", subject: "Day 2", html: "<p>Second</p>" } });
+    const aud = await call("/audiences", { method: "POST", token: acc.api_key, json: { name: "Leads" } });
+    const f = await call("/funnels", { method: "POST", token: acc.api_key, json: { name: "Onboarding", audience_id: aud.body.id, from: "a@example.com", steps: [{ template_id: t1.body.id, wait_minutes: 0 }, { template_id: t2.body.id, wait_minutes: 2 * 24 * 60 }] } });
+    expect(f.status).toBe(201);
+    expect((await call(`/funnels/${f.body.id}/activate`, { method: "POST", token: acc.api_key })).body.status).toBe("active");
+
+    await call(`/audiences/${aud.body.id}/contacts`, { method: "POST", token: acc.api_key, json: [{ email: "lead1@x.com", first_name: "Lia" }, { email: "lead2@x.com" }] });
+    const now = Date.now();
+    let r = await processFunnels(testEnv, now);
+    expect(r.sent).toBe(2);
+    expect(postal.sent.at(-2).subject).toBe("Day 0 Lia");
+    expect(postal.sent.at(-1).headers["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
+    r = await processFunnels(testEnv, now + 60_000);
+    expect(r.sent).toBe(0); // waiting 2 days
+
+    await testEnv.DB.prepare("UPDATE contacts SET unsubscribed = 1 WHERE email = 'lead2@x.com'").run();
+    r = await processFunnels(testEnv, now + 2 * 86_400_000 + 1000);
+    expect(r.sent).toBe(1);
+    expect(postal.sent.at(-1).subject).toBe("Day 2");
+    const fd = await call("/funnels", { token: acc.api_key });
+    expect(fd.body.data[0]).toMatchObject({ completed: 1, active: 0 });
+  });
+});

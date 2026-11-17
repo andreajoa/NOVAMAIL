@@ -55,9 +55,11 @@ export class NovaDB extends DurableObject<Record<string, unknown>> {
 
 /** Splits a migration file into statements (no semicolons inside literals in our schema). */
 export function splitSql(src: string): string[] {
+  // Strip full-line and trailing "-- comments" first: a ';' inside a comment must not split a statement.
+  // (Our migrations never put "--" inside string literals.)
   return src
     .split("\n")
-    .filter((l) => !l.trim().startsWith("--"))
+    .map((l) => l.replace(/--.*$/, ""))
     .join("\n")
     .split(";")
     .map((s) => s.trim())

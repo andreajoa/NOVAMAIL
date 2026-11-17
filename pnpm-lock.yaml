@@ -10,6 +10,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@novamail/email':
+        specifier: workspace:*
+        version: link:../../packages/email
       hono:
         specifier: ^4.13.19
         version: 4.13.19
@@ -35,6 +38,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@novamail/email':
+        specifier: workspace:*
+        version: link:../../packages/email
       '@stripe/stripe-js':
         specifier: ^10.3.0
         version: 10.3.0
@@ -72,6 +78,8 @@ importers:
       vite:
         specifier: ^8.3.8
         version: 8.3.8(esbuild@0.28.2)(jiti@2.7.0)
+
+  packages/email: {}
 
 packages:
 

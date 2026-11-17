@@ -3,6 +3,8 @@ export interface Env {
   DB: D1Database;
   NOVADB: DurableObjectNamespace<import("./lib/dodb").NovaDB>;
   WEBHOOK_QUEUE?: Queue<WebhookJob>;
+  /** Uploaded images/GIFs/MP4 for emails (Workers KV, free tier). */
+  MEDIA?: KVNamespace;
 
   /** Public base URL of this API, e.g. https://novamail.nexaclouds.online */
   PUBLIC_URL: string;
@@ -49,7 +51,7 @@ export interface Principal {
   accountId: string;
   apiKeyId: string | null;
   userId?: string;
-  permission: "full" | "sending";
+  permission: "full" | "sending" | "agent";
   domainId: string | null;
 }
 

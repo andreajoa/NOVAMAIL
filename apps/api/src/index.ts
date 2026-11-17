@@ -9,6 +9,8 @@ import { apiKeys, me, suppressions, usage, webhooks } from "./routes/account";
 import { auth } from "./routes/auth";
 import { billing, stripeHooks } from "./routes/billing";
 import { audiences, broadcasts, processBroadcasts, unsubscribe } from "./routes/marketing";
+import { funnels, processFunnels } from "./routes/funnels";
+import { media, serveMedia, templates } from "./routes/templates";
 import { admin } from "./routes/admin";
 import { domains } from "./routes/domains";
 import { emails } from "./routes/emails";
@@ -62,6 +64,8 @@ app.get("/docs", (c) => c.html(docsHtml(`${c.env.PUBLIC_URL}/openapi.json`)));
 app.route("/hooks/postal", postalHooks);
 app.route("/hooks/stripe", stripeHooks);
 app.route("/u", unsubscribe);
+// Public media used inside emails (immutable, edge-cached).
+app.get("/m/:id", (c) => serveMedia(c.env, c.req.raw, c.req.param("id"), c.executionCtx));
 app.route("/hooks/fbl", fbl);
 
 // Customer API (Resend-compatible paths).
@@ -71,7 +75,7 @@ app.route("/emails", emails);
 
 app.route("/auth", auth);
 
-for (const path of ["/domains", "/api-keys", "/webhooks", "/suppressions", "/usage", "/me", "/billing", "/audiences", "/broadcasts"]) {
+for (const path of ["/domains", "/api-keys", "/webhooks", "/suppressions", "/usage", "/me", "/billing", "/audiences", "/broadcasts", "/templates", "/media", "/funnels"]) {
   app.use(path, requireApiKey, requireFullAccess);
   app.use(`${path}/*`, requireApiKey, requireFullAccess);
 }
@@ -84,6 +88,9 @@ app.route("/me", me);
 app.route("/billing", billing);
 app.route("/audiences", audiences);
 app.route("/broadcasts", broadcasts);
+app.route("/templates", templates);
+app.route("/media", media);
+app.route("/funnels", funnels);
 
 // Platform owner.
 app.use("/admin/*", requireOwner);
@@ -137,6 +144,8 @@ export default {
   queue: (batch, env) => handleQueue(batch, withDb(env)),
   // Every minute: next batch of each broadcast being sent.
   scheduled: async (_ctrl, env, ctx) => {
-    ctx.waitUntil(processBroadcasts(withDb(env)).then((r) => r.length && console.log(JSON.stringify({ level: "info", broadcasts: r }))));
+    const e = withDb(env);
+    ctx.waitUntil(processBroadcasts(e).then((r) => r.length && console.log(JSON.stringify({ level: "info", broadcasts: r }))));
+    ctx.waitUntil(processFunnels(e).then((r) => r.due && console.log(JSON.stringify({ level: "info", funnels: r }))));
   },
 } satisfies ExportedHandler<Env, WebhookJob>;
