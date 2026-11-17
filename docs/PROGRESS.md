@@ -2,7 +2,7 @@
 
 Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta implantar/provar · ⏳ a fazer · 🔒 depende do André
 
-**Progresso geral: 63 / 68 itens (93%)** — atualizado 17/11/2026 (BRT)
+**Progresso geral: 65 / 71 itens (92%)** — atualizado 17/11/2026 (BRT)
 
 ## F0 — Auditoria (100%)
 - ✅ 5 repositórios auditados (Postal, listmonk, Plunk, BillionMail, Mautic) → Postal MIT escolhido
@@ -97,6 +97,11 @@ Atualizado a cada etapa. ✅ feito e provado · 🟡 código pronto, falta impla
 - ✅ Mensal/anual fácil: botão do site leva direto ao checkout embutido do plano/intervalo escolhido; seletor grande P&B; faixa de upgrade no painel Free
 - ✅ Site: seção CRM na home, página /crm, llms.txt e schema atualizados; IndexNow enviado
 - ✅ 42 testes passando (inclui CRM e ciclo de vida)
+
+## F11 — IPs por nível de risco (2/3)
+- ✅ Grupos no Postal: brands (suas marcas) · trusted (pagantes) · shared (Free) · ded_<conta> (dedicado); grupo inexistente cai no IP principal; testado no Postal real (CI) e em produção (8 contas reaplicadas)
+- ✅ IP dedicado US$29/mês · US$290/ano: oferecido no checkout do Scale e no painel; aviso por e-mail ao dono; aquecimento automático (~3 semanas, limite por hora dobrando); cancelou → volta ao grupo do plano
+- 🔒 Ligar o IP do Free (`bash scripts/ip-pool.sh shared`) quando a porta 25 abrir e entrar o 1º pagante (~US$3,60/mês)
 
 ## Lançamento (1/2)
 - ✅ Landing com preços + cadastro, Termos, Política de Uso Aceitável e Privacidade (LGPD) em app.novamail.nexaclouds.online (revisar com advogado antes de escala)
