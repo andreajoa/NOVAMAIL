@@ -1,0 +1,24 @@
+{
+  "name": "@novamail/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "deploy": "wrangler deploy",
+    "migrate:remote": "wrangler d1 migrations apply novamail --remote"
+  },
+  "dependencies": {
+    "hono": "^4.13.19",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.8.2",
+    "@cloudflare/workers-types": "^5.20261117.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0",
+    "wrangler": "^4.163.0"
+  }
+}

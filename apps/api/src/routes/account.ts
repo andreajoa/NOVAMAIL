@@ -1,0 +1,106 @@
+// API keys, customer webhooks, suppressions and usage for the authenticated account.
+import { Hono } from "hono";
+import { z } from "zod";
+import type { AppEnv } from "../env";
+import { createApiKey } from "../lib/auth";
+import { b64encode, prefixedId } from "../lib/crypto";
+import { errors, zodMessage } from "../lib/http";
+import { planOf } from "../lib/plans";
+import { reputation, usageSnapshot } from "../lib/usage";
+
+export const apiKeys = new Hono<AppEnv>();
+
+apiKeys.post("/", async (c) => {
+  const parsed = z
+    .object({ name: z.string().min(1).max(50), permission: z.enum(["full_access", "sending_access"]).default("full_access"), domain_id: z.string().optional() })
+    .safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) throw errors.validation(zodMessage(parsed.error));
+  const p = c.get("principal");
+  if (parsed.data.domain_id) {
+    const d = await c.env.DB.prepare("SELECT id FROM domains WHERE id = ? AND account_id = ?").bind(parsed.data.domain_id, p.accountId).first();
+    if (!d) throw errors.notFound("Domain");
+  }
+  const k = await createApiKey(c.env.DB, p.accountId, parsed.data.name, parsed.data.permission === "full_access" ? "full" : "sending", parsed.data.domain_id ?? null);
+  return c.json({ id: k.id, token: k.token }, 201);
+});
+
+apiKeys.get("/", async (c) => {
+  const r = await c.env.DB.prepare("SELECT id, name, prefix, permission, created_at, last_used_at FROM api_keys WHERE account_id = ? AND revoked_at IS NULL ORDER BY created_at DESC")
+    .bind(c.get("principal").accountId)
+    .all();
+  return c.json({ object: "list", data: r.results });
+});
+
+apiKeys.delete("/:id", async (c) => {
+  const p = c.get("principal");
+  if (c.req.param("id") === p.apiKeyId) throw errors.validation("You cannot revoke the key used for this request.");
+  const r = await c.env.DB.prepare("UPDATE api_keys SET revoked_at = ? WHERE id = ? AND account_id = ? AND revoked_at IS NULL").bind(Date.now(), c.req.param("id"), p.accountId).run();
+  if (!r.meta.changes) throw errors.notFound("API key");
+  return c.json({ id: c.req.param("id"), deleted: true });
+});
+
+export const webhooks = new Hono<AppEnv>();
+
+const EVENTS = ["email.delivered", "email.delivery_delayed", "email.bounced", "email.held", "email.opened", "email.clicked", "email.complained"] as const;
+
+webhooks.post("/", async (c) => {
+  const parsed = z
+    .object({ endpoint: z.url({ protocol: /^https$/ }), events: z.array(z.enum([...EVENTS, "*"])).min(1).default(["*"]) })
+    .safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) throw errors.validation(zodMessage(parsed.error));
+  const id = prefixedId("wh");
+  const secret = `whsec_${b64encode(crypto.getRandomValues(new Uint8Array(32)))}`;
+  await c.env.DB.prepare("INSERT INTO webhooks (id, account_id, url, secret, events, created_at) VALUES (?,?,?,?,?,?)")
+    .bind(id, c.get("principal").accountId, parsed.data.endpoint, secret, JSON.stringify(parsed.data.events), Date.now())
+    .run();
+  return c.json({ object: "webhook", id, endpoint: parsed.data.endpoint, events: parsed.data.events, signing_secret: secret }, 201);
+});
+
+webhooks.get("/", async (c) => {
+  const r = await c.env.DB.prepare("SELECT id, url AS endpoint, events, enabled, created_at FROM webhooks WHERE account_id = ?").bind(c.get("principal").accountId).all();
+  return c.json({ object: "list", data: r.results.map((w) => ({ ...w, events: JSON.parse(w.events as string), enabled: !!w.enabled })) });
+});
+
+webhooks.delete("/:id", async (c) => {
+  const r = await c.env.DB.prepare("DELETE FROM webhooks WHERE id = ? AND account_id = ?").bind(c.req.param("id"), c.get("principal").accountId).run();
+  if (!r.meta.changes) throw errors.notFound("Webhook");
+  return c.json({ id: c.req.param("id"), deleted: true });
+});
+
+export const suppressions = new Hono<AppEnv>();
+
+suppressions.get("/", async (c) => {
+  const r = await c.env.DB.prepare("SELECT address, reason, created_at FROM suppressions WHERE account_id = ? ORDER BY created_at DESC LIMIT 500").bind(c.get("principal").accountId).all();
+  return c.json({ object: "list", data: r.results });
+});
+
+suppressions.post("/", async (c) => {
+  const parsed = z.object({ address: z.email(), reason: z.enum(["manual", "unsubscribe"]).default("manual") }).safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) throw errors.validation(zodMessage(parsed.error));
+  await c.env.DB.prepare("INSERT OR REPLACE INTO suppressions (account_id, address, reason, created_at) VALUES (?,?,?,?)")
+    .bind(c.get("principal").accountId, parsed.data.address.toLowerCase(), parsed.data.reason, Date.now())
+    .run();
+  return c.json({ address: parsed.data.address.toLowerCase(), suppressed: true }, 201);
+});
+
+suppressions.delete("/:address", async (c) => {
+  await c.env.DB.prepare("DELETE FROM suppressions WHERE account_id = ? AND address = ?").bind(c.get("principal").accountId, c.req.param("address").toLowerCase()).run();
+  return c.json({ address: c.req.param("address").toLowerCase(), suppressed: false });
+});
+
+export const usage = new Hono<AppEnv>();
+
+usage.get("/", async (c) => {
+  const id = c.get("principal").accountId;
+  const a = await c.env.DB.prepare("SELECT plan, status FROM accounts WHERE id = ?").bind(id).first<{ plan: string; status: string }>();
+  const plan = planOf(a?.plan ?? "free");
+  const u = await usageSnapshot(c.env.DB, id);
+  const rep = await reputation(c.env.DB, id);
+  return c.json({
+    plan: plan.id,
+    status: a?.status,
+    limits: { daily: plan.daily, monthly: plan.monthly, domains: plan.domains },
+    usage: { today: u.today, month: u.month },
+    reputation: { sent_7d: rep.sent, bounce_rate: rep.bounceRate, complaint_rate: rep.complaintRate },
+  });
+});

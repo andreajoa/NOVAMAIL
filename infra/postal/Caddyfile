@@ -1,0 +1,22 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$POSTAL_HOST} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		-Server
+	}
+
+	# NovaMail admin sidecar (bearer-token protected inside the app).
+	handle_path /_novamail/* {
+		reverse_proxy 127.0.0.1:5050
+	}
+
+	# Postal web UI, send API and click/open tracking.
+	handle {
+		reverse_proxy 127.0.0.1:5000
+	}
+}

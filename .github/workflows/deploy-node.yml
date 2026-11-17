@@ -1,0 +1,65 @@
+name: Deploy sending node (Postal)
+on:
+  workflow_dispatch:
+    inputs:
+      dns:
+        description: "Also upsert platform DNS records in Cloudflare"
+        type: boolean
+        default: true
+  push:
+    branches: [main]
+    paths: ["infra/postal/**"]
+
+concurrency: deploy-node
+permissions:
+  contents: read
+
+jobs:
+  node:
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      MAIL_DOMAIN: ${{ vars.MAIL_DOMAIN }}
+      NODE_HOST: ${{ secrets.NODE_HOST }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: SSH key
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.NODE_SSH_KEY }}" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$NODE_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+      - name: Bootstrap / update node (idempotent)
+        run: |
+          ssh "${{ vars.NODE_USER || 'ubuntu' }}@$NODE_HOST" \
+            "curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/infra/postal/bootstrap.sh | sudo REPO_REF=${{ github.ref_name }} MAIL_DOMAIN=$MAIL_DOMAIN ACME_EMAIL=${{ vars.ACME_EMAIL }} bash"
+      - name: Read node-owned secrets (never printed)
+        id: node
+        run: |
+          U="${{ vars.NODE_USER || 'ubuntu' }}@$NODE_HOST"
+          tok=$(ssh "$U" "sudo grep ^NOVAMAIL_ADMIN_TOKEN= /opt/novamail/.env | cut -d= -f2")
+          echo "::add-mask::$tok"
+          ssh "$U" "sudo cat /opt/novamail/postal/signing.pub" > signing.pub
+          ip=$(ssh "$U" "curl -4 -fsS https://api.ipify.org")
+          echo "ip=$ip" >> "$GITHUB_OUTPUT"
+          jq -n --arg t "$tok" --rawfile k signing.pub '{POSTAL_ADMIN_TOKEN:$t, POSTAL_WEBHOOK_PUBLIC_KEY:$k}' > /tmp/s.json
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Push node secrets to the API worker
+        working-directory: apps/api
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler secret bulk /tmp/s.json && rm /tmp/s.json
+      - name: Platform DNS
+        if: ${{ github.event_name == 'push' || inputs.dns }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DNS_TOKEN || secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ZONE_ID: ${{ vars.CLOUDFLARE_ZONE_ID }}
+          SERVER_IP: ${{ steps.node.outputs.ip }}
+        run: DKIM_PUB="$(cat signing.pub)" node infra/dns/apply.mjs
+      - name: Health
+        run: |
+          curl -fsS "https://postal.$MAIL_DOMAIN/_novamail/health"
+          curl -fsS "https://api.novamail.nexaclouds.online/health"

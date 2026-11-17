@@ -1,0 +1,46 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @novamail/api typecheck
+      - run: pnpm --filter @novamail/api test
+
+  infra:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ruby/setup-ruby@v1
+        with: { ruby-version: "3.4" }
+      - name: Ruby syntax (Postal admin sidecar)
+        run: ruby -c infra/postal/admin/server.rb
+      - name: Shell scripts
+        run: |
+          sudo apt-get install -y -qq shellcheck
+          shellcheck -S warning infra/postal/*.sh
+      - name: Compose file
+        run: |
+          printf 'MARIADB_ROOT_PASSWORD=x\nNOVAMAIL_ADMIN_TOKEN=x\nPOSTAL_HOST=x\nACME_EMAIL=x\n' > /tmp/env
+          docker compose --env-file /tmp/env -f infra/postal/docker-compose.yml config -q
+      - name: DNS records shape
+        run: node -e 'import("./infra/dns/records.mjs").then(m=>{const r=m.platformRecords({mailDomain:"n.example.com",ip:"192.0.2.1",dkimPublicKeyPem:"-----BEGIN PUBLIC KEY-----\nAAA\n-----END PUBLIC KEY-----"});if(r.length<9)process.exit(1);console.table(r)})'
+
+  postal-admin-integration:
+    # Boots the real Postal image + MariaDB and drives the admin sidecar end to end.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: bash scripts/ci-postal-admin.sh

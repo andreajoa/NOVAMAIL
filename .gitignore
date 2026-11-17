@@ -1,0 +1,10 @@
+node_modules/
+.wrangler/
+.dev.vars
+*.env
+.env*
+!.env.example
+infra/postal/postal.yml
+*.key
+*.pem
+.DS_Store

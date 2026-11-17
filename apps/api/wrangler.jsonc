@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "novamail-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  // Until NovaMail has its own domain it lives under NexaCloud's zone.
+  "routes": [{ "pattern": "api.novamail.nexaclouds.online", "custom_domain": true }],
+  "vars": {
+    "PUBLIC_URL": "https://api.novamail.nexaclouds.online",
+    "POSTAL_URL": "https://postal.novamail.nexaclouds.online",
+    "POSTAL_ADMIN_URL": "https://postal.novamail.nexaclouds.online/_novamail"
+  },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "novamail", "database_id": "REPLACED_BY_CI", "migrations_dir": "migrations" }
+  ],
+  "queues": {
+    "producers": [{ "binding": "WEBHOOK_QUEUE", "queue": "novamail-webhooks" }],
+    "consumers": [{ "queue": "novamail-webhooks", "max_batch_size": 25, "max_retries": 0 }]
+  }
+}
