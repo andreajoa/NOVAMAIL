@@ -144,7 +144,15 @@ export async function setupNurture(env: Env) {
     await env.DB.prepare("INSERT INTO funnels (id, account_id, name, trigger, audience_id, from_addr, status, graph, created_by, created_at, updated_at) VALUES (?,?, 'NovaMail nurture (free → paid)', 'audience', ?, ?, 'active', ?, 'system', ?, ?)")
       .bind(fid, acc, aud.id, env.SYSTEM_FROM, JSON.stringify(graph), now, now)
       .run();
-  return { audience_id: aud.id, funnel_id: fid, templates: tplIds };
+  // Backfill: everyone already on the Free plan enters the nurture too.
+  const free = await env.DB.prepare("SELECT u.email FROM users u JOIN accounts a ON a.id = u.account_id WHERE a.plan = 'free'").all<{ email: string }>();
+  const { uuidv7 } = await import("./crypto");
+  for (const u of free.results) await env.DB.prepare("INSERT OR IGNORE INTO contacts (id, account_id, audience_id, email, unsubscribed, created_at) VALUES (?,?,?,?,0,?)").bind(`con_${uuidv7()}`, acc, aud.id, u.email, now).run();
+  if (free.results.length) {
+    const { onAudienceJoin } = await import("../routes/funnels");
+    await onAudienceJoin(env, acc, aud.id, free.results.map((u) => u.email));
+  }
+  return { audience_id: aud.id, funnel_id: fid, templates: tplIds, backfilled: free.results.length };
 }
 
 /** New signup → welcome email now + enter the nurture funnel. */

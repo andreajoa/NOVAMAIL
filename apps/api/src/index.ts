@@ -11,6 +11,7 @@ import { billing, stripeHooks } from "./routes/billing";
 import { audiences, broadcasts, processBroadcasts, unsubscribe } from "./routes/marketing";
 import { contactTags, funnels, processFunnels } from "./routes/funnels";
 import { track } from "./routes/track";
+import { crmFields, people, segments } from "./routes/crm";
 import { mcp } from "./routes/mcp";
 import { media, serveMedia, templates } from "./routes/templates";
 import { admin } from "./routes/admin";
@@ -85,7 +86,7 @@ app.route("/emails", emails);
 
 app.route("/auth", auth);
 
-for (const path of ["/domains", "/api-keys", "/webhooks", "/suppressions", "/usage", "/me", "/billing", "/audiences", "/broadcasts", "/templates", "/media", "/funnels", "/contacts"]) {
+for (const path of ["/domains", "/api-keys", "/webhooks", "/suppressions", "/usage", "/me", "/billing", "/audiences", "/broadcasts", "/templates", "/media", "/funnels", "/contacts", "/people", "/segments", "/crm"]) {
   app.use(path, requireApiKey, requireFullAccess);
   app.use(`${path}/*`, requireApiKey, requireFullAccess);
 }
@@ -102,6 +103,9 @@ app.route("/templates", templates);
 app.route("/media", media);
 app.route("/funnels", funnels);
 app.route("/contacts/tags", contactTags);
+app.route("/people", people);
+app.route("/segments", segments);
+app.route("/crm/fields", crmFields);
 
 // Platform owner.
 app.use("/admin/*", requireOwner);

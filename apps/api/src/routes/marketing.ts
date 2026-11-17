@@ -102,6 +102,8 @@ audiences.post("/:id/contacts", async (c) => {
     ).bind(`con_${uuidv7(now + i)}`, p.accountId, c.req.param("id"), ct.email, ct.first_name ?? null, ct.last_name ?? null, ct.unsubscribed ? 1 : 0, now, ct.unsubscribed === undefined ? 0 : 1),
   );
   for (let i = 0; i < stmts.length; i += 100) await c.env.DB.batch(stmts.slice(i, i + 100));
+  const acts = items.map((ct) => c.env.DB.prepare("INSERT INTO activities (account_id, email, type, data, created_at) VALUES (?,?, 'joined_list', ?, ?)").bind(p.accountId, ct.email, JSON.stringify({ list: c.req.param("id") }), now));
+  for (let i = 0; i < acts.length; i += 100) await c.env.DB.batch(acts.slice(i, i + 100));
   // Funnels triggered by this audience start for the new contacts.
   c.executionCtx.waitUntil(onAudienceJoin(c.env, p.accountId, c.req.param("id"), items.filter((x) => !x.unsubscribed).map((x) => x.email)));
   return c.json({ object: "list", imported: items.length }, 201);
@@ -257,6 +259,7 @@ async function doUnsubscribe(env: Env, token: string) {
   await env.DB.batch([
     env.DB.prepare("UPDATE contacts SET unsubscribed = 1 WHERE account_id = ? AND email = ?").bind(ct.account_id, ct.email),
     env.DB.prepare("INSERT OR IGNORE INTO suppressions (account_id, address, reason, created_at) VALUES (?,?, 'unsubscribe', ?)").bind(ct.account_id, ct.email, Date.now()),
+    env.DB.prepare("INSERT INTO activities (account_id, email, type, data, created_at) VALUES (?,?, 'unsubscribed', NULL, ?)").bind(ct.account_id, ct.email, Date.now()),
   ]);
   return ct.email;
 }

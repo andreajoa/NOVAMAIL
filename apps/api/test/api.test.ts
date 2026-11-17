@@ -720,7 +720,54 @@ describe("NovaMail lifecycle emails", () => {
     const before = postal.sent.length;
     await processFunnels(testEnv, now + 86_400_000 + 2000); // starts the 2-day wait
     await processFunnels(testEnv, now + 3 * 86_400_000 + 5000); // condition "paid?" → yes → end
-    expect(postal.sent.length).toBe(before); // no more nurture emails
+    expect(postal.sent.slice(before).filter((m) => m.to[0] === "buyer@example.org")).toHaveLength(0); // no more nurture emails for the payer
     for (const k of ["STRIPE_SECRET_KEY", "STRIPE_PRICE_PRO", "STRIPE_PRICE_EXTRA"]) delete (testEnv as any)[k];
+  });
+});
+
+describe("CRM", () => {
+  it("merges people across lists, scores engagement, segments, notes, timeline, export and erasure", async () => {
+    const acc = await verifiedAccount(postal, "pro");
+    const t = (path: string, init: any = {}) => call(path, { token: acc.api_key, ...init });
+    expect((await t("/crm/fields", { method: "POST", json: { label: "Last order value", type: "number" } })).body.key).toBe("last_order_value");
+    await t("/people", { method: "POST", json: { email: "Ana@x.com", first_name: "Ana", company: "Acme", fields: { last_order_value: "120" }, tags: ["vip"] } });
+    await t("/people", { method: "POST", json: { email: "bob@x.com", first_name: "Bob" } });
+    const aud = await t("/audiences", { method: "POST", json: { name: "Newsletter" } });
+    await t(`/audiences/${aud.body.id}/contacts`, { method: "POST", json: [{ email: "ana@x.com" }, { email: "cara@x.com", first_name: "=HYPERLINK(evil)" }] });
+
+    let list = await t("/people?sort=name");
+    expect(list.body.total).toBe(3); // ana counted once across two lists
+    const ana = list.body.data.find((p: any) => p.email === "ana@x.com");
+    expect(ana.lists).toHaveLength(2);
+    expect(ana.fields.last_order_value).toBe("120");
+
+    // A tracked click raises Ana's score to "hot".
+    const s = await t("/emails", { method: "POST", json: { from: "a@example.com", to: "ana@x.com", subject: "Hi", text: "x" } });
+    await testEnv.DB.prepare("INSERT INTO email_events (id, email_id, account_id, type, recipient, data, created_at) VALUES ('c1', ?, ?, 'email.clicked', 'ana@x.com', '{}', ?), ('o1', ?, ?, 'email.opened', 'ana@x.com', '{}', ?)").bind(s.body.id, acc.id, Date.now(), s.body.id, acc.id, Date.now()).run();
+    list = await t("/people?sort=score");
+    expect(list.body.data[0].email).toBe("ana@x.com");
+    expect(list.body.data[0].tier).toBe("hot");
+
+    const rules = { match: "all", rules: [{ field: "tag", op: "has", value: "vip" }, { field: "field:last_order_value", op: "gte", value: 100 }] };
+    expect((await t("/segments/preview", { method: "POST", json: rules })).body.count).toBe(1);
+    const seg = await t("/segments", { method: "POST", json: { name: "VIP big spenders", rules } });
+    const frozen = await t(`/segments/${seg.body.id}/list`, { method: "POST" });
+    expect(frozen.body.contacts).toBe(1);
+
+    await t("/people/ana@x.com/notes", { method: "POST", json: { body: "Called — wants the blue one." } });
+    await t("/people/ana@x.com", { method: "PATCH", json: { phone: "+1 555 0100", add_tags: ["called"] } });
+    const prof = await t("/people/ana@x.com");
+    expect(prof.body.phone).toBe("+1 555 0100");
+    expect(prof.body.tags).toEqual(expect.arrayContaining(["vip", "called"]));
+    const kinds = prof.body.timeline.map((x: any) => x.kind);
+    expect(kinds).toEqual(expect.arrayContaining(["note", "clicked", "opened", "sent", "tag_added", "joined_list"]));
+
+    const { app } = await import("../src/index");
+    const csv = await (await app.request("/people/export.csv", { headers: { authorization: `Bearer ${acc.api_key}` } }, testEnv)).text();
+    expect(csv.split("\n")[0]).toContain("last_order_value");
+    expect(csv).toContain("'=HYPERLINK(evil)"); // CSV-injection neutralised
+
+    expect((await t("/people/bob@x.com", { method: "DELETE" })).body.deleted).toBe(true);
+    expect((await t("/people")).body.total).toBe(2);
   });
 });
