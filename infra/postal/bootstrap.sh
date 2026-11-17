@@ -86,15 +86,17 @@ for _ in $(seq 1 60); do
   [ -f "$ROOT/caddy/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${POSTAL_HOST}/${POSTAL_HOST}.crt" ] && break
   sleep 5
 done
-chmod -R o+rX "$ROOT/caddy/caddy/certificates" 2>/dev/null || true
+# Undo the old world-readable workaround, then copy the cert for Postal (uid 999, 600).
+chmod -R o-rwx "$ROOT/caddy/caddy" 2>/dev/null || true
+"$ROOT/repo/infra/postal/sync-tls.sh" --no-restart
 
 log "postal"
 $DC up -d web worker smtp smtp-submission admin
 $DC ps
 
-# Restart SMTP weekly so renewed certificates are picked up.
+# Daily: copy a renewed certificate to Postal and restart SMTP only if it changed.
 cat > /etc/cron.d/novamail <<EOF
-17 4 * * 1 root cd $ROOT/repo/infra/postal && $DC restart smtp smtp-submission >/dev/null 2>&1
+17 4 * * * root $ROOT/repo/infra/postal/sync-tls.sh >> /var/log/novamail-tls.log 2>&1
 */10 * * * * root $ROOT/repo/infra/postal/healthcheck.sh >> /var/log/novamail-health.log 2>&1
 EOF
 
