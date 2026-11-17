@@ -31,3 +31,13 @@ export function planOf(id: string): Plan {
 
 export const PAID_PLANS = ["pro", "scale"] as const;
 export type PaidPlan = (typeof PAID_PLANS)[number];
+
+/** One add-on pack bought in Checkout adds this much to the plan's limits. */
+export const EXTRA_PACK = { monthly: 50_000, daily: 5_000, priceUsd: 10, priceUsdYear: 100 };
+
+/** Effective limits = plan + purchased packs (internal stays unlimited). */
+export function limitsOf(planId: string, packs = 0) {
+  const p = planOf(planId);
+  if (isUnlimited(p) || !packs) return p;
+  return { ...p, monthly: p.monthly + packs * EXTRA_PACK.monthly, daily: p.daily + packs * EXTRA_PACK.daily };
+}

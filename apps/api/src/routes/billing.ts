@@ -6,7 +6,7 @@ import type { AppEnv, Env } from "../env";
 import { poolFor } from "../lib/accounts";
 import { safeEqual } from "../lib/crypto";
 import { ApiError, errors, zodMessage } from "../lib/http";
-import { PAID_PLANS, planOf, type PaidPlan, type PlanId } from "../lib/plans";
+import { EXTRA_PACK, PAID_PLANS, planOf, type PaidPlan, type PlanId } from "../lib/plans";
 import { postalAdmin } from "../lib/postal";
 
 const STRIPE = "https://api.stripe.com/v1";
@@ -29,19 +29,36 @@ export async function stripe<T = any>(env: Env, path: string, body?: Record<stri
   return j;
 }
 
-const priceFor = (env: Env, plan: PaidPlan) => (plan === "pro" ? env.STRIPE_PRICE_PRO : env.STRIPE_PRICE_SCALE);
+type Interval = "month" | "year";
+const priceFor = (env: Env, plan: PaidPlan, interval: Interval) =>
+  interval === "year" ? (plan === "pro" ? env.STRIPE_PRICE_PRO_YEAR : env.STRIPE_PRICE_SCALE_YEAR) : plan === "pro" ? env.STRIPE_PRICE_PRO : env.STRIPE_PRICE_SCALE;
+const extraPriceFor = (env: Env, interval: Interval) => (interval === "year" ? env.STRIPE_PRICE_EXTRA_YEAR : env.STRIPE_PRICE_EXTRA);
 const planForPrice = (env: Env, price: string | undefined): PlanId | null =>
-  price && price === env.STRIPE_PRICE_PRO ? "pro" : price && price === env.STRIPE_PRICE_SCALE ? "scale" : null;
+  !price ? null : [env.STRIPE_PRICE_PRO, env.STRIPE_PRICE_PRO_YEAR].includes(price) ? "pro" : [env.STRIPE_PRICE_SCALE, env.STRIPE_PRICE_SCALE_YEAR].includes(price) ? "scale" : null;
+
+/** Reads plan, interval and add-on packs from a Stripe subscription's items. */
+export function readSubscription(env: Env, sub: { items?: { data?: { price?: { id?: string; recurring?: { interval?: string } }; quantity?: number }[] } }) {
+  let plan: PlanId | null = null;
+  let interval: string | null = null;
+  let packs = 0;
+  for (const it of sub.items?.data ?? []) {
+    const id = it.price?.id;
+    const pl = planForPrice(env, id);
+    if (pl) (plan = pl), (interval = it.price?.recurring?.interval ?? null);
+    else if (id && (id === env.STRIPE_PRICE_EXTRA || id === env.STRIPE_PRICE_EXTRA_YEAR)) packs += it.quantity ?? 1;
+  }
+  return { plan, interval, packs };
+}
 
 /** Moves an account to `plan`, pushing hourly limit + IP pool to Postal. */
-export async function applyPlan(env: Env, accountId: string, plan: PlanId, sub: { customer?: string; subscription?: string | null }) {
+export async function applyPlan(env: Env, accountId: string, plan: PlanId, sub: { customer?: string; subscription?: string | null; packs?: number; interval?: string | null }) {
   const a = await env.DB.prepare("SELECT plan, postal_org, postal_server FROM accounts WHERE id = ?").bind(accountId).first<{ plan: PlanId; postal_org: string | null; postal_server: string | null }>();
   if (!a || a.plan === "internal") return;
   const pool = poolFor(plan);
   if (a.postal_org && a.postal_server) await postalAdmin.setLimits(env, { org: a.postal_org, server: a.postal_server, hourly_limit: planOf(plan).hourly || null, ip_pool: pool });
   await env.DB.batch([
-    env.DB.prepare("UPDATE accounts SET plan = ?, ip_pool = ?, stripe_customer = COALESCE(?, stripe_customer), stripe_subscription = ?, updated_at = ? WHERE id = ?")
-      .bind(plan, pool, sub.customer ?? null, sub.subscription ?? null, Date.now(), accountId),
+    env.DB.prepare("UPDATE accounts SET plan = ?, ip_pool = ?, stripe_customer = COALESCE(?, stripe_customer), stripe_subscription = ?, extra_packs = ?, billing_interval = ?, updated_at = ? WHERE id = ?")
+      .bind(plan, pool, sub.customer ?? null, sub.subscription ?? null, sub.packs ?? 0, sub.interval ?? null, Date.now(), accountId),
     env.DB.prepare("INSERT INTO audit_log (account_id, actor, action, detail, created_at) VALUES (?, 'stripe', 'plan', ?, ?)").bind(accountId, `${a.plan} -> ${plan}`, Date.now()),
   ]);
 }
@@ -51,34 +68,65 @@ export const billing = new Hono<AppEnv>();
 billing.get("/plans", (c) =>
   c.json({
     enabled: !!c.env.STRIPE_SECRET_KEY,
+    publishable_key: c.env.STRIPE_PUBLISHABLE_KEY ?? null,
+    yearly: !!(c.env.STRIPE_PRICE_PRO_YEAR && c.env.STRIPE_PRICE_SCALE_YEAR),
+    extra_pack: { ...EXTRA_PACK, available: !!c.env.STRIPE_PRICE_EXTRA },
     data: (["free", ...PAID_PLANS] as PlanId[]).map((id) => {
       const p = planOf(id);
-      return { id, label: p.label, price_usd: p.priceUsd, monthly: p.monthly, daily: p.daily, domains: p.domains };
+      return { id, label: p.label, price_usd: p.priceUsd, price_usd_year: p.priceUsd * 10, monthly: p.monthly, daily: p.daily, domains: p.domains };
     }),
   }),
 );
 
 billing.post("/checkout", async (c) => {
-  const parsed = z.object({ plan: z.enum(PAID_PLANS) }).safeParse(await c.req.json().catch(() => null));
+  const parsed = z.object({ plan: z.enum(PAID_PLANS), interval: z.enum(["month", "year"]).default("month"), embedded: z.boolean().default(true) }).safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) throw errors.validation(zodMessage(parsed.error));
-  const price = priceFor(c.env, parsed.data.plan);
+  const { plan, interval, embedded } = parsed.data;
+  const price = priceFor(c.env, plan, interval);
   if (!price) throw new ApiError(503, "billing_disabled", "Billing is not enabled yet.");
   const p = c.get("principal");
-  const a = await c.env.DB.prepare("SELECT email, stripe_customer FROM accounts WHERE id = ?").bind(p.accountId).first<{ email: string; stripe_customer: string | null }>();
+  const a = await c.env.DB.prepare("SELECT email, stripe_customer, stripe_subscription FROM accounts WHERE id = ?").bind(p.accountId).first<{ email: string; stripe_customer: string | null; stripe_subscription: string | null }>();
+  if (a?.stripe_subscription) throw errors.conflict("You already have a subscription — change it from Manage subscription.");
   const app = c.env.APP_URL ?? c.env.PUBLIC_URL;
-  const s = await stripe<{ url: string }>(c.env, "/checkout/sessions", {
+  const extra = extraPriceFor(c.env, interval);
+  const s = await stripe<{ url?: string; client_secret?: string; id: string }>(c.env, "/checkout/sessions", {
     mode: "subscription",
     "line_items[0][price]": price,
     "line_items[0][quantity]": 1,
+    // Value-adding upsell inside Checkout: extra sending capacity, quantity adjustable by the buyer.
+    ...(extra
+      ? {
+          "optional_items[0][price]": extra,
+          "optional_items[0][quantity]": 1,
+          "optional_items[0][adjustable_quantity][enabled]": "true",
+          "optional_items[0][adjustable_quantity][minimum]": 1,
+          "optional_items[0][adjustable_quantity][maximum]": 20,
+        }
+      : {}),
     client_reference_id: p.accountId,
     "metadata[account_id]": p.accountId,
     "subscription_data[metadata][account_id]": p.accountId,
     ...(a?.stripe_customer ? { customer: a.stripe_customer } : { customer_email: a?.email }),
     allow_promotion_codes: "true",
-    success_url: `${app}/plan?upgraded=1`,
-    cancel_url: `${app}/plan`,
+    billing_address_collection: "auto",
+    "automatic_tax[enabled]": c.env.STRIPE_AUTOMATIC_TAX === "true" ? "true" : undefined,
+    ...(embedded
+      ? { ui_mode: "embedded", return_url: `${app}/plan?session_id={CHECKOUT_SESSION_ID}` }
+      : { success_url: `${app}/plan?session_id={CHECKOUT_SESSION_ID}`, cancel_url: `${app}/plan` }),
   });
-  return c.json({ url: s.url });
+  return c.json(embedded ? { client_secret: s.client_secret, session_id: s.id } : { url: s.url });
+});
+
+/** After Checkout returns: confirm status and apply the plan immediately (webhook stays the source of truth). */
+billing.get("/session/:id", async (c) => {
+  const s = await stripe<{ status: string; client_reference_id?: string; subscription?: string; customer?: string }>(c.env, `/checkout/sessions/${encodeURIComponent(c.req.param("id"))}`);
+  if (s.client_reference_id !== c.get("principal").accountId) throw errors.notFound("Session");
+  if (s.status === "complete" && s.subscription) {
+    const sub = await stripe(c.env, `/subscriptions/${s.subscription}`);
+    const r = readSubscription(c.env, sub);
+    if (r.plan) await applyPlan(c.env, c.get("principal").accountId, r.plan, { customer: s.customer, subscription: s.subscription, packs: r.packs, interval: r.interval });
+  }
+  return c.json({ status: s.status });
 });
 
 billing.post("/portal", async (c) => {
@@ -113,8 +161,8 @@ stripeHooks.post("/", async (c) => {
       const accountId = o.client_reference_id ?? o.metadata?.account_id;
       if (!accountId || !o.subscription) break;
       const sub = await stripe(c.env, `/subscriptions/${o.subscription}`);
-      const plan = planForPrice(c.env, sub.items?.data?.[0]?.price?.id);
-      if (plan) await applyPlan(c.env, accountId, plan, { customer: o.customer, subscription: o.subscription });
+      const r = readSubscription(c.env, sub);
+      if (r.plan) await applyPlan(c.env, accountId, r.plan, { customer: o.customer, subscription: o.subscription, packs: r.packs, interval: r.interval });
       break;
     }
     case "customer.subscription.updated":
@@ -122,8 +170,8 @@ stripeHooks.post("/", async (c) => {
       const accountId = o.metadata?.account_id;
       if (!accountId) break;
       const active = evt.type === "customer.subscription.updated" && ["active", "trialing", "past_due"].includes(o.status);
-      const plan = active ? planForPrice(c.env, o.items?.data?.[0]?.price?.id) : "free";
-      if (plan) await applyPlan(c.env, accountId, plan, { customer: o.customer, subscription: active ? o.id : null });
+      const r = active ? readSubscription(c.env, o) : { plan: "free" as PlanId, packs: 0, interval: null };
+      if (r.plan) await applyPlan(c.env, accountId, r.plan, { customer: o.customer, subscription: active ? o.id : null, packs: r.packs, interval: r.interval });
       break;
     }
   }

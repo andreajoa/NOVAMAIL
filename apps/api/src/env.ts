@@ -30,6 +30,12 @@ export interface Env {
   STRIPE_WEBHOOK_SECRET?: string;
   STRIPE_PRICE_PRO?: string;
   STRIPE_PRICE_SCALE?: string;
+  STRIPE_PRICE_PRO_YEAR?: string;
+  STRIPE_PRICE_SCALE_YEAR?: string;
+  STRIPE_PRICE_EXTRA?: string;
+  STRIPE_PRICE_EXTRA_YEAR?: string;
+  STRIPE_PUBLISHABLE_KEY?: string;
+  STRIPE_AUTOMATIC_TAX?: string;
 }
 
 export interface WebhookJob {

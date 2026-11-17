@@ -5,7 +5,7 @@ import type { AppEnv } from "../env";
 import { createApiKey } from "../lib/auth";
 import { b64encode, prefixedId } from "../lib/crypto";
 import { errors, zodMessage } from "../lib/http";
-import { planOf } from "../lib/plans";
+import { limitsOf, planOf } from "../lib/plans";
 import { reputation, usageSnapshot } from "../lib/usage";
 
 export const apiKeys = new Hono<AppEnv>();
@@ -92,8 +92,8 @@ export const usage = new Hono<AppEnv>();
 
 usage.get("/", async (c) => {
   const id = c.get("principal").accountId;
-  const a = await c.env.DB.prepare("SELECT plan, status FROM accounts WHERE id = ?").bind(id).first<{ plan: string; status: string }>();
-  const plan = planOf(a?.plan ?? "free");
+  const a = await c.env.DB.prepare("SELECT plan, status, extra_packs FROM accounts WHERE id = ?").bind(id).first<{ plan: string; status: string; extra_packs: number }>();
+  const plan = limitsOf(a?.plan ?? "free", a?.extra_packs ?? 0);
   const u = await usageSnapshot(c.env.DB, id);
   const rep = await reputation(c.env.DB, id);
   return c.json({
@@ -109,9 +109,9 @@ export const me = new Hono<AppEnv>();
 
 me.get("/", async (c) => {
   const p = c.get("principal");
-  const a = await c.env.DB.prepare("SELECT id, name, email, plan, status, suspended_reason, created_at FROM accounts WHERE id = ?").bind(p.accountId).first<Record<string, unknown>>();
+  const a = await c.env.DB.prepare("SELECT id, name, email, plan, status, suspended_reason, created_at, extra_packs, billing_interval, stripe_subscription FROM accounts WHERE id = ?").bind(p.accountId).first<Record<string, unknown>>();
   const u = p.userId ? await c.env.DB.prepare("SELECT email, role FROM users WHERE id = ?").bind(p.userId).first<{ email: string; role: string }>() : null;
-  const plan = planOf((a?.plan as string) ?? "free");
+  const plan = limitsOf((a?.plan as string) ?? "free", (a?.extra_packs as number) ?? 0);
   const counts = await c.env.DB.prepare(
     `SELECT (SELECT COUNT(*) FROM domains WHERE account_id = ?1) AS domains,
             (SELECT COUNT(*) FROM domains WHERE account_id = ?1 AND status = 'verified') AS verified_domains,
@@ -121,7 +121,7 @@ me.get("/", async (c) => {
   return c.json({
     user: u,
     account: { ...a, created_at: new Date(a!.created_at as number).toISOString() },
-    plan: { id: plan.id, label: plan.label, daily: plan.daily, monthly: plan.monthly, domains: plan.domains },
+    plan: { id: plan.id, label: plan.label, daily: plan.daily, monthly: plan.monthly, domains: plan.domains, extra_packs: a?.extra_packs ?? 0, interval: a?.billing_interval ?? null, subscribed: !!a?.stripe_subscription },
     usage: await usageSnapshot(c.env.DB, p.accountId),
     counts,
   });

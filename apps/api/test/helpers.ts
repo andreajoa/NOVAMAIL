@@ -64,9 +64,10 @@ export function fakePostal(): FakePostal {
     }
     if (url.hostname === "api.stripe.com") {
       state.stripeCalls.push(url.pathname + " " + String(init?.body ?? ""));
-      if (url.pathname === "/v1/checkout/sessions") return json({ id: "cs_test_1", url: "https://checkout.stripe.com/c/pay/cs_test_1" });
+      if (url.pathname === "/v1/checkout/sessions") return json({ id: "cs_test_1", url: "https://checkout.stripe.com/c/pay/cs_test_1", client_secret: "cs_test_1_secret_x" });
       if (url.pathname === "/v1/billing_portal/sessions") return json({ url: "https://billing.stripe.com/p/session/test" });
-      if (url.pathname.startsWith("/v1/subscriptions/")) return json({ id: "sub_1", status: "active", items: { data: [{ price: { id: "price_pro" } }] } });
+      if (url.pathname.startsWith("/v1/subscriptions/"))
+        return json({ id: "sub_1", status: "active", items: { data: [{ price: { id: "price_pro", recurring: { interval: "month" } }, quantity: 1 }, { price: { id: "price_extra", recurring: { interval: "month" } }, quantity: 2 }] } });
     }
     return json({ error: "unexpected fetch " + url.href }, 599);
   });

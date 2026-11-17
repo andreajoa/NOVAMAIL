@@ -17,6 +17,8 @@ print(json.dumps({
   "OWNER_TOKEN": (c / "owner-token").read_text().strip(),
   "POSTAL_ADMIN_TOKEN": sys.argv[2].strip(),
   "POSTAL_WEBHOOK_PUBLIC_KEY": (c / "signing.pub").read_text(),
+  # Stripe publishable key (public by design) for the embedded Checkout.
+  **({"STRIPE_PUBLISHABLE_KEY": json.load(open(sp))["STRIPE_PUBLISHABLE_KEY"]} if (sp := pathlib.Path.home() / ".config/nexacloud/stripe-live.json").exists() else {}),
   # Temporary platform-mail bridge until outbound port 25 opens (delete the file to stop using it).
   **({"SYSTEM_RESEND_KEY": p.read_text().strip()} if (p := pathlib.Path.home() / ".config/nexacloud/resend-key").exists() and not (c / "port25-open").exists() else {}),
 }))

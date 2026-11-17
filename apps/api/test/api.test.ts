@@ -286,10 +286,10 @@ describe("docs", () => {
 describe("billing (Stripe)", () => {
   const WHSEC = "whsec_test_secret";
   beforeEach(() => {
-    Object.assign(testEnv, { STRIPE_SECRET_KEY: "sk_test_x", STRIPE_WEBHOOK_SECRET: WHSEC, STRIPE_PRICE_PRO: "price_pro", STRIPE_PRICE_SCALE: "price_scale" });
+    Object.assign(testEnv, { STRIPE_SECRET_KEY: "sk_test_x", STRIPE_WEBHOOK_SECRET: WHSEC, STRIPE_PRICE_PRO: "price_pro", STRIPE_PRICE_SCALE: "price_scale", STRIPE_PRICE_EXTRA: "price_extra" });
   });
   afterEach(() => {
-    for (const k of ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_PRO", "STRIPE_PRICE_SCALE"]) delete (testEnv as any)[k];
+    for (const k of ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_PRO", "STRIPE_PRICE_SCALE", "STRIPE_PRICE_EXTRA"]) delete (testEnv as any)[k];
   });
   async function stripeEvent(evt: unknown, secret = WHSEC) {
     const body = JSON.stringify(evt);
@@ -299,13 +299,18 @@ describe("billing (Stripe)", () => {
     return call("/hooks/stripe", { method: "POST", body, headers: { "content-type": "application/json", "stripe-signature": `t=${t},v1=${mac}` } });
   }
 
-  it("creates a Checkout session tied to the account", async () => {
+  it("creates an embedded Checkout session with the add-on upsell", async () => {
     const acc = await newAccount();
     const r = await call("/billing/checkout", { method: "POST", token: acc.api_key, json: { plan: "pro" } });
-    expect(r.body.url).toContain("checkout.stripe.com");
+    expect(r.body.client_secret).toBe("cs_test_1_secret_x");
     const sent = decodeURIComponent(postal.stripeCalls.find((x) => x.startsWith("/v1/checkout/sessions"))!);
     expect(sent).toContain(`client_reference_id=${acc.id}`);
     expect(sent).toContain("line_items[0][price]=price_pro");
+    expect(sent).toContain("ui_mode=embedded");
+    expect(sent).toContain("optional_items[0][price]=price_extra");
+    expect(sent).toContain("optional_items[0][adjustable_quantity][enabled]=true");
+    const yearly = await call("/billing/checkout", { method: "POST", token: acc.api_key, json: { plan: "pro", interval: "year" } });
+    expect(yearly.status).toBe(503); // no yearly price configured in this test
   });
 
   it("upgrades on checkout.session.completed and downgrades on cancellation", async () => {
@@ -316,7 +321,9 @@ describe("billing (Stripe)", () => {
     await stripeEvent({ type: "checkout.session.completed", data: { object: { client_reference_id: acc.id, subscription: "sub_1", customer: "cus_1" } } });
     let u = await call("/usage", { token: acc.api_key });
     expect(u.body.plan).toBe("pro");
-    expect(u.body.limits.monthly).toBe(50_000);
+    const me = await call("/me", { token: acc.api_key });
+    expect(me.body.plan.monthly).toBe(150_000); // Pro 50k + 2 add-on packs
+    expect(me.body.plan.extra_packs).toBe(2);
     expect(postal.adminCalls).toContain("/v1/limits");
 
     const portal = await call("/billing/portal", { method: "POST", token: acc.api_key });
