@@ -33,4 +33,6 @@ jq -n --argjson p25 "$port25" --arg t "$(date -u +%FT%TZ)" --arg ip "$ip" --argj
   --argjson down "$(printf '%s\n' "${down[@]:-}" | jq -R . | jq -s 'map(select(.!=""))')" \
   --argjson listed "$(printf '%s\n' "${listed[@]:-}" | jq -R . | jq -s 'map(select(.!=""))')" \
   '{checked_at:$t, ip:$ip, outbound_25:$p25, restarted:$down, blocklisted:$listed, queued_messages:$q}' > "$ROOT/health.json"
+# Copy for the admin sidecar (it only sees /opt/novamail/postal as /config), so the public status page can show outbound state.
+install -m 644 -o 999 "$ROOT/health.json" "$ROOT/postal/health.json" 2>/dev/null || cp "$ROOT/health.json" "$ROOT/postal/health.json"
 cat "$ROOT/health.json"

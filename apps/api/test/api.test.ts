@@ -43,6 +43,31 @@ describe("platform", () => {
     expect(r.body.ok).toBe(true);
   });
 
+  it("status shows outbound delivery blocked when port 25 is closed", async () => {
+    const mockNode = (h: Record<string, unknown>) =>
+      vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        if (url.endsWith("/health")) return new Response(JSON.stringify({ ok: true, postal: "3.4.0", ...h }), { headers: { "content-type": "application/json" } });
+        return new Response("{}", { status: 404 });
+      });
+    mockNode({ outbound_25: false, blocklisted: [], checked_at: new Date().toISOString() });
+    let r = await call("/status");
+    expect(r.body.sending_node).toBe("degraded");
+    expect(r.body.outbound_delivery).toBe("blocked");
+    const html = (await rawReq("/status", { headers: { accept: "text/html", "accept-language": "pt-BR" } })).text;
+    expect(html).toContain("Bloqueada");
+    expect(html).not.toMatch(/Servidor de envio<\/span><b class="operational"/);
+    vi.restoreAllMocks();
+    mockNode({ outbound_25: true, blocklisted: [], checked_at: new Date().toISOString() });
+    r = await call("/status");
+    expect(r.body.sending_node).toBe("operational");
+    expect(r.body.outbound_delivery).toBe("operational");
+    vi.restoreAllMocks();
+    mockNode({ outbound_25: null });
+    expect((await call("/status")).body.outbound_delivery).toBe("unknown");
+    vi.restoreAllMocks();
+  });
+
   it("rejects admin calls without the owner token", async () => {
     expect((await call("/admin/accounts")).status).toBe(401);
     expect((await call("/admin/accounts", { token: "nope" })).status).toBe(401);

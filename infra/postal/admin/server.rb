@@ -12,6 +12,7 @@
 # Every request must carry `Authorization: Bearer $NOVAMAIL_ADMIN_TOKEN`.
 
 require "json"
+require "time"
 require "rack"
 require "puma"
 require "puma/configuration"
@@ -194,13 +195,28 @@ module NovaMailAdmin
     "/v1/pools/remove" => :pool_remove,
   }.freeze
 
+  # Public health: process up + last healthcheck.sh result (outbound port 25, blocklists).
+  # The check runs every 10 min; older than 30 min = unknown (nil), never a stale "true".
+  def health
+    body = { ok: true, postal: Postal.version, outbound_25: nil, blocklisted: [], checked_at: nil }
+    h = JSON.parse(File.read("/config/health.json")) rescue nil
+    if h.is_a?(Hash)
+      at = Time.parse(h["checked_at"].to_s) rescue nil
+      fresh = at && (Time.now.utc - at) < 1800
+      body[:checked_at] = h["checked_at"]
+      body[:outbound_25] = fresh ? h["outbound_25"] == true : nil
+      body[:blocklisted] = Array(h["blocklisted"]).map(&:to_s)
+    end
+    body
+  end
+
   def json(status, body)
     [status, { "content-type" => "application/json", "cache-control" => "no-store" }, [JSON.generate(body)]]
   end
 
   def call(env)
     req = Rack::Request.new(env)
-    return json(200, { ok: true, postal: Postal.version }) if req.get? && req.path_info == "/health"
+    return json(200, health) if req.get? && req.path_info == "/health"
 
     auth = env["HTTP_AUTHORIZATION"].to_s
     unless auth.start_with?("Bearer ") && Rack::Utils.secure_compare(auth.delete_prefix("Bearer "), TOKEN)
