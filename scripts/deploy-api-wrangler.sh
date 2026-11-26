@@ -3,19 +3,20 @@
 set -euo pipefail
 cd "$(dirname "$0")/../apps/api"
 CONF="$HOME/.config/novamail"
-NODE="ubuntu@18.218.5.60"
+# Sending node removed from AWS on 2026-11-26 (port 25 denied). POSTAL_ADMIN_TOKEN already lives
+# in the Worker secrets; pass POSTAL_ADMIN_TOKEN=... only when a new node exists.
 
 # Database = SQLite Durable Object (free plan); it migrates itself on first request.
 
 echo "▶ segredos"
-TOK=$(ssh -i "$CONF/node.pem" "$NODE" "sudo grep ^NOVAMAIL_ADMIN_TOKEN= /opt/novamail/.env | cut -d= -f2" </dev/null)
+TOK="${POSTAL_ADMIN_TOKEN:-}"
 python3 - "$CONF" "$TOK" > "$CONF/.worker-secrets.json" <<'PY'
 import json, sys, pathlib
 c = pathlib.Path(sys.argv[1])
 print(json.dumps({
   "ENCRYPTION_KEY": (c / "encryption-key").read_text().strip(),
   "OWNER_TOKEN": (c / "owner-token").read_text().strip(),
-  "POSTAL_ADMIN_TOKEN": sys.argv[2].strip(),
+  **({"POSTAL_ADMIN_TOKEN": sys.argv[2].strip()} if sys.argv[2].strip() else {}),
   "POSTAL_WEBHOOK_PUBLIC_KEY": (c / "signing.pub").read_text(),
   # Stripe publishable key (public by design) for the embedded Checkout.
   **({"STRIPE_PUBLISHABLE_KEY": json.load(open(sp))["STRIPE_PUBLISHABLE_KEY"]} if (sp := pathlib.Path.home() / ".config/nexacloud/stripe-live.json").exists() else {}),
