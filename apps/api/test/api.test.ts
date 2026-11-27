@@ -11,7 +11,7 @@ async function newAccount(plan = "free") {
   return r.body as { id: string; api_key: string; smtp: { username: string; password: string } };
 }
 
-async function verifiedAccount(postal: FakePostal, plan = "free") {
+async function verifiedAccount(postal: FakePostal, plan = "starter") {
   const acc = await newAccount(plan);
   const d = await call("/domains", { method: "POST", token: acc.api_key, json: { name: "example.com" } });
   expect(d.status).toBe(201);
@@ -124,8 +124,18 @@ describe("sending (Resend-compatible)", () => {
     expect(list.body.data).toHaveLength(1);
   });
 
-  it("enforces the free daily quota", async () => {
+  it("accounts without a plan cannot send (no free tier)", async () => {
+    const acc = await verifiedAccount(postal, "free");
+    const r = await call("/emails", { method: "POST", token: acc.api_key, json: { from: "a@example.com", to: "b@example.org", subject: "x", text: "x" } });
+    expect(r.status).toBe(429);
+    expect(r.body.message).toMatch(/Choose a plan/);
+    expect(postal.sent).toHaveLength(0);
+  });
+
+  it("enforces the plan daily quota", async () => {
     const acc = await verifiedAccount(postal);
+    const day = new Date().toISOString().slice(0, 10);
+    await testEnv.DB.prepare("INSERT INTO usage_daily (account_id, day, sent) VALUES (?,?,?)").bind(acc.id, day, 2_000 - 100).run();
     const to = Array.from({ length: 50 }, (_, i) => `u${i}@example.org`);
     for (let i = 0; i < 2; i++) {
       const r = await call("/emails", { method: "POST", token: acc.api_key, json: { from: "a@example.com", to, subject: "x", text: "x" } });
@@ -347,7 +357,7 @@ describe("billing (Stripe)", () => {
     let u = await call("/usage", { token: acc.api_key });
     expect(u.body.plan).toBe("pro");
     const me = await call("/me", { token: acc.api_key });
-    expect(me.body.plan.monthly).toBe(150_000); // Pro 50k + 2 add-on packs
+    expect(me.body.plan.monthly).toBe(50_000); // Pro 30k + 2 add-on packs of 10k
     expect(me.body.plan.extra_packs).toBe(2);
     expect(postal.adminCalls).toContain("/v1/limits");
 
@@ -420,7 +430,7 @@ describe("marketing: audiences, broadcasts, one-click unsubscribe", () => {
     const { processBroadcasts } = await import("../src/routes/marketing");
     const acc = await verifiedAccount(postal);
     const day = new Date().toISOString().slice(0, 10);
-    await testEnv.DB.prepare("INSERT INTO usage_daily (account_id, day, sent) VALUES (?,?,?)").bind(acc.id, day, 100).run();
+    await testEnv.DB.prepare("INSERT INTO usage_daily (account_id, day, sent) VALUES (?,?,?)").bind(acc.id, day, 2_000).run();
     const aud = await call("/audiences", { method: "POST", token: acc.api_key, json: { name: "A" } });
     await call(`/audiences/${aud.body.id}/contacts`, { method: "POST", token: acc.api_key, json: { email: "z@x.com" } });
     const bc = await call("/broadcasts", { method: "POST", token: acc.api_key, json: { audience_id: aud.body.id, from: "a@example.com", subject: "s", text: "t" } });
@@ -480,7 +490,7 @@ describe("public site (SEO/GEO)", () => {
     const { createExecutionContext } = await import("cloudflare:test");
     const env = { ...testEnv, ASSETS: { fetch: async () => new Response("<div id=root></div>", { headers: { "content-type": "text/html" } }) } } as any;
     const r = await route(new Request(`https://app.novamail.nexaclouds.online${path}`, { headers }), env, createExecutionContext());
-    return { status: r.status, type: r.headers.get("content-type") ?? "", csp: r.headers.get("content-security-policy") ?? "", text: await r.text() };
+    return { status: r.status, type: r.headers.get("content-type") ?? "", csp: r.headers.get("content-security-policy") ?? "", location: r.headers.get("location"), text: await r.text() };
   };
 
   it("serves server-rendered, crawlable pages with structured data", async () => {
@@ -503,6 +513,24 @@ describe("public site (SEO/GEO)", () => {
       expect(r.status, p).toBe(200);
       expect(r.text, p).toMatch(/<title>[^<]{10,70}<\/title>/);
     }
+  });
+
+  it("never advertises a free plan, old prices, SMTP or dedicated IPs (paid-only, delivered by SES)", async () => {
+    const { PAGES } = await import("../src/site/pages");
+    const { PAGES2 } = await import("../src/site/pages2");
+    const bad = /start free|comece grátis|começar grátis|free forever|grátis para sempre|no credit card|sem cartão|free plan includes|3,000 emails|3\.000 e-mails|\$15\/|\$60\/|US\$15|US\$60|50,000 emails\/month|port 587|SMTP relay|(?<![\w-])smtp\.|postal\.novamail|dedicated IP|IP dedicado|2 months free|2 meses grátis|TLS 1\.3/i;
+    for (const page of [...PAGES, ...PAGES2]) {
+      const r = await get(page.path);
+      expect(r.status, page.path).toBe(200);
+      const hit = r.text.replace(/<script[\s\S]*?<\/script>/g, "").match(bad);
+      expect(hit?.[0], page.path).toBeUndefined();
+    }
+    for (const t of ["/llms.txt", "/llms-full.txt"]) expect((await get(t)).text.match(bad)?.[0], t).toBeUndefined();
+    const old = await get("/smtp-relay");
+    expect(old.status).toBe(301);
+    expect(old.location).toContain("/transactional-email-api");
+    const pricing = await get("/pricing");
+    for (const price of ["$12", "$25", "$79"]) expect(pricing.text).toContain(price);
   });
 
   it("signed-in users get the dashboard at /", async () => {
@@ -801,10 +829,10 @@ describe("CRM", () => {
 
 describe("IP tiers and dedicated IPs", () => {
   beforeEach(() => {
-    Object.assign(testEnv, { STRIPE_SECRET_KEY: "sk_test_x", STRIPE_PRICE_PRO: "price_pro", STRIPE_PRICE_SCALE: "price_scale", STRIPE_PRICE_EXTRA: "price_extra", STRIPE_PRICE_DEDICATED_IP: "price_ded" });
+    Object.assign(testEnv, { STRIPE_SECRET_KEY: "sk_test_x", STRIPE_PRICE_PRO: "price_pro", STRIPE_PRICE_SCALE: "price_scale", STRIPE_PRICE_EXTRA: "price_extra", STRIPE_PRICE_DEDICATED_IP: "price_ded", DEDICATED_IP_ENABLED: "true" });
   });
   afterEach(() => {
-    for (const k of ["STRIPE_SECRET_KEY", "STRIPE_PRICE_PRO", "STRIPE_PRICE_SCALE", "STRIPE_PRICE_EXTRA", "STRIPE_PRICE_DEDICATED_IP"]) delete (testEnv as any)[k];
+    for (const k of ["STRIPE_SECRET_KEY", "STRIPE_PRICE_PRO", "STRIPE_PRICE_SCALE", "STRIPE_PRICE_EXTRA", "STRIPE_PRICE_DEDICATED_IP", "DEDICATED_IP_ENABLED"]) delete (testEnv as any)[k];
   });
 
   it("maps plans to isolated tiers and only offers the dedicated IP on Scale", async () => {

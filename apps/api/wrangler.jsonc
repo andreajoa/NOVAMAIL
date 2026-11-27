@@ -24,12 +24,14 @@
     "SYSTEM_ACCOUNT_ID": "acc_mn7lzpMXNkDqWoiQ",
     "SYSTEM_FROM": "NovaMail <no-reply@envio.novamail.nexaclouds.online>",
     "SYSTEM_RESEND_FROM": "NovaMail <no-reply@nexaclouds.online>",
+    // Replies and support (Cloudflare Email Routing catch-all on nexaclouds.online).
+    "SYSTEM_REPLY_TO": "novamail@nexaclouds.online",
     // Amazon SES (production access granted 26/11/2026, us-east-2). Keys are secrets (IAM user novamail-ses).
     "SES_REGION": "us-east-2",
     "SES_CONFIGURATION_SET": "novamail",
     "SES_SNS_TOPIC_ARN": "arn:aws:sns:us-east-2:369086592008:novamail-ses-events",
-    // Sending goes live together with the paid plans: then set "SENDING_NODE": "ses" and drop BILLING_PAUSED.
-    "BILLING_PAUSED": "true"
+    // Live: outbound through Amazon SES, paid plans on sale (approved by André, 26/11/2026).
+    "SENDING_NODE": "ses"
   },
   // Free-plan friendly: SQLite-backed Durable Object instead of D1 (account is at its D1 cap).
   "ai": { "binding": "AI" },

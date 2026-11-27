@@ -52,7 +52,7 @@ footer{background:#09090b;color:#a1a1aa;margin-top:64px;padding:56px 0 40px;font
 const NAV = `<nav class="m" aria-label="Main"><a href="/email-marketing">Email marketing</a><a href="/crm">CRM</a><a href="/pricing">Pricing</a><a href="/guides">Guides</a><a href="${API_DOCS}">API docs</a><a href="/login">Sign in</a></nav>`;
 
 export const FOOTER_LINKS: [string, [string, string][]][] = [
-  ["Product", [["/email-marketing", "Email marketing"], ["/crm", "CRM & segments"], ["/integrations", "Integrations"], ["/ai-agents", "Claude Code & Codex"], ["/transactional-email-api", "Transactional email API"], ["/smtp-relay", "SMTP relay"], ["/pricing", "Pricing"], [API_DOCS, "API reference"], [STATUS, "Status"]]],
+  ["Product", [["/email-marketing", "Email marketing"], ["/crm", "CRM & segments"], ["/integrations", "Integrations"], ["/ai-agents", "Claude Code & Codex"], ["/transactional-email-api", "Transactional email API"], ["/pricing", "Pricing"], [API_DOCS, "API reference"], [STATUS, "Status"]]],
   ["Compare", [["/mailchimp-alternative", "Mailchimp alternative"], ["/brevo-alternative", "Brevo alternative"], ["/mailerlite-alternative", "MailerLite alternative"], ["/resend-alternative", "Resend alternative"], ["/sendgrid-alternative", "SendGrid alternative"], ["/mailgun-alternative", "Mailgun alternative"], ["/postmark-alternative", "Postmark alternative"], ["/amazon-ses-alternative", "Amazon SES alternative"]]],
   ["Guides", [["/guides/spf-dkim-dmarc", "SPF, DKIM & DMARC setup"], ["/guides/gmail-yahoo-bulk-sender-requirements", "Gmail & Yahoo sender rules"], ["/guides/one-click-unsubscribe", "One-click unsubscribe"], ["/guides/send-email-nodejs", "Send email with Node.js"], ["/guides/send-email-python", "Send email with Python"]]],
   ["Company", [["/terms", "Terms"], ["/aup", "Acceptable use"], ["/privacy", "Privacy"], ["/pt/", "Português"]]],
@@ -64,7 +64,7 @@ export const ORG = {
   name: "NovaMail",
   url: `${SITE}/`,
   logo: `${SITE}/icon.svg`,
-  description: "NovaMail is an email marketing platform with a built-in CRM (contact profiles, engagement scoring, smart segments) and automated funnels, plus a Resend-compatible email API and SMTP relay.",
+  description: "NovaMail is an email marketing platform with a built-in CRM (contact profiles, engagement scoring, smart segments) and automated funnels, plus a Resend-compatible email API.",
 };
 
 export const PRODUCT = {
@@ -73,13 +73,13 @@ export const PRODUCT = {
   name: "NovaMail",
   applicationCategory: "BusinessApplication",
   applicationSubCategory: "Email marketing and transactional email",
-  operatingSystem: "Web, any (REST API and SMTP)",
+  operatingSystem: "Web, any (REST API)",
   url: `${SITE}/`,
   publisher: { "@id": `${SITE}/#org` },
   offers: [
-    { "@type": "Offer", name: "Free", price: "0", priceCurrency: "USD", description: "3,000 emails per month, 100 per day, 1 domain" },
-    { "@type": "Offer", name: "Pro", price: "15", priceCurrency: "USD", description: "50,000 emails per month, 10 domains", priceSpecification: { "@type": "UnitPriceSpecification", price: "15", priceCurrency: "USD", billingDuration: "P1M" } },
-    { "@type": "Offer", name: "Scale", price: "60", priceCurrency: "USD", description: "250,000 emails per month, 100 domains", priceSpecification: { "@type": "UnitPriceSpecification", price: "60", priceCurrency: "USD", billingDuration: "P1M" } },
+    { "@type": "Offer", name: "Starter", price: "12", priceCurrency: "USD", description: "10,000 emails per month, 3 domains", priceSpecification: { "@type": "UnitPriceSpecification", price: "12", priceCurrency: "USD", billingDuration: "P1M" } },
+    { "@type": "Offer", name: "Pro", price: "25", priceCurrency: "USD", description: "30,000 emails per month, 10 domains", priceSpecification: { "@type": "UnitPriceSpecification", price: "25", priceCurrency: "USD", billingDuration: "P1M" } },
+    { "@type": "Offer", name: "Scale", price: "79", priceCurrency: "USD", description: "100,000 emails per month, 100 domains", priceSpecification: { "@type": "UnitPriceSpecification", price: "79", priceCurrency: "USD", billingDuration: "P1M" } },
   ],
   featureList: [
     "Email campaigns and newsletters to your contact lists",
@@ -98,7 +98,6 @@ export const PRODUCT = {
     "MCP server for Claude Code and Codex with restricted agent keys",
     "Contact lists with CSV import and personalization ({{first_name}})",
     "Resend-compatible REST API (POST /emails, /emails/batch)",
-    "SMTP relay on port 587 with STARTTLS (TLS 1.3)",
     "Sending domains with SPF, DKIM (2048-bit) and DMARC guidance",
     "Standard Webhooks signed events: delivered, delayed, bounced, complained",
     "Automatic suppression of hard bounces, complaints and unsubscribes",
@@ -133,10 +132,9 @@ export function render(p: Page, all: Page[], nonce = ""): string {
 <meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(p.title)}"><meta name="twitter:description" content="${esc(p.description)}"><meta name="twitter:image" content="${SITE}/og.png">
 <link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="alternate" type="text/plain" title="LLM summary" href="/llms.txt">
 <script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@graph": ld }).replace(/</g, "\\u003c")}</script>
-<style>${CSS}${PRICING_CSS}${p.extraCss ?? ""}.nm-live{background:#09090b;color:#fff;font:500 14px/1.4 system-ui,sans-serif;text-align:center;padding:10px 16px}</style></head><body>
-<div class="nm-live" role="status">${lang === "en" ? "Sending is being activated. You can create an account and set up lists, templates and funnels now; paid plans open as soon as sending is live." : "O envio está em ativação. Você já pode criar a conta e montar listas, modelos e funis; os planos pagos abrem assim que o envio estiver no ar."}</div>
+<style>${CSS}${PRICING_CSS}${p.extraCss ?? ""}</style></head><body>
 <div class="${p.heroHtml ? "topdark" : ""}"><div class="w"><header class="top"><a class="logo" href="${lang === "en" ? "/" : "/pt/"}"><i aria-hidden="true">✉</i>NovaMail</a>${NAV}</header></div></div>
-<main class="w">${p.heroHtml ?? `<div class="hero">${crumbHtml}<h1>${esc(p.h1)}</h1><p class="lead">${esc(p.lead)}</p><div class="cta"><a class="btn" href="/login">${lang === "en" ? "Start free — no card" : "Comece grátis — sem cartão"}</a><a class="btn g" href="${API_DOCS}">${lang === "en" ? "Read the API docs" : "Documentação da API"}</a></div></div>`}
+<main class="w">${p.heroHtml ?? `<div class="hero">${crumbHtml}<h1>${esc(p.h1)}</h1><p class="lead">${esc(p.lead)}</p><div class="cta"><a class="btn" href="/login">${lang === "en" ? "Get started" : "Começar agora"}</a><a class="btn g" href="${API_DOCS}">${lang === "en" ? "Read the API docs" : "Documentação da API"}</a></div></div>`}
 ${p.body}${faqHtml}${p.finale ?? ""}</main>${p.heroHtml && nonce ? `<script nonce="${nonce}">${TYPEWRITER}</script>` : ""}
 <footer><div class="w"><a class="flogo" href="${lang === "en" ? "/" : "/pt/"}"><i aria-hidden="true">✉</i>NovaMail</a><p class="ftag">${lang === "en" ? "Email marketing + CRM that reaches the inbox." : "E-mail marketing + CRM que chega na caixa de entrada."}</p><div class="cols">${FOOTER_LINKS.map(([h, ls]) => `<div><b>${h}</b>${ls.map(([href, t]) => `<a href="${href}">${esc(t)}</a>`).join("")}</div>`).join("")}</div><div class="fbottom"><span>© 2026 NovaMail</span><span>${lang === "en" ? "Updated" : "Atualizado"} ${UPDATED}</span></div></div></footer>
 </body></html>`;

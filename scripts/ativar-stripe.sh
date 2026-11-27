@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Liga a cobrança do NovaMail no Stripe (conta CoreUnit, modo live). Idempotente.
-# Cria (ou reaproveita) Pro US$15/mês·US$150/ano, Scale US$60/mês·US$600/ano, pacote +50k e-mails
-# US$10/mês·US$100/ano (oferecido dentro do Checkout), IP dedicado US$29/mês·US$290/ano, o webhook
+# Planos só pagos (aprovados por André em 26/11/2026; anual = pague 10, leve 12):
+#   Starter US$12/mês·US$120/ano (10.000 e-mails) · Pro US$25/mês·US$250/ano (30.000)
+#   Scale US$79/mês·US$790/ano (100.000) · pacote +10.000 e-mails US$10/mês·US$100/ano.
+# Arquiva os preços antigos (Pro 15 / Scale 60 / +50k / IP dedicado), cria o webhook
 # https://api.novamail.nexaclouds.online/hooks/stripe e grava os segredos no Worker.
 # Custo fixo: zero — o Stripe só cobra taxa por pagamento recebido.
 set -euo pipefail
@@ -23,15 +25,21 @@ price_for() { # lookup_key amount product_name interval
   fi
   echo "$id"
 }
-PRO=$(price_for novamail_pro_monthly 1500 "NovaMail Pro" month)
-SCALE=$(price_for novamail_scale_monthly 6000 "NovaMail Scale" month)
-PRO_Y=$(price_for novamail_pro_yearly 15000 "NovaMail Pro" year)        # 2 months free
-SCALE_Y=$(price_for novamail_scale_yearly 60000 "NovaMail Scale" year)  # 2 months free
-EXTRA=$(price_for novamail_extra_monthly 1000 "NovaMail +50,000 emails/month" month)
-EXTRA_Y=$(price_for novamail_extra_yearly 10000 "NovaMail +50,000 emails/month" year)
-DED=$(price_for novamail_dedicated_ip_monthly 2900 "NovaMail Dedicated IP" month)
-DED_Y=$(price_for novamail_dedicated_ip_yearly 29000 "NovaMail Dedicated IP" year)
-echo "pro=$PRO scale=$SCALE pro_y=$PRO_Y scale_y=$SCALE_Y extra=$EXTRA extra_y=$EXTRA_Y ded=$DED ded_y=$DED_Y"
+STARTER=$(price_for novamail_starter_monthly_v2 1200 "NovaMail Starter" month)
+STARTER_Y=$(price_for novamail_starter_yearly_v2 12000 "NovaMail Starter" year)
+PRO=$(price_for novamail_pro_monthly_v2 2500 "NovaMail Pro" month)
+PRO_Y=$(price_for novamail_pro_yearly_v2 25000 "NovaMail Pro" year)
+SCALE=$(price_for novamail_scale_monthly_v2 7900 "NovaMail Scale" month)
+SCALE_Y=$(price_for novamail_scale_yearly_v2 79000 "NovaMail Scale" year)
+EXTRA=$(price_for novamail_extra_monthly_v2 1000 "NovaMail +10,000 emails/month" month)
+EXTRA_Y=$(price_for novamail_extra_yearly_v2 10000 "NovaMail +10,000 emails/month" year)
+echo "starter=$STARTER/$STARTER_Y pro=$PRO/$PRO_Y scale=$SCALE/$SCALE_Y extra=$EXTRA/$EXTRA_Y"
+
+# Old prices: archived (reversible in the Stripe dashboard). Checked 26/11/2026: no subscriptions use them.
+for k in novamail_pro_monthly novamail_scale_monthly novamail_pro_yearly novamail_scale_yearly novamail_extra_monthly novamail_extra_yearly novamail_dedicated_ip_monthly novamail_dedicated_ip_yearly; do
+  old=$(S "/prices?lookup_keys[]=$k&active=true" -G | jqpy 'd["data"][0]["id"] if d.get("data") else ""')
+  [ -n "$old" ] && S "/prices/$old" -d active=false >/dev/null && echo "archived $k"
+done
 
 URL=https://api.novamail.nexaclouds.online/hooks/stripe
 WH=$(S /webhook_endpoints -G -d limit=100 | python3 -c "import sys,json;print(next((w['id'] for w in json.load(sys.stdin)['data'] if w['url']=='$URL'),''))")
@@ -43,12 +51,14 @@ if [ -z "$WH" ] || [ ! -s "$CONF/stripe-webhook-secret" ]; then
 fi
 echo "webhook ok"
 
-python3 - "$SK" "$(cat "$CONF/stripe-webhook-secret")" "$PRO" "$SCALE" "$PRO_Y" "$SCALE_Y" "$EXTRA" "$EXTRA_Y" "$DED" "$DED_Y" > "$CONF/.stripe-secrets.json" <<'PY'
+python3 - "$SK" "$(cat "$CONF/stripe-webhook-secret")" "$STARTER" "$STARTER_Y" "$PRO" "$PRO_Y" "$SCALE" "$SCALE_Y" "$EXTRA" "$EXTRA_Y" > "$CONF/.stripe-secrets.json" <<'PY'
 import json, sys
-k = ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_PRO", "STRIPE_PRICE_SCALE", "STRIPE_PRICE_PRO_YEAR", "STRIPE_PRICE_SCALE_YEAR", "STRIPE_PRICE_EXTRA", "STRIPE_PRICE_EXTRA_YEAR", "STRIPE_PRICE_DEDICATED_IP", "STRIPE_PRICE_DEDICATED_IP_YEAR"]
+k = ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_STARTER", "STRIPE_PRICE_STARTER_YEAR", "STRIPE_PRICE_PRO", "STRIPE_PRICE_PRO_YEAR", "STRIPE_PRICE_SCALE", "STRIPE_PRICE_SCALE_YEAR", "STRIPE_PRICE_EXTRA", "STRIPE_PRICE_EXTRA_YEAR"]
 print(json.dumps(dict(zip(k, sys.argv[1:]))))
 PY
 chmod 600 "$CONF/.stripe-secrets.json"
 npx wrangler secret bulk "$CONF/.stripe-secrets.json" </dev/null | grep -E "created|error" || true
+# The dedicated IP add-on is not offered on Amazon SES: drop its price secrets.
+for k in STRIPE_PRICE_DEDICATED_IP STRIPE_PRICE_DEDICATED_IP_YEAR; do npx wrangler secret delete "$k" --force >/dev/null 2>&1 || true; done
 rm -f "$CONF/.stripe-secrets.json"
 echo "✓ cobrança ligada: https://app.novamail.nexaclouds.online/plan"

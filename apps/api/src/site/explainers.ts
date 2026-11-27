@@ -1,6 +1,8 @@
 // Animated explainers (CSS only, black & white): how NovaMail turns a visitor into revenue,
 // and why pricing by emails beats pricing by contacts. Respects prefers-reduced-motion.
 
+import { PLANS } from "../lib/plans";
+
 export const EXPLAIN_CSS = `
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .xp{margin:56px 0;padding:28px;border:1px solid var(--line);border-radius:22px;background:var(--card);overflow:hidden}
@@ -75,7 +77,7 @@ ${months.map((m, i) => `<div class="m"><span class="b c" style="height:${perCont
 </div>
 <div class="cost-x" aria-hidden="true">${months.map((m) => `<span>${m}</span>`).join("")}</div>
 <div class="legend"><span><i class="c"></i>Priced by number of contacts${name ? ` (how ${name} plans are priced — see their pricing page for amounts)` : ""}</span><span><i class="n"></i>NovaMail — priced by emails sent</span></div>
-<p class="cost-note"><strong>Pro is $15/month for 50,000 emails</strong> with unlimited contacts, or $12.50/month billed yearly. <a href="/login">Start free — no card</a>.</p>
+<p class="cost-note"><strong>Plans start at $${PLANS.starter.priceUsd}/month for ${PLANS.starter.monthly.toLocaleString("en-US")} emails</strong> with unlimited contacts; Pro is $${PLANS.pro.priceUsd}/month for ${PLANS.pro.monthly.toLocaleString("en-US")}. <a href="/pricing">See plans</a>.</p>
 <table class="sr-only"><caption>Illustrative relative monthly cost</caption><thead><tr><th>Month</th><th>Priced by contacts</th><th>NovaMail</th></tr></thead><tbody>${months.map((m, i) => `<tr><td>${m}</td><td>${perContact[i]}</td><td>${nova[i]}</td></tr>`).join("")}</tbody></table>
 </section>`;
 }

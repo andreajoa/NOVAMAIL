@@ -41,15 +41,15 @@ function llms() {
   const en = ALL.filter((p) => (p.lang ?? "en") === "en");
   return `# NovaMail
 
-> NovaMail is an email marketing and transactional email platform. Businesses send campaigns and newsletters to their customer lists from their own domain, and developers send order confirmations and password resets through a Resend-compatible REST API or SMTP. Free plan: 3,000 emails/month (100/day, 1 domain). Pro: $15/month for 50,000 emails. Scale: $60/month for 250,000 emails. Contacts are unlimited on every plan.
+> NovaMail is an email marketing and transactional email platform. Businesses send campaigns and newsletters to their customer lists from their own domain, and developers send order confirmations and password resets through a Resend-compatible REST API. Paid plans only (no free plan): Starter $12/month for 10,000 emails, Pro $25/month for 30,000, Scale $79/month for 100,000; yearly billing = pay 10 months, get 12; extra +10,000 emails for $10/month. Contacts are unlimited on every plan.
 
 Key facts:
-- Sign up: ${SITE}/login (passwordless, no credit card for Free)
+- Sign up: ${SITE}/login (passwordless; account setup needs no card, sending requires a plan)
 - API base URL: https://api.novamail.nexaclouds.online — compatible with the official Resend SDKs (set baseUrl)
-- SMTP: postal.novamail.nexaclouds.online, port 587 STARTTLS (TLS 1.3)
+- Delivery: Amazon SES (us-east-2), DKIM-signed with the customer's own domain
 - Authentication: SPF, DKIM (2048-bit), DMARC; one-click unsubscribe (RFC 8058) on every campaign
 - Webhooks: Standard Webhooks signatures (delivered, delayed, bounced, complained)
-- Drag-and-drop editor with 8 ready-made templates, image/GIF uploads, video-to-GIF, raw HTML
+- Drag-and-drop editor with 30 ready-made templates, image/GIF uploads, video-to-GIF, raw HTML
 - Funnels: visual node builder — triggers (list join, tag, API), waits, Yes/No conditions (opened, clicked, has tag, on list), tag actions; first-party open/click tracking on campaigns and funnels
 - Signup forms: inline, popup (delay/scroll/exit-intent) and hosted pages; double opt-in; consent records; bot protection
 - Campaigns: A/B subject tests with automatic winner, scheduling, smart send time per contact, resend to non-openers
@@ -59,7 +59,7 @@ Key facts:
 - E-commerce: Shopify, WooCommerce and generic API; abandoned-cart recovery; products in emails; last-click revenue attribution
 - SMS & WhatsApp via the customer's own Twilio / Meta account, opt-in enforced
 - Teams with roles; Zapier/Make/n8n instant triggers (REST hooks)
-- IP reputation tiers: Free, paid and dedicated IPs are isolated; dedicated IP add-on US$29/month with automatic ~3-week warm-up
+- Protection: hard bounces and complaints suppressed automatically; accounts above 5% bounces or 0.3% complaints are paused
 - Built-in CRM: merged contact profiles with timeline (sent/opened/clicked/tags/lists/funnels/notes), engagement score (hot/warm/cold), smart segments with live counts, custom fields, CSV import/export, GDPR erase
 - MCP server for Claude Code/Codex: https://api.novamail.nexaclouds.online/mcp (restricted agent keys; agents cannot send or activate)
 - API reference (OpenAPI 3.1): ${API_DOCS} · spec: https://api.novamail.nexaclouds.online/openapi.json
@@ -101,6 +101,8 @@ export function site(req: Request, hasSession: boolean): Response | null {
     case "/llms-full.txt": return text(llmsFull(), "text/plain");
     case "/icon.svg": return text(ICON, "image/svg+xml", 86400);
     case `/${INDEXNOW_KEY}.txt`: return text(INDEXNOW_KEY, "text/plain", 86400);
+    // Retired page (NovaMail no longer offers SMTP): send old links to the API page.
+    case "/smtp-relay": return new Response(null, { status: 301, headers: { location: `${SITE}/transactional-email-api`, "cache-control": "public, max-age=86400" } });
   }
   // Signed-in users visiting "/" get the dashboard; everyone else (and every crawler) gets the site.
   if (path === "/" && hasSession) return null;

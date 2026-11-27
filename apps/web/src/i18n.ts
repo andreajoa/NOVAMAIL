@@ -1,5 +1,5 @@
 const pt = {
-  tagline: "E-mail transacional, SMTP e domínios — sem limites de fornecedor.",
+  tagline: "E-mail marketing, CRM e API de e-mail — com o seu próprio domínio.",
   email: "E-mail", sendCode: "Enviar código", code: "Código de 6 dígitos", enter: "Entrar", back: "Voltar",
   codeSent: "Enviamos um código para", wrongEmail: "Trocar e-mail", logout: "Sair",
   overview: "Visão geral", emails: "E-mails", domains: "Domínios", apiKeys: "Chaves de API", webhooks: "Webhooks",
@@ -22,7 +22,7 @@ const pt = {
 };
 type Dict = typeof pt;
 const en: Dict = {
-  tagline: "Transactional email, SMTP and domains — without vendor limits.",
+  tagline: "Email marketing, CRM and an email API — from your own domain.",
   email: "Email", sendCode: "Send code", code: "6-digit code", enter: "Sign in", back: "Back",
   codeSent: "We sent a code to", wrongEmail: "Use another email", logout: "Sign out",
   overview: "Overview", emails: "Emails", domains: "Domains", apiKeys: "API keys", webhooks: "Webhooks",

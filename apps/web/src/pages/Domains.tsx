@@ -21,11 +21,12 @@ function DomainDetail({ id }: { id: string }) {
       <p className="text-sm text-zinc-500">{t.dnsHint}</p>
       <div className="space-y-2">
         {d.records.map((r: any) => (
-          <div key={r.record + r.name} className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+          <div key={r.record + r.type + r.name} className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
             <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
               <span className="rounded bg-zinc-900 px-1.5 py-0.5 font-mono text-white dark:bg-white dark:text-zinc-900">{r.type}</span>
               <span className="font-medium uppercase tracking-wide text-zinc-500">{r.record.replace("_", " ")}</span>
               <span className="text-zinc-400">· {r.required ? t.required : t.optional}</span>
+              {r.priority !== undefined && <span className="text-zinc-400">· {t.lang === "pt" ? "prioridade" : "priority"} {r.priority}</span>}
               {checks[r.record] !== undefined && <Badge value={checks[r.record]} />}
             </div>
             <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">

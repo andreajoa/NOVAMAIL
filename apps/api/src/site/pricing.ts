@@ -1,5 +1,6 @@
 // Pricing cards with a CSS-only Monthly/Yearly switch (radio + :has), used on /, /pt/ and /pricing.
 // Buttons deep-link to sign-in with the chosen plan; the dashboard opens checkout right after login.
+import { EXTRA_PACK, PLANS } from "../lib/plans";
 import { esc } from "./layout";
 
 export const PRICING_CSS = `
@@ -17,23 +18,24 @@ export const PRICING_CSS = `
 
 export function pricingCards(lang: "en" | "pt-BR") {
   const en = lang === "en";
+  const n = (v: number) => v.toLocaleString(en ? "en-US" : "pt-BR");
   const t = en
-    ? { m: "Monthly", y: "Yearly", save: "2 months free", mo: "/mo", free: "Free forever", billed: (v: string) => `billed ${v} per year`, start: "Start free", sub: (p: string) => `Subscribe to ${p}`, pop: "Most popular", note: "Every plan includes forms & popups, A/B tests, AI writer, CRM & sales pipeline, reports, Shopify/WooCommerce, Zapier, SMS & WhatsApp (your own account) and team seats. Unlimited contacts. Add +50,000 emails for $10/month at checkout. Cancel anytime." }
-    : { m: "Mensal", y: "Anual", save: "2 meses grátis", mo: "/mês", free: "Grátis para sempre", billed: (v: string) => `cobrado ${v} por ano`, start: "Começar grátis", sub: (p: string) => `Assinar ${p}`, pop: "Mais escolhido", note: "Todos os planos incluem formulários e pop-ups, testes A/B, IA, CRM e funil de vendas, relatórios, Shopify/WooCommerce, Zapier, SMS e WhatsApp (sua conta) e equipe. Contatos ilimitados. Adicione +50.000 e-mails por US$10/mês no checkout. Cancele quando quiser." };
-  const feats = en
-    ? { free: ["3,000 emails/month", "100 emails/day", "1 sending domain", "Built-in CRM · unlimited contacts", "Engagement scoring & smart segments", "Templates & automated funnels"], pro: ["50,000 emails/month", "10,000 emails/day", "10 sending domains", "Everything in Free, incl. the CRM", "Paid-only IP pool (isolated from Free)"], scale: ["250,000 emails/month", "50,000 emails/day", "100 sending domains", "Everything in Pro, incl. the CRM", "Priority support", "Optional dedicated IP ($29/mo)"] }
-    : { free: ["3.000 e-mails/mês", "100 e-mails/dia", "1 domínio de envio", "CRM embutido · contatos ilimitados", "Pontuação de engajamento e segmentos", "Modelos e funis automáticos"], pro: ["50.000 e-mails/mês", "10.000 e-mails/dia", "10 domínios de envio", "Tudo do Free, incluindo o CRM", "IP só de pagantes (separado do Free)"], scale: ["250.000 e-mails/mês", "50.000 e-mails/dia", "100 domínios de envio", "Tudo do Pro, incluindo o CRM", "Suporte prioritário", "IP dedicado opcional (US$29/mês)"] };
-  const card = (id: string, name: string, month: number, items: string[], hot = false) => {
+    ? { m: "Monthly", y: "Yearly", save: "pay 10 months, get 12", mo: "/mo", billed: (v: string) => `billed ${v} per year`, sub: (p: string) => `Subscribe to ${p}`, pop: "Most popular", note: `Every plan includes forms & popups with double opt-in, A/B tests, AI writer, CRM & sales pipeline, reports, Shopify/WooCommerce, Zapier, SMS & WhatsApp (your own account) and team seats. Unlimited contacts. Need more emails? Add +${n(EXTRA_PACK.monthly)} emails/month for $${EXTRA_PACK.priceUsd}/month. Cancel anytime. There is no free plan: sending starts with a subscription.` }
+    : { m: "Mensal", y: "Anual", save: "pague 10 meses, use 12", mo: "/mês", billed: (v: string) => `cobrado ${v} por ano`, sub: (p: string) => `Assinar ${p}`, pop: "Mais escolhido", note: `Todos os planos incluem formulários e pop-ups com dupla confirmação, testes A/B, IA, CRM e funil de vendas, relatórios, Shopify/WooCommerce, Zapier, SMS e WhatsApp (sua conta) e equipe. Contatos ilimitados. Precisa de mais? Adicione +${n(EXTRA_PACK.monthly)} e-mails/mês por US$${EXTRA_PACK.priceUsd}/mês. Cancele quando quiser. Não há plano grátis: o envio começa com a assinatura.` };
+  const feats = (id: "starter" | "pro" | "scale") => {
+    const p = PLANS[id];
+    return en
+      ? [`${n(p.monthly)} emails/month`, `up to ${n(p.daily)} emails/day`, `${n(p.domains)} sending domains`, "Unlimited contacts · built-in CRM", "Templates, automated funnels & A/B tests"]
+      : [`${n(p.monthly)} e-mails/mês`, `até ${n(p.daily)} e-mails/dia`, `${n(p.domains)} domínios de envio`, "Contatos ilimitados · CRM embutido", "Modelos, funis automáticos e testes A/B"];
+  };
+  const card = (id: "starter" | "pro" | "scale", hot = false) => {
+    const { label: name, priceUsd: month } = PLANS[id];
     const yearTotal = month * 10;
     const perMonthYearly = (yearTotal / 12).toFixed(2).replace(/\.00$/, "");
-    const price = month
-      ? `<div class="amt"><span class="m">$${month}</span><span class="y">$${perMonthYearly}</span><small>${t.mo}</small></div><div class="bill"><span class="y">${t.billed(`$${yearTotal}`)} · ${t.save}</span></div>`
-      : `<div class="amt">$0</div><div class="bill">${t.free}</div>`;
-    const btn = month
-      ? `<a class="btn${hot ? "" : " g"} mb" href="/login?plan=${id}&interval=month">${esc(t.sub(name))}</a><a class="btn${hot ? "" : " g"} yb" href="/login?plan=${id}&interval=year">${esc(t.sub(name))}</a>`
-      : `<a class="btn g" href="/login">${esc(t.start)}</a>`;
-    return `<div class="pr-card${hot ? " hot" : ""}">${hot ? `<span class="hot-b">${t.pop}</span>` : ""}<h3>${name}</h3>${price}<ul>${items.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>${btn}</div>`;
+    const price = `<div class="amt"><span class="m">$${month}</span><span class="y">$${perMonthYearly}</span><small>${t.mo}</small></div><div class="bill"><span class="y">${t.billed(`$${yearTotal}`)} · ${t.save}</span></div>`;
+    const btn = `<a class="btn${hot ? "" : " g"} mb" href="/login?plan=${id}&interval=month">${esc(t.sub(name))}</a><a class="btn${hot ? "" : " g"} yb" href="/login?plan=${id}&interval=year">${esc(t.sub(name))}</a>`;
+    return `<div class="pr-card${hot ? " hot" : ""}">${hot ? `<span class="hot-b">${t.pop}</span>` : ""}<h3>${name}</h3>${price}<ul>${feats(id).map((i) => `<li>${esc(i)}</li>`).join("")}</ul>${btn}</div>`;
   };
   return `<div class="pr"><div class="pr-sw" role="radiogroup"><input type="radio" name="pr" id="pr-m" checked><label for="pr-m">${t.m}</label><input type="radio" name="pr" id="pr-y"><label for="pr-y">${t.y} <small>${t.save}</small></label></div>
-<div class="pr-cards">${card("free", "Free", 0, feats.free)}${card("pro", "Pro", 15, feats.pro, true)}${card("scale", "Scale", 60, feats.scale)}</div><p class="pr-note">${esc(t.note)}</p></div>`;
+<div class="pr-cards">${card("starter")}${card("pro", true)}${card("scale")}</div><p class="pr-note">${esc(t.note)}</p></div>`;
 }

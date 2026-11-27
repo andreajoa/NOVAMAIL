@@ -41,7 +41,7 @@ export async function sendSystemEmail(env: Env, to: string, msg: { subject: stri
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { authorization: `Bearer ${env.SYSTEM_RESEND_KEY}`, "content-type": "application/json" },
-      body: JSON.stringify({ from: env.SYSTEM_RESEND_FROM, to: [to], subject: msg.subject, html: msg.html, text: msg.text, tags: [{ name: "category", value: category }] }),
+      body: JSON.stringify({ from: env.SYSTEM_RESEND_FROM, to: [to], ...(env.SYSTEM_REPLY_TO ? { reply_to: env.SYSTEM_REPLY_TO } : {}), subject: msg.subject, html: msg.html, text: msg.text, tags: [{ name: "category", value: category }] }),
     });
     if (!r.ok) throw new Error(`system mail bridge failed: ${r.status}`);
     return { id: ((await r.json()) as { id: string }).id };
@@ -50,7 +50,7 @@ export async function sendSystemEmail(env: Env, to: string, msg: { subject: stri
   return sendOne(
     env,
     { accountId: env.SYSTEM_ACCOUNT_ID, apiKeyId: "system", permission: "full", domainId: null },
-    { from: env.SYSTEM_FROM, to: [to], subject: msg.subject, html: msg.html, text: msg.text, tags: [{ name: "category", value: category }] },
+    { from: env.SYSTEM_FROM, to: [to], ...(env.SYSTEM_REPLY_TO ? { reply_to: [env.SYSTEM_REPLY_TO] } : {}), subject: msg.subject, html: msg.html, text: msg.text, tags: [{ name: "category", value: category }] },
     null,
   );
 }

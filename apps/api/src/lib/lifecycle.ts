@@ -42,8 +42,8 @@ export function planEmail(plan: PlanId, interval: string | null, packs: number) 
     `You're on NovaMail ${p.label} 🎉`,
     design(`Your ${p.label} plan is active — new limits apply now.`, [
       { id: "h", type: "heading", text: `Welcome to ${p.label}`, size: 32 },
-      { id: "t", type: "text", html: `Thank you for subscribing${interval === "year" ? " for the year (2 months free!)" : ""}. Your new limits are already active:` },
-      { id: "l", type: "text", html: `<strong>${(p.monthly + packs * EXTRA_PACK.monthly).toLocaleString("en-US")}</strong> emails per month<br><strong>${(p.daily + packs * EXTRA_PACK.daily).toLocaleString("en-US")}</strong> emails per day<br><strong>${p.domains}</strong> sending domains<br>High-reputation sending IPs` },
+      { id: "t", type: "text", html: `Thank you for subscribing${interval === "year" ? " for the year (you pay 10 months and get 12)" : ""}. Your new limits are already active:` },
+      { id: "l", type: "text", html: `<strong>${(p.monthly + packs * EXTRA_PACK.monthly).toLocaleString("en-US")}</strong> emails per month<br><strong>${(p.daily + packs * EXTRA_PACK.daily).toLocaleString("en-US")}</strong> emails per day<br><strong>${p.domains}</strong> sending domains` },
       { id: "b", type: "button", text: "Send something great", href: `${APP}/broadcasts`, full: true },
       { id: "x", type: "text", html: "Invoices and card details live in <em>Plan → Manage subscription</em>. Stripe also emails you a receipt.", size: 14, color: "#71717a" },
     ], false),
@@ -84,9 +84,9 @@ const NURTURE: { key: string; subject: string; design: Design }[] = [
   {
     key: "n4-upgrade",
     subject: "{{first_name}}, start sending from $12/month",
-    design: design("Starter: 10,000 emails/month for $12. Yearly = 2 months free.", [
+    design: design("Starter: 10,000 emails/month for $12. Yearly: pay 10 months, get 12.", [
       { id: "h", type: "heading", text: "Ready to send?", size: 30 },
-      { id: "t", type: "text", html: "Everything you set up is waiting. <strong>Starter</strong> sends <strong>10,000 emails a month for $12</strong>, <strong>Pro</strong> 30,000 for $25 and <strong>Scale</strong> 100,000 for $79 — every feature on every plan. Pay yearly and get <strong>2 months free</strong>." },
+      { id: "t", type: "text", html: "Everything you set up is waiting. <strong>Starter</strong> sends <strong>10,000 emails a month for $12</strong>, <strong>Pro</strong> 30,000 for $25 and <strong>Scale</strong> 100,000 for $79 — every feature on every plan. Pay yearly: <strong>10 months for 12</strong>." },
       { id: "b", type: "button", text: "Choose my plan", href: `${APP}/plan`, full: true },
       { id: "x", type: "text", html: "Unlimited contacts on every plan. Cancel any time.", size: 14, color: "#71717a" },
     ]),
@@ -139,10 +139,11 @@ export async function setupNurture(env: Env) {
   };
   const f = await env.DB.prepare("SELECT id FROM funnels WHERE account_id = ? AND name = 'NovaMail nurture (free → paid)'").bind(acc).first<{ id: string }>();
   const fid = f?.id ?? prefixedId("fn");
-  if (f) await env.DB.prepare("UPDATE funnels SET graph = ?, trigger = 'audience', audience_id = ?, status = 'active', updated_at = ? WHERE id = ?").bind(JSON.stringify(graph), aud.id, now, fid).run();
+  const replyTo = env.SYSTEM_REPLY_TO ?? null;
+  if (f) await env.DB.prepare("UPDATE funnels SET graph = ?, trigger = 'audience', audience_id = ?, reply_to = ?, status = 'active', updated_at = ? WHERE id = ?").bind(JSON.stringify(graph), aud.id, replyTo, now, fid).run();
   else
-    await env.DB.prepare("INSERT INTO funnels (id, account_id, name, trigger, audience_id, from_addr, status, graph, created_by, created_at, updated_at) VALUES (?,?, 'NovaMail nurture (free → paid)', 'audience', ?, ?, 'active', ?, 'system', ?, ?)")
-      .bind(fid, acc, aud.id, env.SYSTEM_FROM, JSON.stringify(graph), now, now)
+    await env.DB.prepare("INSERT INTO funnels (id, account_id, name, trigger, audience_id, from_addr, reply_to, status, graph, created_by, created_at, updated_at) VALUES (?,?, 'NovaMail nurture (free → paid)', 'audience', ?, ?, ?, 'active', ?, 'system', ?, ?)")
+      .bind(fid, acc, aud.id, env.SYSTEM_FROM, replyTo, JSON.stringify(graph), now, now)
       .run();
   // Backfill: everyone already on the Free plan enters the nurture too.
   const free = await env.DB.prepare("SELECT u.email FROM users u JOIN accounts a ON a.id = u.account_id WHERE a.plan = 'free'").all<{ email: string }>();

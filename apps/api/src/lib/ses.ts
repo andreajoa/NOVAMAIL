@@ -75,8 +75,9 @@ export function sesRecords(env: Env, domain: string, tokens: string[]): DnsRecor
   const mailFrom = `${MAIL_FROM_LABEL}.${domain}`;
   return [
     ...tokens.map((t) => ({ record: "dkim" as const, type: "CNAME" as const, name: `${t}._domainkey.${domain}`, value: `${t}.dkim.amazonses.com`, required: true })),
-    { record: "mx", type: "MX", name: mailFrom, value: `feedback-smtp.${sesRegion(env)}.amazonses.com`, priority: 10, required: false },
-    { record: "spf", type: "TXT", name: mailFrom, value: "v=spf1 include:amazonses.com ~all", required: false },
+    // Custom MAIL FROM (bounce domain): makes SPF align with the customer's domain for DMARC.
+    { record: "return_path", type: "MX", name: mailFrom, value: `feedback-smtp.${sesRegion(env)}.amazonses.com`, priority: 10, required: false },
+    { record: "return_path", type: "TXT", name: mailFrom, value: "v=spf1 include:amazonses.com ~all", required: false },
   ];
 }
 

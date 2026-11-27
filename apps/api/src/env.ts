@@ -27,6 +27,8 @@ export interface Env {
   /** Internal account + sender used for platform e-mails (login codes). */
   SYSTEM_ACCOUNT_ID?: string;
   SYSTEM_FROM?: string;
+  /** Where replies to platform e-mails go (a real, monitored inbox). */
+  SYSTEM_REPLY_TO?: string;
   /** Temporary platform-mail bridge (Resend) until outbound port 25 is open. */
   SYSTEM_RESEND_KEY?: string;
   SYSTEM_RESEND_FROM?: string;
