@@ -35,9 +35,18 @@ export function loginCodeEmail(code: string) {
 }
 
 export async function sendSystemEmail(env: Env, to: string, msg: { subject: string; html: string; text: string }, category = "system") {
-  // Temporary bridge while the node's outbound port 25 is still blocked by the cloud
-  // provider: platform mail only (never customer mail). Remove the secret to switch back.
-  if (env.SYSTEM_RESEND_KEY && env.SYSTEM_RESEND_FROM) {
+  // Platform mail goes through NovaMail itself (dogfooding). The Resend bridge stays as an
+  // automatic fallback so a login code is never lost if our own sending path has a problem.
+  const viaNovaMail = async () => {
+    if (!env.SYSTEM_ACCOUNT_ID || !env.SYSTEM_FROM) throw new Error("SYSTEM_ACCOUNT_ID / SYSTEM_FROM not configured");
+    return sendOne(
+      env,
+      { accountId: env.SYSTEM_ACCOUNT_ID, apiKeyId: "system", permission: "full", domainId: null },
+      { from: env.SYSTEM_FROM, to: [to], ...(env.SYSTEM_REPLY_TO ? { reply_to: [env.SYSTEM_REPLY_TO] } : {}), subject: msg.subject, html: msg.html, text: msg.text, tags: [{ name: "category", value: category }] },
+      null,
+    );
+  };
+  const viaResend = async () => {
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { authorization: `Bearer ${env.SYSTEM_RESEND_KEY}`, "content-type": "application/json" },
@@ -45,12 +54,17 @@ export async function sendSystemEmail(env: Env, to: string, msg: { subject: stri
     });
     if (!r.ok) throw new Error(`system mail bridge failed: ${r.status}`);
     return { id: ((await r.json()) as { id: string }).id };
+  };
+  const bridge = !!(env.SYSTEM_RESEND_KEY && env.SYSTEM_RESEND_FROM);
+  if (!env.SENDING_NODE) {
+    if (bridge) return viaResend();
+    return viaNovaMail();
   }
-  if (!env.SYSTEM_ACCOUNT_ID || !env.SYSTEM_FROM) throw new Error("SYSTEM_ACCOUNT_ID / SYSTEM_FROM not configured");
-  return sendOne(
-    env,
-    { accountId: env.SYSTEM_ACCOUNT_ID, apiKeyId: "system", permission: "full", domainId: null },
-    { from: env.SYSTEM_FROM, to: [to], ...(env.SYSTEM_REPLY_TO ? { reply_to: [env.SYSTEM_REPLY_TO] } : {}), subject: msg.subject, html: msg.html, text: msg.text, tags: [{ name: "category", value: category }] },
-    null,
-  );
+  try {
+    return await viaNovaMail();
+  } catch (e) {
+    if (!bridge) throw e;
+    console.log(JSON.stringify({ level: "warn", system_mail: "fallback_resend", error: String(e).slice(0, 200) }));
+    return viaResend();
+  }
 }

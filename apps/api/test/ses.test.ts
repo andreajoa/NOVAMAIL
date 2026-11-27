@@ -242,3 +242,33 @@ describe("sending through Amazon SES", () => {
     expect(ses.deleted).toEqual([acc.domain]);
   });
 });
+
+describe("platform mail", () => {
+  it("goes through NovaMail (SES) and falls back to the Resend bridge if that fails", async () => {
+    const { sendSystemEmail } = await import("../src/lib/system-mail");
+    const r = await call("/admin/accounts", { method: "POST", token: OWNER, json: { name: "Sys", email: `sys${Math.random()}@example.com`, plan: "internal" } });
+    const sys = r.body as { id: string; api_key: string };
+    await call("/domains", { method: "POST", token: sys.api_key, json: { name: "sys-mail.test" } });
+    ses.dkim = "SUCCESS";
+    const dom = await call("/domains", { token: sys.api_key });
+    await call(`/domains/${dom.body.data[0].id}/verify`, { method: "POST", token: sys.api_key });
+    const e = { ...env, SYSTEM_ACCOUNT_ID: sys.id, SYSTEM_FROM: "NovaMail <no-reply@sys-mail.test>", SYSTEM_RESEND_KEY: "re_test", SYSTEM_RESEND_FROM: "x@y.test", SYSTEM_REPLY_TO: "help@y.test" } as any;
+
+    await sendSystemEmail(e, "user@example.com", { subject: "123 456", html: "<p>x</p>", text: "x" }, "login");
+    expect(ses.sent).toHaveLength(1);
+    expect(ses.sent[0]!.raw).toContain("Reply-To: help@y.test");
+
+    // Own sending path down → Resend bridge.
+    const real = globalThis.fetch;
+    const resend: string[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input instanceof Request ? input.url : input);
+      if (url.includes("amazonaws.com/v2/email/outbound-emails")) return new Response("{}", { status: 500 });
+      if (url.startsWith("https://api.resend.com/")) { resend.push(String(init?.body)); return new Response(JSON.stringify({ id: "re_1" })); }
+      return real(input, init);
+    });
+    const out = await sendSystemEmail(e, "user2@example.com", { subject: "654 321", html: "<p>x</p>", text: "x" }, "login");
+    expect(out.id).toBe("re_1");
+    expect(JSON.parse(resend[0]!).reply_to).toBe("help@y.test");
+  });
+});
