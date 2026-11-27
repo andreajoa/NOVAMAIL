@@ -292,3 +292,42 @@ describe("Postal-era domains on SES", () => {
     expect((await call("/domains/dom_legacy2", { method: "DELETE", token: acc.api_key })).status).toBe(200);
   });
 });
+
+describe("scheduled emails (Resend-compatible)", () => {
+  it("stores, sends when due, and can be cancelled before that", async () => {
+    const { processScheduled } = await import("../src/routes/emails");
+    const acc = await sesAccount();
+    ses.dkim = "SUCCESS";
+    await call(`/domains/${acc.domainId}/verify`, { method: "POST", token: acc.api_key });
+    const at = new Date(Date.now() + 3 * 3_600_000).toISOString();
+    const a = await call("/emails", { method: "POST", token: acc.api_key, json: { from: `oi@${acc.domain}`, to: "ana@example.com", subject: "Lembrete", html: "<p>1</p>", scheduled_at: at } });
+    const b = await call("/emails", { method: "POST", token: acc.api_key, json: { from: `oi@${acc.domain}`, to: "bia@example.com", subject: "Lembrete", html: "<p>2</p>", scheduled_at: at } });
+    expect(ses.sent).toHaveLength(0);
+    expect((await call(`/emails/${a.body.id}`, { token: acc.api_key })).body).toMatchObject({ last_event: "scheduled", scheduled_at: at });
+
+    expect((await call(`/emails/${b.body.id}/cancel`, { method: "POST", token: acc.api_key })).status).toBe(200);
+    expect((await call(`/emails/${b.body.id}`, { token: acc.api_key })).body.last_event).toBe("canceled");
+
+    expect((await processScheduled(env, fetch, Date.now())).due).toBe(0);
+    const r = await processScheduled(env, fetch, Date.now() + 4 * 3_600_000);
+    expect(r.sent).toBeGreaterThanOrEqual(1);
+    expect(ses.sent.map((m) => m.body.Destination.ToAddresses[0])).toEqual(["ana@example.com"]);
+    const got = await call(`/emails/${a.body.id}`, { token: acc.api_key });
+    expect(got.body.last_event).toBe("queued");
+    expect((await call(`/emails/${a.body.id}/cancel`, { method: "POST", token: acc.api_key })).status).toBe(422);
+    // A second run does not send again.
+    await processScheduled(env, fetch, Date.now() + 5 * 3_600_000);
+    expect(ses.sent).toHaveLength(1);
+  });
+
+  it("rejects dates more than 30 days ahead and sends immediately when due now", async () => {
+    const acc = await sesAccount();
+    ses.dkim = "SUCCESS";
+    await call(`/domains/${acc.domainId}/verify`, { method: "POST", token: acc.api_key });
+    const far = await call("/emails", { method: "POST", token: acc.api_key, json: { from: `oi@${acc.domain}`, to: "a@example.com", subject: "x", text: "x", scheduled_at: new Date(Date.now() + 40 * 86_400_000).toISOString() } });
+    expect(far.status).toBe(422);
+    const now = await call("/emails", { method: "POST", token: acc.api_key, json: { from: `oi@${acc.domain}`, to: "a@example.com", subject: "x", text: "x", scheduled_at: new Date().toISOString() } });
+    expect(now.status).toBe(200);
+    expect(ses.sent).toHaveLength(1);
+  });
+});
