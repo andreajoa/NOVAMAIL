@@ -272,3 +272,23 @@ describe("platform mail", () => {
     expect(JSON.parse(resend[0]!).reply_to).toBe("help@y.test");
   });
 });
+
+describe("Postal-era domains on SES", () => {
+  it("move to SES on verify and can be deleted without the old node", async () => {
+    const r = await call("/admin/accounts", { method: "POST", token: OWNER, json: { name: "Old", email: `old${Math.random()}@example.com`, plan: "pro" } });
+    const acc = r.body as { id: string; api_key: string };
+    const name = `legacy${Math.random().toString(36).slice(2, 7)}.com`;
+    await testEnv.DB.prepare("INSERT INTO domains (id, account_id, name, status, postal_uuid, records, created_at) VALUES (?,?,?, 'verified', 'postal-uuid-1', '[]', ?)").bind("dom_legacy1", acc.id, name, Date.now()).run();
+    let v = await call("/domains/dom_legacy1/verify", { method: "POST", token: acc.api_key });
+    expect(v.body.status).toBe("pending");
+    expect(ses.identities.has(name)).toBe(true);
+    const d = await call("/domains/dom_legacy1", { token: acc.api_key });
+    expect(d.body.records.map((x: any) => x.type)).toContain("CNAME");
+    ses.dkim = "SUCCESS";
+    v = await call("/domains/dom_legacy1/verify", { method: "POST", token: acc.api_key });
+    expect(v.body.status).toBe("verified");
+
+    await testEnv.DB.prepare("INSERT INTO domains (id, account_id, name, status, postal_uuid, records, created_at) VALUES (?,?,?, 'pending', 'postal-uuid-2', '[]', ?)").bind("dom_legacy2", acc.id, `x.${name}`, Date.now()).run();
+    expect((await call("/domains/dom_legacy2", { method: "DELETE", token: acc.api_key })).status).toBe(200);
+  });
+});

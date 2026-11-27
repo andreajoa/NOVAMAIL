@@ -91,6 +91,17 @@ domains.post("/:id/verify", async (c) => {
   const p = c.get("principal");
   const d = await c.env.DB.prepare("SELECT id, name, postal_uuid FROM domains WHERE id = ? AND account_id = ?").bind(c.req.param("id"), p.accountId).first<{ id: string; name: string; postal_uuid: string }>();
   if (!d) throw errors.notFound("Domain");
+  // Domains added while sending ran on Postal move to SES on their next verification:
+  // register the SES identity and hand out the new DNS records (old Postal records can stay).
+  if (viaSes(c.env) && !d.postal_uuid?.startsWith(SES_PREFIX)) {
+    const taken = await c.env.DB.prepare("SELECT 1 FROM domains WHERE account_id <> ? AND postal_uuid = ? LIMIT 1").bind(p.accountId, `${SES_PREFIX}${d.name}`).first();
+    if (taken) throw errors.conflict(`${d.name} is already connected to another NovaMail account.`);
+    const tokens = await sesCreateIdentity(c.env, d.name);
+    d.postal_uuid = `${SES_PREFIX}${d.name}`;
+    await c.env.DB.prepare("UPDATE domains SET postal_uuid = ?, status = 'pending', records = ? WHERE id = ?")
+      .bind(d.postal_uuid, JSON.stringify(withDmarc(d.name, sesRecords(c.env, d.name, tokens))), d.id)
+      .run();
+  }
   let status: "verified" | "pending";
   let checks: Record<string, string | null>;
   let records: DnsRecord[];
@@ -126,10 +137,10 @@ domains.delete("/:id", async (c) => {
     // The platform's own sender domain stays registered even if an account removes it.
     const shared = await c.env.DB.prepare("SELECT 1 FROM domains WHERE name = ? AND id <> ? LIMIT 1").bind(name, d.id).first();
     if (!shared && !isPlatformDomain(c.env, name)) await sesDeleteIdentity(c.env, name);
-  } else {
+  } else if (!viaSes(c.env)) {
     const a = await accountServer(c, p.accountId);
     await postalAdmin.removeDomain(c.env, { org: a.postal_org, server: a.postal_server, uuid: d.postal_uuid });
-  }
+  } // on SES, a Postal-era domain has nothing left to remove upstream
   await c.env.DB.prepare("DELETE FROM domains WHERE id = ?").bind(d.id).run();
   return c.json({ object: "domain", id: d.id, deleted: true });
 });
