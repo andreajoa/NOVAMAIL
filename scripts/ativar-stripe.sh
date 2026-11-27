@@ -15,7 +15,7 @@ jqpy() { python3 -c "import sys,json;d=json.load(sys.stdin);print($1)"; }
 
 product_for() { # name -> product id (reuses the product of an existing price when possible)
   local id; id=$(S "/products/search" -G --data-urlencode "query=name:'$1' AND metadata['app']:'novamail'" | jqpy 'd["data"][0]["id"] if d.get("data") else ""')
-  [ -n "$id" ] || id=$(S /products -d "name=$1" -d "metadata[app]=novamail" | jqpy 'd["id"]')
+  [ -n "$id" ] || id=$(S /products --data-urlencode "name=$1" -d "metadata[app]=novamail" | jqpy 'd["id"]')
   echo "$id"
 }
 price_for() { # lookup_key amount product_name interval
@@ -59,6 +59,6 @@ PY
 chmod 600 "$CONF/.stripe-secrets.json"
 npx wrangler secret bulk "$CONF/.stripe-secrets.json" </dev/null | grep -E "created|error" || true
 # The dedicated IP add-on is not offered on Amazon SES: drop its price secrets.
-for k in STRIPE_PRICE_DEDICATED_IP STRIPE_PRICE_DEDICATED_IP_YEAR; do npx wrangler secret delete "$k" --force >/dev/null 2>&1 || true; done
+for k in STRIPE_PRICE_DEDICATED_IP STRIPE_PRICE_DEDICATED_IP_YEAR; do echo y | npx wrangler secret delete "$k" >/dev/null 2>&1 || true; done
 rm -f "$CONF/.stripe-secrets.json"
 echo "✓ cobrança ligada: https://app.novamail.nexaclouds.online/plan"
