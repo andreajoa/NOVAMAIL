@@ -37,24 +37,25 @@ admin.patch("/accounts/:id", async (c) => {
   if (!a) throw errors.notFound("Account");
   const plan = parsed.data.plan ?? a.plan;
   const pool = parsed.data.ip_pool ?? (parsed.data.plan ? poolFor(plan) : a.ip_pool);
-  await postalAdmin.setLimits(c.env, { org: a.postal_org, server: a.postal_server, hourly_limit: planOf(plan).hourly || null, ip_pool: pool });
+  // Accounts on SES have no Postal server; their limits are enforced by NovaMail itself.
+  if (a.postal_org) await postalAdmin.setLimits(c.env, { org: a.postal_org, server: a.postal_server, hourly_limit: planOf(plan).hourly || null, ip_pool: pool });
   await c.env.DB.prepare("UPDATE accounts SET plan = ?, ip_pool = ?, updated_at = ? WHERE id = ?").bind(plan, pool, Date.now(), c.req.param("id")).run();
   return c.json({ id: c.req.param("id"), plan, ip_pool: pool });
 });
 
 admin.post("/accounts/:id/suspend", async (c) => {
   const reason = ((await c.req.json().catch(() => ({}))) as { reason?: string }).reason ?? "Suspended by operator";
-  const a = await c.env.DB.prepare("SELECT postal_org FROM accounts WHERE id = ?").bind(c.req.param("id")).first<{ postal_org: string }>();
+  const a = await c.env.DB.prepare("SELECT postal_org FROM accounts WHERE id = ?").bind(c.req.param("id")).first<{ postal_org: string | null }>();
   if (!a) throw errors.notFound("Account");
-  await postalAdmin.suspend(c.env, { org: a.postal_org, reason });
+  if (a.postal_org) await postalAdmin.suspend(c.env, { org: a.postal_org, reason });
   await c.env.DB.prepare("UPDATE accounts SET status = 'suspended', suspended_reason = ?, updated_at = ? WHERE id = ?").bind(reason, Date.now(), c.req.param("id")).run();
   return c.json({ id: c.req.param("id"), status: "suspended" });
 });
 
 admin.post("/accounts/:id/unsuspend", async (c) => {
-  const a = await c.env.DB.prepare("SELECT postal_org FROM accounts WHERE id = ?").bind(c.req.param("id")).first<{ postal_org: string }>();
+  const a = await c.env.DB.prepare("SELECT postal_org FROM accounts WHERE id = ?").bind(c.req.param("id")).first<{ postal_org: string | null }>();
   if (!a) throw errors.notFound("Account");
-  await postalAdmin.unsuspend(c.env, { org: a.postal_org });
+  if (a.postal_org) await postalAdmin.unsuspend(c.env, { org: a.postal_org });
   await c.env.DB.prepare("UPDATE accounts SET status = 'active', suspended_reason = NULL, updated_at = ? WHERE id = ?").bind(Date.now(), c.req.param("id")).run();
   return c.json({ id: c.req.param("id"), status: "active" });
 });

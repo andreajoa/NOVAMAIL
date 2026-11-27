@@ -5,6 +5,8 @@ import type { AppEnv, Env, Principal } from "../env";
 import { open, uuidv7 } from "../lib/crypto";
 import { ApiError, errors, zodMessage } from "../lib/http";
 import { postalSend, type PostalSendInput } from "../lib/postal";
+import { buildMime } from "../lib/mime";
+import { sesSend } from "../lib/ses";
 import { assertQuota, bumpUsage } from "../lib/usage";
 import { addTracking } from "../lib/tracking";
 
@@ -48,6 +50,8 @@ const EMAIL_RE = /^[^\s@<>()",;]+@[^\s@<>()",;]+\.[^\s@<>()",;]+$/;
 interface AccountRow {
   id: string;
   plan: string;
+  status: string;
+  suspended_reason: string | null;
   postal_server_key: string | null;
 }
 
@@ -81,8 +85,12 @@ export async function sendOne(env: Env, p: Principal, body: SendBody, idemKey: s
   const count = to.length + (cc?.length ?? 0) + (bcc?.length ?? 0);
   if (count === 0) throw new ApiError(422, "recipients_suppressed", "All recipients are on the suppression list.");
 
-  const acc = await env.DB.prepare("SELECT id, plan, postal_server_key FROM accounts WHERE id = ?").bind(p.accountId).first<AccountRow>();
-  if (!acc?.postal_server_key) throw new ApiError(503, "account_not_provisioned", "Sending is being activated on NovaMail and is not available yet.");
+  const acc = await env.DB.prepare("SELECT id, plan, status, suspended_reason, postal_server_key FROM accounts WHERE id = ?").bind(p.accountId).first<AccountRow>();
+  if (!acc) throw errors.notFound("Account");
+  // Broadcasts and funnels run from cron without the auth middleware, so check here too.
+  if (acc.status !== "active") throw errors.suspended(acc.suspended_reason);
+  const ses = env.SENDING_NODE === "ses";
+  if (!ses && !acc.postal_server_key) throw new ApiError(503, "account_not_provisioned", "Sending is being activated on NovaMail and is not available yet.");
   await assertQuota(env.DB, acc.id, acc.plan, count);
 
   const id = uuidv7();
@@ -100,7 +108,23 @@ export async function sendOne(env: Env, p: Principal, body: SendBody, idemKey: s
     headers: { ...body.headers, "X-NovaMail-Id": id, "Feedback-ID": `${(body.tags?.find((t) => t.name === "category")?.value ?? "tx").slice(0, 40)}:${p.accountId}:novamail` },
     attachments: body.attachments?.map((a) => ({ name: a.filename, content_type: a.content_type ?? "application/octet-stream", data: a.content })),
   };
-  const res = await postalSend(env, await open(acc.postal_server_key, env.ENCRYPTION_KEY), input, fetcher);
+  const res = ses
+    ? {
+        messageId: await sesSend(
+          env,
+          {
+            raw: buildMime({ from: input.from, to, cc, replyTo: input.replyTo, subject: input.subject, html: input.html, text: input.text, headers: input.headers, attachments: input.attachments }),
+            to,
+            cc,
+            bcc,
+            tags: { account: p.accountId, email: id, category: input.tag ?? "tx" },
+          },
+          fetcher,
+        ),
+        // SES reports events per address; recipients are keyed by address (no numeric id).
+        recipients: Object.fromEntries([...to, ...(cc ?? []), ...(bcc ?? [])].map((a) => [bareAddress(a), { id: null as number | null, token: "" }])),
+      }
+    : await postalSend(env, await open(acc.postal_server_key!, env.ENCRYPTION_KEY), input, fetcher);
 
   const now = Date.now();
   const stmts = [

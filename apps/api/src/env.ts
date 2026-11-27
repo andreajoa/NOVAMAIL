@@ -10,8 +10,15 @@ export interface Env {
   PUBLIC_URL: string;
   /** Postal web/API base URL, e.g. https://postal.novamail.nexaclouds.online */
   POSTAL_URL: string;
-  /** "postal" when a sending node is live; absent = sending not available yet. */
+  /** Outbound transport: "ses" (Amazon SES), "postal" (own node); absent = sending not available yet. */
   SENDING_NODE?: string;
+  /** Amazon SES: region (default us-east-2), configuration set and the SNS topic that carries its events. */
+  SES_REGION?: string;
+  SES_CONFIGURATION_SET?: string;
+  SES_SNS_TOPIC_ARN?: string;
+  /** IAM user novamail-ses (send + manage domain identities only). Secrets. */
+  AWS_SES_ACCESS_KEY_ID?: string;
+  AWS_SES_SECRET_ACCESS_KEY?: string;
   /** "true" while sending is not live: no new subscriptions are sold. */
   BILLING_PAUSED?: string;
   /** Internal Postal admin sidecar (behind the same Caddy, bearer-protected). */

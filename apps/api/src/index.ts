@@ -28,6 +28,8 @@ import { admin } from "./routes/admin";
 import { domains } from "./routes/domains";
 import { emails } from "./routes/emails";
 import { postalHooks } from "./routes/postal-hooks";
+import { sesHooks } from "./routes/ses-hooks";
+import { sesAccount } from "./lib/ses";
 import { fbl } from "./routes/fbl";
 import { UpstreamError } from "./lib/postal";
 import { openDb } from "./lib/dodb";
@@ -74,7 +76,10 @@ type NodeHealth = { ok: boolean; postal: string; outbound_25?: boolean | null; b
 app.get("/status", async (c) => {
   const t0 = Date.now();
   const db = await c.env.DB.prepare("SELECT 1 AS ok").first<{ ok: number }>().catch(() => null);
-  const node = await fetch(`${c.env.POSTAL_ADMIN_URL}/health`, { signal: AbortSignal.timeout(4000) }).then((r) => r.json() as Promise<NodeHealth>).catch(() => null);
+  const node: NodeHealth | null =
+    c.env.SENDING_NODE === "ses"
+      ? await sesAccount(c.env).then((a) => (a ? { ok: true, postal: "ses", outbound_25: !!(a.SendingEnabled && a.ProductionAccessEnabled), blocklisted: [], checked_at: new Date().toISOString() } : null))
+      : await fetch(`${c.env.POSTAL_ADMIN_URL}/health`, { signal: AbortSignal.timeout(4000) }).then((r) => r.json() as Promise<NodeHealth>).catch(() => null);
   const listed = node?.blocklisted ?? [];
   const outbound = !node?.ok ? "down" : node.outbound_25 === false ? "blocked" : node.outbound_25 === null ? "unknown" : listed.length ? "degraded" : "operational";
   const sending = !node?.ok ? "down" : outbound === "operational" ? "operational" : "degraded";
@@ -108,6 +113,8 @@ app.get("/docs", (c) => c.html(docsHtml(`${c.env.PUBLIC_URL}/openapi.json`)));
 
 // Postal -> NovaMail (signed with Postal's RSA key, no API key).
 app.route("/hooks/postal", postalHooks);
+// Amazon SES events via SNS (signature-verified, our topic only).
+app.route("/hooks/ses", sesHooks);
 app.route("/hooks/stripe", stripeHooks);
 app.route("/u", unsubscribe);
 app.route("/f", publicForms);
