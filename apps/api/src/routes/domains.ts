@@ -24,7 +24,7 @@ export function withDmarc(name: string, records: DnsRecord[]): DnsRecord[] {
 
 async function accountServer(c: { env: AppEnv["Bindings"] }, accountId: string) {
   const a = await c.env.DB.prepare("SELECT plan, postal_org, postal_server FROM accounts WHERE id = ?").bind(accountId).first<{ plan: string; postal_org: string | null; postal_server: string | null }>();
-  if (!a?.postal_org || !a.postal_server) throw new ApiError(503, "account_not_provisioned", "Sending is not provisioned for this account yet.");
+  if (!a?.postal_org || !a.postal_server) throw new ApiError(503, "account_not_provisioned", "Sending is being activated on NovaMail — domains can be connected as soon as it is live.");
   return a as { plan: string; postal_org: string; postal_server: string };
 }
 

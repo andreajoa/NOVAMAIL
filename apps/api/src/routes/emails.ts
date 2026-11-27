@@ -82,7 +82,7 @@ export async function sendOne(env: Env, p: Principal, body: SendBody, idemKey: s
   if (count === 0) throw new ApiError(422, "recipients_suppressed", "All recipients are on the suppression list.");
 
   const acc = await env.DB.prepare("SELECT id, plan, postal_server_key FROM accounts WHERE id = ?").bind(p.accountId).first<AccountRow>();
-  if (!acc?.postal_server_key) throw new ApiError(503, "account_not_provisioned", "Sending is not provisioned for this account yet.");
+  if (!acc?.postal_server_key) throw new ApiError(503, "account_not_provisioned", "Sending is being activated on NovaMail and is not available yet.");
   await assertQuota(env.DB, acc.id, acc.plan, count);
 
   const id = uuidv7();

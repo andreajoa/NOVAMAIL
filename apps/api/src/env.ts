@@ -10,6 +10,10 @@ export interface Env {
   PUBLIC_URL: string;
   /** Postal web/API base URL, e.g. https://postal.novamail.nexaclouds.online */
   POSTAL_URL: string;
+  /** "postal" when a sending node is live; absent = sending not available yet. */
+  SENDING_NODE?: string;
+  /** "true" while sending is not live: no new subscriptions are sold. */
+  BILLING_PAUSED?: string;
   /** Internal Postal admin sidecar (behind the same Caddy, bearer-protected). */
   POSTAL_ADMIN_URL: string;
 

@@ -23,7 +23,9 @@
     "APP_URL": "https://app.novamail.nexaclouds.online",
     "SYSTEM_ACCOUNT_ID": "acc_mn7lzpMXNkDqWoiQ",
     "SYSTEM_FROM": "NovaMail <no-reply@envio.novamail.nexaclouds.online>",
-    "SYSTEM_RESEND_FROM": "NovaMail <no-reply@nexaclouds.online>"
+    "SYSTEM_RESEND_FROM": "NovaMail <no-reply@nexaclouds.online>",
+    // Sending backend is not live (AWS node removed 26/11/2026). Set SENDING_NODE and drop BILLING_PAUSED when it is.
+    "BILLING_PAUSED": "true"
   },
   // Free-plan friendly: SQLite-backed Durable Object instead of D1 (account is at its D1 cap).
   "ai": { "binding": "AI" },

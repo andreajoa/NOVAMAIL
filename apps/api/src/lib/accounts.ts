@@ -30,13 +30,15 @@ export async function createAccount(env: Env, input: { name: string; email: stri
   await env.DB.prepare("INSERT INTO accounts (id, name, email, plan, ip_pool, created_at, updated_at) VALUES (?,?,?,?,?,?,?)")
     .bind(id, input.name, input.email.toLowerCase(), input.plan, poolFor(input.plan, input.ipPool), now, now)
     .run();
-  const prov = await provisionAccount(env, id);
+  // No sending node right now (AWS node removed 26/11/2026): the account is created and can set
+  // everything up; it is provisioned when a sending backend exists (SENDING_NODE=postal).
+  const prov = env.SENDING_NODE === "postal" ? await provisionAccount(env, id) : null;
   const key = await createApiKey(env.DB, id, "Default");
   await env.DB.prepare("INSERT INTO audit_log (account_id, actor, action, detail, created_at) VALUES (?, ?, 'create_account', ?, ?)").bind(id, input.actor, input.plan, now).run();
   return {
     id,
     plan: input.plan,
     api_key: key.token,
-    smtp: { host: new URL(env.POSTAL_URL).hostname, port: 587, username: prov.smtp_username, password: prov.smtp_password },
+    smtp: prov ? { host: new URL(env.POSTAL_URL).hostname, port: 587, username: prov.smtp_username, password: prov.smtp_password } : null,
   };
 }

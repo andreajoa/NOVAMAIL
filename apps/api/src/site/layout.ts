@@ -133,7 +133,8 @@ export function render(p: Page, all: Page[], nonce = ""): string {
 <meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(p.title)}"><meta name="twitter:description" content="${esc(p.description)}"><meta name="twitter:image" content="${SITE}/og.png">
 <link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="alternate" type="text/plain" title="LLM summary" href="/llms.txt">
 <script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@graph": ld }).replace(/</g, "\\u003c")}</script>
-<style>${CSS}${PRICING_CSS}${p.extraCss ?? ""}</style></head><body>
+<style>${CSS}${PRICING_CSS}${p.extraCss ?? ""}.nm-live{background:#09090b;color:#fff;font:500 14px/1.4 system-ui,sans-serif;text-align:center;padding:10px 16px}</style></head><body>
+<div class="nm-live" role="status">${lang === "en" ? "Sending is being activated. You can create an account and set up lists, templates and funnels now; paid plans open as soon as sending is live." : "O envio está em ativação. Você já pode criar a conta e montar listas, modelos e funis; os planos pagos abrem assim que o envio estiver no ar."}</div>
 <div class="${p.heroHtml ? "topdark" : ""}"><div class="w"><header class="top"><a class="logo" href="${lang === "en" ? "/" : "/pt/"}"><i aria-hidden="true">✉</i>NovaMail</a>${NAV}</header></div></div>
 <main class="w">${p.heroHtml ?? `<div class="hero">${crumbHtml}<h1>${esc(p.h1)}</h1><p class="lead">${esc(p.lead)}</p><div class="cta"><a class="btn" href="/login">${lang === "en" ? "Start free — no card" : "Comece grátis — sem cartão"}</a><a class="btn g" href="${API_DOCS}">${lang === "en" ? "Read the API docs" : "Documentação da API"}</a></div></div>`}
 ${p.body}${faqHtml}${p.finale ?? ""}</main>${p.heroHtml && nonce ? `<script nonce="${nonce}">${TYPEWRITER}</script>` : ""}

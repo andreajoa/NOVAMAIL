@@ -17,7 +17,7 @@ export function Login({ onDone, embedded = false }: { onDone: () => void; embedd
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
-  const [welcome, setWelcome] = useState<{ api_key: string; smtp: { host: string; port: number; username: string; password: string } } | null>(null);
+  const [welcome, setWelcome] = useState<{ api_key: string; smtp: { host: string; port: number; username: string; password: string } | null } | null>(null);
 
   async function run(fn: () => Promise<void>) {
     setBusy(true);
@@ -63,7 +63,7 @@ export function Login({ onDone, embedded = false }: { onDone: () => void; embedd
               run(async () => {
                 const r = await api("/auth/verify", { body: { email: email.trim(), code: code.replace(/\D/g, "") } });
                 try { sessionStorage.removeItem("nm_login"); } catch { /* private mode */ }
-                if (r.new_account) setWelcome({ api_key: r.api_key, smtp: r.smtp });
+                if (r.new_account) setWelcome({ api_key: r.api_key, smtp: r.smtp ?? null });
                 else onDone();
               });
             }}
@@ -97,10 +97,10 @@ export function Login({ onDone, embedded = false }: { onDone: () => void; embedd
         <Modal title={t.welcome} onClose={onDone}>
           <p className="text-sm text-zinc-500">{t.welcomeHint}</p>
           <Secret label="API key" value={welcome.api_key} />
-          <Secret label={t.host} value={welcome.smtp.host} />
+          {welcome.smtp && <><Secret label={t.host} value={welcome.smtp.host} />
           <Secret label={`${t.port} (STARTTLS)`} value={String(welcome.smtp.port)} />
           <Secret label={t.user} value={welcome.smtp.username} />
-          <Secret label={t.smtpPassword} value={welcome.smtp.password} />
+          <Secret label={t.smtpPassword} value={welcome.smtp.password} /></>}
         </Modal>
       )}
     </div>

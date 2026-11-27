@@ -19,6 +19,9 @@ export default defineConfig(async () => {
             TEST_POSTAL_PRIVATE_KEY: privateKey.export({ type: "pkcs8", format: "pem" }).toString(),
             ENCRYPTION_KEY: "test-encryption-key",
             OWNER_TOKEN: "test-owner-token",
+            // Tests exercise the Postal path and billing; production pauses both until sending is live.
+            SENDING_NODE: "postal",
+            BILLING_PAUSED: "false",
           },
         },
       }),

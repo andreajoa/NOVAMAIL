@@ -74,7 +74,8 @@ export const billing = new Hono<AppEnv>();
 
 billing.get("/plans", (c) =>
   c.json({
-    enabled: !!c.env.STRIPE_SECRET_KEY,
+    enabled: !!c.env.STRIPE_SECRET_KEY && c.env.BILLING_PAUSED !== "true",
+    paused: c.env.BILLING_PAUSED === "true",
     publishable_key: c.env.STRIPE_PUBLISHABLE_KEY ?? null,
     yearly: !!(c.env.STRIPE_PRICE_PRO_YEAR && c.env.STRIPE_PRICE_SCALE_YEAR),
     extra_pack: { ...EXTRA_PACK, available: !!c.env.STRIPE_PRICE_EXTRA },
@@ -90,6 +91,7 @@ billing.post("/checkout", async (c) => {
   const parsed = z.object({ plan: z.enum(PAID_PLANS), interval: z.enum(["month", "year"]).default("month"), embedded: z.boolean().default(true) }).safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) throw errors.validation(zodMessage(parsed.error));
   const { plan, interval, embedded } = parsed.data;
+  if (c.env.BILLING_PAUSED === "true") throw new ApiError(503, "billing_paused", "Subscriptions open as soon as sending is live on NovaMail.");
   const price = priceFor(c.env, plan, interval);
   if (!price) throw new ApiError(503, "billing_disabled", "Billing is not enabled yet.");
   const p = c.get("principal");
