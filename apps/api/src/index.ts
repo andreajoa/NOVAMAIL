@@ -66,7 +66,7 @@ app.get("/health", async (c) => {
 // Public price list (landing page).
 app.get("/plans", (c) => {
   c.header("cache-control", "public, max-age=300");
-  return c.json({ data: (["free", "pro", "scale"] as const).map((id) => ({ id, label: PLANS[id].label, price_usd: PLANS[id].priceUsd, monthly: PLANS[id].monthly, daily: PLANS[id].daily, domains: PLANS[id].domains })) });
+  return c.json({ data: (["starter", "pro", "scale"] as const).map((id) => ({ id, label: PLANS[id].label, price_usd: PLANS[id].priceUsd, monthly: PLANS[id].monthly, daily: PLANS[id].daily, domains: PLANS[id].domains })) });
 });
 
 // Public status: API + database + sending node + outbound delivery, cached 30 s at the edge.

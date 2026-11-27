@@ -63,7 +63,7 @@ export function Plan() {
   useEffect(() => {
     if (!intent || !plans.data?.enabled || !me.data) return;
     if (intent.interval === "year") setInterval("year");
-    if (["pro", "scale"].includes(intent.plan) && !me.data.plan.subscribed) checkout.mutate(intent.plan);
+    if (["starter", "pro", "scale"].includes(intent.plan) && !me.data.plan.subscribed) checkout.mutate(intent.plan);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [intent, plans.data, me.data]);
   const current = me.data?.plan?.id;
@@ -77,6 +77,11 @@ export function Plan() {
       {sessionId && (
         <p className="mb-4 rounded-lg border border-zinc-900 px-4 py-3 text-sm font-medium dark:border-white">
           {confirm.data?.status === "complete" ? L.ok : L.checking}
+        </p>
+      )}
+      {current === "free" && (
+        <p className="mb-6 rounded-lg border border-zinc-900 px-4 py-3 text-sm dark:border-white">
+          <b>{pt ? "Você ainda não tem um plano." : "You don't have a plan yet."}</b> {pt ? "Monte domínio, contatos, modelos e funis à vontade — para enviar, escolha um plano abaixo." : "Set up your domain, contacts, templates and funnels freely — to send, pick a plan below."}
         </p>
       )}
       {cfg?.yearly && (

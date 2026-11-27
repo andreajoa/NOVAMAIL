@@ -22,6 +22,7 @@ export async function assertQuota(db: D1Database, accountId: string, plan: strin
   const p = limitsOf(plan, packs);
   const u = await usageSnapshot(db, accountId, now);
   if (isUnlimited(p)) return { ...u, plan: p };
+  if (!p.canSend) throw errors.quota("Choose a plan to start sending. Plans start at $12/month for 10,000 emails: /plan");
   if (u.today + n > p.daily) throw errors.quota(`Daily limit of ${p.daily} emails reached on the ${p.label} plan. Upgrade at ${"/billing"} or wait until 00:00 UTC.`);
   if (u.month + n > p.monthly) throw errors.quota(`Monthly limit of ${p.monthly} emails reached on the ${p.label} plan. Upgrade to keep sending.`);
   return { ...u, plan: p };

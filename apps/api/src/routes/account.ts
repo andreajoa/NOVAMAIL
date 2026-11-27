@@ -99,7 +99,7 @@ usage.get("/", async (c) => {
   return c.json({
     plan: plan.id,
     status: a?.status,
-    limits: { daily: plan.daily, monthly: plan.monthly, domains: plan.domains },
+    limits: { daily: plan.daily, monthly: plan.monthly, domains: plan.domains, unlimited: !!plan.unlimited, can_send: plan.canSend },
     usage: { today: u.today, month: u.month },
     reputation: { sent_7d: rep.sent, bounce_rate: rep.bounceRate, complaint_rate: rep.complaintRate },
   });
@@ -121,7 +121,7 @@ me.get("/", async (c) => {
   return c.json({
     user: u ? { ...u, role: p.role ?? u.role } : null,
     account: { ...a, created_at: new Date(a!.created_at as number).toISOString() },
-    plan: { id: plan.id, label: plan.label, daily: plan.daily, monthly: plan.monthly, domains: plan.domains, extra_packs: a?.extra_packs ?? 0, interval: a?.billing_interval ?? null, subscribed: !!a?.stripe_subscription },
+    plan: { id: plan.id, label: plan.label, daily: plan.daily, monthly: plan.monthly, domains: plan.domains, unlimited: !!plan.unlimited, can_send: plan.canSend, extra_packs: a?.extra_packs ?? 0, interval: a?.billing_interval ?? null, subscribed: !!a?.stripe_subscription },
     usage: await usageSnapshot(c.env.DB, p.accountId),
     counts,
   });

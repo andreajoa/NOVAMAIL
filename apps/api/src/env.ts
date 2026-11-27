@@ -39,12 +39,15 @@ export interface Env {
   POSTAL_WEBHOOK_PUBLIC_KEY: string; // PEM of Postal's signing.key public part
   ENCRYPTION_KEY: string; // seals Postal server credentials in D1
   STRIPE_PRICE_DEDICATED_IP?: string;
+  DEDICATED_IP_ENABLED?: string;
   STRIPE_PRICE_DEDICATED_IP_YEAR?: string;
   /** Workers AI (free daily allocation on the free plan). */
   AI?: { run: (model: string, input: Record<string, unknown>) => Promise<any> };
   OWNER_TOKEN: string; // platform-owner token for /admin routes
   STRIPE_SECRET_KEY?: string;
   STRIPE_WEBHOOK_SECRET?: string;
+  STRIPE_PRICE_STARTER?: string;
+  STRIPE_PRICE_STARTER_YEAR?: string;
   STRIPE_PRICE_PRO?: string;
   STRIPE_PRICE_SCALE?: string;
   STRIPE_PRICE_PRO_YEAR?: string;

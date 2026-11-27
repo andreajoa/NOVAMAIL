@@ -100,7 +100,7 @@ templates.post("/:id/test", async (c) => {
 
 // ---------------------------------------------------------------- media
 
-const STORAGE_MB: Record<string, number> = { free: 50, pro: 1024, scale: 5120, internal: 102_400 };
+const STORAGE_MB: Record<string, number> = { free: 50, starter: 512, pro: 1024, scale: 5120, internal: 102_400 };
 const MAX_BYTES: Record<string, number> = { "image/png": 5e6, "image/jpeg": 5e6, "image/webp": 5e6, "image/gif": 10e6, "video/mp4": 20e6 };
 const EXT: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif", "video/mp4": "mp4" };
 

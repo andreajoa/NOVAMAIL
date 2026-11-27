@@ -3,7 +3,7 @@
 import { designToText, renderDesign, type Block, type Design } from "@novamail/email";
 import type { Env } from "../env";
 import { prefixedId } from "./crypto";
-import { planOf, type PlanId } from "./plans";
+import { EXTRA_PACK, planOf, type PlanId } from "./plans";
 import { sendSystemEmail } from "./system-mail";
 
 const APP = "https://app.novamail.nexaclouds.online";
@@ -18,8 +18,8 @@ export function welcomeEmail() {
     "Welcome to NovaMail — your first campaign in 4 steps",
     design("Here's how to send your first campaign today.", [
       { id: "h", type: "heading", text: "Welcome aboard 👋", size: 32 },
-      { id: "t", type: "text", html: "Your free account is ready: <strong>3,000 emails a month</strong>, templates, funnels and the CRM — no card needed. Here's the fastest path to your first campaign:" },
-      { id: "s", type: "text", html: "<strong>1. Add your domain</strong> — send as hello@yourbrand.com.<br><strong>2. Import your contacts</strong> — paste a list or upload a CSV.<br><strong>3. Pick a template</strong> — 30 ready-made designs, including every US holiday.<br><strong>4. Press send</strong> — and watch opens and clicks in real time." },
+      { id: "t", type: "text", html: "Your account is ready. Set up your domain, contacts, templates and funnels now — when you're ready to send, plans start at <strong>$12/month for 10,000 emails</strong>. Here's the fastest path to your first campaign:" },
+      { id: "s", type: "text", html: "<strong>1. Add your domain</strong> — send as hello@yourbrand.com.<br><strong>2. Import your contacts</strong> — paste a list or upload a CSV.<br><strong>3. Pick a template</strong> — 30 ready-made designs, including every US holiday.<br><strong>4. Pick a plan and press send</strong> — and watch opens and clicks in real time." },
       { id: "b", type: "button", text: "Open my dashboard", href: `${APP}/`, full: true },
       { id: "x", type: "text", html: "Questions? Just reply to this email — a human reads every message.", size: 14, color: "#71717a" },
     ], false),
@@ -30,10 +30,10 @@ export function planEmail(plan: PlanId, interval: string | null, packs: number) 
   const p = planOf(plan);
   if (plan === "free") {
     return render(
-      "Your NovaMail plan changed to Free",
+      "Your NovaMail subscription ended",
       design("Your subscription ended — your data and contacts are safe.", [
-        { id: "h", type: "heading", text: "You're now on the Free plan", size: 28 },
-        { id: "t", type: "text", html: "Your subscription has ended. Everything you built — contacts, templates, funnels — is still here. You can keep sending up to 3,000 emails a month, or come back to Pro any time." },
+        { id: "h", type: "heading", text: "Your subscription has ended", size: 28 },
+        { id: "t", type: "text", html: "Everything you built — contacts, templates, funnels — is still here, but sending is paused. Pick a plan any time to start sending again." },
         { id: "b", type: "button", text: "See plans", href: `${APP}/plan` },
       ], false),
     );
@@ -43,7 +43,7 @@ export function planEmail(plan: PlanId, interval: string | null, packs: number) 
     design(`Your ${p.label} plan is active — new limits apply now.`, [
       { id: "h", type: "heading", text: `Welcome to ${p.label}`, size: 32 },
       { id: "t", type: "text", html: `Thank you for subscribing${interval === "year" ? " for the year (2 months free!)" : ""}. Your new limits are already active:` },
-      { id: "l", type: "text", html: `<strong>${(p.monthly + packs * 50_000).toLocaleString("en-US")}</strong> emails per month<br><strong>${(p.daily + packs * 5_000).toLocaleString("en-US")}</strong> emails per day<br><strong>${p.domains}</strong> sending domains<br>High-reputation sending IPs` },
+      { id: "l", type: "text", html: `<strong>${(p.monthly + packs * EXTRA_PACK.monthly).toLocaleString("en-US")}</strong> emails per month<br><strong>${(p.daily + packs * EXTRA_PACK.daily).toLocaleString("en-US")}</strong> emails per day<br><strong>${p.domains}</strong> sending domains<br>High-reputation sending IPs` },
       { id: "b", type: "button", text: "Send something great", href: `${APP}/broadcasts`, full: true },
       { id: "x", type: "text", html: "Invoices and card details live in <em>Plan → Manage subscription</em>. Stripe also emails you a receipt.", size: 14, color: "#71717a" },
     ], false),
@@ -83,17 +83,17 @@ const NURTURE: { key: string; subject: string; design: Design }[] = [
   },
   {
     key: "n4-upgrade",
-    subject: "{{first_name}}, 2 months free on NovaMail Pro",
-    design: design("Pro yearly: 50,000 emails/month, 2 months free.", [
-      { id: "h", type: "heading", text: "Ready for more?", size: 30 },
-      { id: "t", type: "text", html: "Pro gives you <strong>50,000 emails a month</strong>, 10 sending domains and our high-reputation IPs. Pay yearly and get <strong>2 months free</strong> — $150 instead of $180." },
-      { id: "b", type: "button", text: "Upgrade to Pro", href: `${APP}/plan`, full: true },
-      { id: "x", type: "text", html: "Not ready? No problem — the Free plan is yours forever.", size: 14, color: "#71717a" },
+    subject: "{{first_name}}, start sending from $12/month",
+    design: design("Starter: 10,000 emails/month for $12. Yearly = 2 months free.", [
+      { id: "h", type: "heading", text: "Ready to send?", size: 30 },
+      { id: "t", type: "text", html: "Everything you set up is waiting. <strong>Starter</strong> sends <strong>10,000 emails a month for $12</strong>, <strong>Pro</strong> 30,000 for $25 and <strong>Scale</strong> 100,000 for $79 — every feature on every plan. Pay yearly and get <strong>2 months free</strong>." },
+      { id: "b", type: "button", text: "Choose my plan", href: `${APP}/plan`, full: true },
+      { id: "x", type: "text", html: "Unlimited contacts on every plan. Cancel any time.", size: 14, color: "#71717a" },
     ]),
   },
 ];
 
-const AUDIENCE = "NovaMail · Free users";
+const AUDIENCE = "NovaMail · Free users"; // name kept: existing audience on the system account (= accounts without a plan)
 
 /** Creates (idempotently) the nurture audience, templates and funnel on the system account. */
 export async function setupNurture(env: Env) {

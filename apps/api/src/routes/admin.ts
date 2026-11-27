@@ -14,7 +14,7 @@ export const admin = new Hono<AppEnv>();
 
 admin.post("/accounts", async (c) => {
   const parsed = z
-    .object({ name: z.string().min(1).max(100), email: z.email(), plan: z.enum(["free", "pro", "scale", "internal"]).default("free"), ip_pool: z.string().optional() })
+    .object({ name: z.string().min(1).max(100), email: z.email(), plan: z.enum(["free", "starter", "pro", "scale", "internal"]).default("free"), ip_pool: z.string().optional() })
     .safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) throw errors.validation(zodMessage(parsed.error));
   const { name, email, plan } = parsed.data;
@@ -31,7 +31,7 @@ admin.get("/accounts", async (c) => {
 });
 
 admin.patch("/accounts/:id", async (c) => {
-  const parsed = z.object({ plan: z.enum(["free", "pro", "scale", "internal"]).optional(), ip_pool: z.string().optional() }).safeParse(await c.req.json().catch(() => null));
+  const parsed = z.object({ plan: z.enum(["free", "starter", "pro", "scale", "internal"]).optional(), ip_pool: z.string().optional() }).safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) throw errors.validation(zodMessage(parsed.error));
   const a = await c.env.DB.prepare("SELECT plan, ip_pool, postal_org, postal_server FROM accounts WHERE id = ?").bind(c.req.param("id")).first<{ plan: PlanId; ip_pool: string; postal_org: string; postal_server: string }>();
   if (!a) throw errors.notFound("Account");

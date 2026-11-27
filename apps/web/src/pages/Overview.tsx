@@ -3,9 +3,8 @@ import { api, API_BASE } from "../api";
 import { num, t } from "../i18n";
 import { Card, CopyButton, PageTitle } from "../ui";
 
-function Meter({ label, used, limit }: { label: string; used: number; limit: number }) {
+function Meter({ label, used, limit, unlimited }: { label: string; used: number; limit: number; unlimited?: boolean }) {
   const pct = Math.min(100, limit ? (used / limit) * 100 : 0);
-  const unlimited = limit === 0;
   return (
     <Card>
       <div className="text-xs font-medium text-zinc-500">{label}</div>
@@ -62,14 +61,14 @@ await nova.emails.send({
       <PageTitle>{t.overview}</PageTitle>
       {p?.id === "free" && (
         <a href="/plan" onClick={(e) => (e.preventDefault(), history.pushState(null, "", "/plan"), dispatchEvent(new PopStateEvent("popstate")))} className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-zinc-900 px-5 py-4 text-white dark:bg-white dark:text-zinc-900">
-          <span><b>{t.lang === "pt" ? "Pro: 50.000 e-mails/mês" : "Pro: 50,000 emails/month"}</b> · {t.lang === "pt" ? "US$15/mês ou US$150/ano (2 meses grátis)" : "$15/month or $150/year (2 months free)"}</span>
-          <span className="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-zinc-900 dark:bg-zinc-900 dark:text-white">{t.lang === "pt" ? "Assinar" : "Upgrade"} →</span>
+          <span><b>{t.lang === "pt" ? "Escolha um plano para começar a enviar" : "Pick a plan to start sending"}</b> · {t.lang === "pt" ? "a partir de US$12/mês (10.000 e-mails) · anual com 2 meses grátis" : "from $12/month (10,000 emails) · yearly gets 2 months free"}</span>
+          <span className="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-zinc-900 dark:bg-zinc-900 dark:text-white">{t.lang === "pt" ? "Ver planos" : "See plans"} →</span>
         </a>
       )}
       {p && u && (
         <div className="grid gap-4 sm:grid-cols-2">
-          <Meter label={t.today} used={u.today} limit={p.daily} />
-          <Meter label={t.thisMonth} used={u.month} limit={p.monthly} />
+          <Meter label={t.today} used={u.today} limit={p.daily} unlimited={p.unlimited} />
+          <Meter label={t.thisMonth} used={u.month} limit={p.monthly} unlimited={p.unlimited} />
         </div>
       )}
       <Card title={t.last30} className="mt-4">

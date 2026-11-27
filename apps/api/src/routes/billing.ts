@@ -6,7 +6,7 @@ import type { AppEnv, Env } from "../env";
 import { poolFor } from "../lib/accounts";
 import { safeEqual } from "../lib/crypto";
 import { ApiError, errors, zodMessage } from "../lib/http";
-import { EXTRA_PACK, PAID_PLANS, planOf, type PaidPlan, type PlanId } from "../lib/plans";
+import { EXTRA_PACK, PAID_PLANS, planOf, yearlyPrice, type PaidPlan, type PlanId } from "../lib/plans";
 import { postalAdmin } from "../lib/postal";
 import { onPlanChange } from "../lib/lifecycle";
 import { applyDedicated, DEDICATED_IP, syncSending } from "../lib/ip-pools";
@@ -32,12 +32,21 @@ export async function stripe<T = any>(env: Env, path: string, body?: Record<stri
 }
 
 type Interval = "month" | "year";
-const priceFor = (env: Env, plan: PaidPlan, interval: Interval) =>
-  interval === "year" ? (plan === "pro" ? env.STRIPE_PRICE_PRO_YEAR : env.STRIPE_PRICE_SCALE_YEAR) : plan === "pro" ? env.STRIPE_PRICE_PRO : env.STRIPE_PRICE_SCALE;
+const PRICES = (env: Env): Record<PaidPlan, { month?: string; year?: string }> => ({
+  starter: { month: env.STRIPE_PRICE_STARTER, year: env.STRIPE_PRICE_STARTER_YEAR },
+  pro: { month: env.STRIPE_PRICE_PRO, year: env.STRIPE_PRICE_PRO_YEAR },
+  scale: { month: env.STRIPE_PRICE_SCALE, year: env.STRIPE_PRICE_SCALE_YEAR },
+});
+const priceFor = (env: Env, plan: PaidPlan, interval: Interval) => PRICES(env)[plan][interval];
 const extraPriceFor = (env: Env, interval: Interval) => (interval === "year" ? env.STRIPE_PRICE_EXTRA_YEAR : env.STRIPE_PRICE_EXTRA);
+// A dedicated IP needs our own sending node; with Cloudflare Email Service there is none to sell.
+const dedicatedOn = (env: Env) => env.DEDICATED_IP_ENABLED === "true" && !!env.STRIPE_PRICE_DEDICATED_IP;
 const dedicatedPriceFor = (env: Env, interval: Interval) => (interval === "year" ? env.STRIPE_PRICE_DEDICATED_IP_YEAR : env.STRIPE_PRICE_DEDICATED_IP);
-const planForPrice = (env: Env, price: string | undefined): PlanId | null =>
-  !price ? null : [env.STRIPE_PRICE_PRO, env.STRIPE_PRICE_PRO_YEAR].includes(price) ? "pro" : [env.STRIPE_PRICE_SCALE, env.STRIPE_PRICE_SCALE_YEAR].includes(price) ? "scale" : null;
+const planForPrice = (env: Env, price: string | undefined): PlanId | null => {
+  if (!price) return null;
+  for (const [plan, p] of Object.entries(PRICES(env))) if (price === p.month || price === p.year) return plan as PlanId;
+  return null;
+};
 
 /** Reads plan, interval and add-on packs from a Stripe subscription's items. */
 export function readSubscription(env: Env, sub: { items?: { data?: { price?: { id?: string; recurring?: { interval?: string } }; quantity?: number }[] } }) {
@@ -77,12 +86,12 @@ billing.get("/plans", (c) =>
     enabled: !!c.env.STRIPE_SECRET_KEY && c.env.BILLING_PAUSED !== "true",
     paused: c.env.BILLING_PAUSED === "true",
     publishable_key: c.env.STRIPE_PUBLISHABLE_KEY ?? null,
-    yearly: !!(c.env.STRIPE_PRICE_PRO_YEAR && c.env.STRIPE_PRICE_SCALE_YEAR),
+    yearly: PAID_PLANS.every((id) => !!priceFor(c.env, id, "year")),
     extra_pack: { ...EXTRA_PACK, available: !!c.env.STRIPE_PRICE_EXTRA },
-    dedicated_ip: { ...DEDICATED_IP, available: !!c.env.STRIPE_PRICE_DEDICATED_IP },
-    data: (["free", ...PAID_PLANS] as PlanId[]).map((id) => {
+    dedicated_ip: { ...DEDICATED_IP, available: dedicatedOn(c.env) },
+    data: (PAID_PLANS as readonly PlanId[]).map((id) => {
       const p = planOf(id);
-      return { id, label: p.label, price_usd: p.priceUsd, price_usd_year: p.priceUsd * 10, monthly: p.monthly, daily: p.daily, domains: p.domains };
+      return { id, label: p.label, price_usd: p.priceUsd, price_usd_year: yearlyPrice(p), monthly: p.monthly, daily: p.daily, domains: p.domains };
     }),
   }),
 );
@@ -100,7 +109,7 @@ billing.post("/checkout", async (c) => {
   const app = c.env.APP_URL ?? c.env.PUBLIC_URL;
   const extra = extraPriceFor(c.env, interval);
   // A dedicated IP only helps senders with steady volume, so it's offered on Scale.
-  const ded = plan === "scale" ? dedicatedPriceFor(c.env, interval) : undefined;
+  const ded = plan === "scale" && dedicatedOn(c.env) ? dedicatedPriceFor(c.env, interval) : undefined;
   const s = await stripe<{ url?: string; client_secret?: string; id: string }>(c.env, "/checkout/sessions", {
     mode: "subscription",
     "line_items[0][price]": price,
@@ -145,7 +154,7 @@ billing.get("/session/:id", async (c) => {
 /** Status of the dedicated-IP add-on for this account. */
 billing.get("/dedicated-ip", async (c) => {
   const r = await c.env.DB.prepare("SELECT status, ip, requested_at, assigned_at FROM dedicated_ips WHERE account_id = ?").bind(c.get("principal").accountId).first<{ status: string; ip: string | null; requested_at: number; assigned_at: number | null }>();
-  return c.json({ object: "dedicated_ip", ...DEDICATED_IP, available: !!c.env.STRIPE_PRICE_DEDICATED_IP, status: r?.status ?? "none", ip: r?.status === "released" ? null : r?.ip ?? null, requested_at: r?.requested_at ?? null, assigned_at: r?.assigned_at ?? null });
+  return c.json({ object: "dedicated_ip", ...DEDICATED_IP, available: dedicatedOn(c.env), status: r?.status ?? "none", ip: r?.status === "released" ? null : r?.ip ?? null, requested_at: r?.requested_at ?? null, assigned_at: r?.assigned_at ?? null });
 });
 
 /** Adds the dedicated-IP add-on to an existing paid subscription (prorated, same interval). */
@@ -153,8 +162,8 @@ billing.post("/dedicated-ip", async (c) => {
   const p = c.get("principal");
   if (p.permission === "agent") throw errors.forbidden("Agents cannot change billing.");
   const a = await c.env.DB.prepare("SELECT plan, stripe_subscription, billing_interval FROM accounts WHERE id = ?").bind(p.accountId).first<{ plan: PlanId; stripe_subscription: string | null; billing_interval: string | null }>();
-  if (!a?.stripe_subscription || !PAID_PLANS.includes(a.plan as PaidPlan)) throw errors.validation("Subscribe to Pro or Scale first.");
-  const price = dedicatedPriceFor(c.env, a.billing_interval === "year" ? "year" : "month");
+  if (!a?.stripe_subscription || !PAID_PLANS.includes(a.plan as PaidPlan)) throw errors.validation("Subscribe to a plan first.");
+  const price = dedicatedOn(c.env) ? dedicatedPriceFor(c.env, a.billing_interval === "year" ? "year" : "month") : undefined;
   if (!price) throw new ApiError(503, "billing_disabled", "Dedicated IPs are not available yet.");
   const sub = await stripe(c.env, `/subscriptions/${a.stripe_subscription}`);
   if (readSubscription(c.env, sub).dedicated) throw errors.conflict("You already have a dedicated IP.");
